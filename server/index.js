@@ -1,5 +1,6 @@
 // DEX Server — Decentralized Exchange (bulletin board + blockchain reader)
 // Server NEVER holds private keys, NEVER custodies funds
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');

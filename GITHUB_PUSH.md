@@ -10,11 +10,11 @@ nano .env
 
 Fill in your actual values:
 ```env
-DB_PASSWORD=lee67466746
-ADMIN_ID=hepi2000
-ADMIN_PASSWORD_HASH=$2b$10$TAmjYTbNWYtC6z5MTu4mweQTJt20jpivwF7eZRg/W1IQgO.DAIjmm
-JWT_SECRET=dex-admin-s3cr3t-k3y-2026
-BLOCKCYPHER_TOKEN=74596078807a4e9698c62a769262db52
+DB_PASSWORD=your_database_password
+ADMIN_ID=your_admin_username
+ADMIN_PASSWORD_HASH=your_bcrypt_hash
+JWT_SECRET=your_jwt_secret_min_32_chars
+BLOCKCYPHER_TOKEN=your_blockcypher_api_token
 ```
 
 ## 2. Initialize Git
