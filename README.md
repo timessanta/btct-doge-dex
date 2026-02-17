@@ -151,10 +151,12 @@ You need a running BTCT full node with RPC enabled.
 
 ### Install BTCT Node
 ```bash
-git clone https://github.com/ABlockOfficial/bitcoinkrypton-seed.git
+git clone https://github.com/Timestopeofficial/bitcoinkrypton-seed.git
 cd bitcoinkrypton-seed
 npm install
 ```
+
+For detailed installation instructions, see: https://github.com/Timestopeofficial/bitcoinkrypton-seed/blob/main/doc/INSTALL.md
 
 ### Example `peer.conf`:
 ```json
