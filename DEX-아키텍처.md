@@ -286,10 +286,9 @@ CREATE TABLE messages (
 ## 8. 배포 환경
 
 ### 인프라
-- **서버**: Ubuntu 22.04 (Hyper-V VM)
-- **IP**: 192.168.219.110
+- **서버**: Ubuntu 22.04
 - **도메인**: dex.btc-time.com
-- **SSL**: Let's Encrypt (Nginx를 통해 192.168.219.101에서)
+- **SSL**: Let's Encrypt (Nginx 리버스 프록시)
 - **프로세스 관리자**: PM2 (dex-api, 포트 3030)
 - **리버스 프록시**: Nginx (443 → 3030)
 

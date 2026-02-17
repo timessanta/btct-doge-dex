@@ -277,10 +277,9 @@ CREATE TABLE messages (
 ## 8. Deployment
 
 ### Infrastructure
-- **Server**: Ubuntu 22.04 (Hyper-V VM)
-- **IP**: 192.168.219.110
+- **Server**: Ubuntu 22.04
 - **Domain**: dex.btc-time.com
-- **SSL**: Let's Encrypt (via Nginx on 192.168.219.101)
+- **SSL**: Let's Encrypt (via Nginx reverse proxy)
 - **Process Manager**: PM2 (dex-api, port 3030)
 - **Reverse Proxy**: Nginx (443 → 3030)
 
