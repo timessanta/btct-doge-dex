@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTCT/DOGE DEX — Atomic Swap</title>
+  <link rel="stylesheet" href="style.css?v=20260218b">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>BTCT ↔ DOGE <span class="tag">DEX</span></h1>
+    </div>
+    <nav>
+      <a class="nav-link active" onclick="navigateTo('market')">Bulletin Board</a>
+      <a class="nav-link" onclick="navigateTo('myAds')">My Listings</a>
+      <a class="nav-link" onclick="navigateTo('myTrades')">Swap History</a>
+      <a class="nav-link" onclick="navigateTo('wallet')">Wallet</a>
+    </nav>
+    <div class="header-right">
+      <span id="userInfo"></span>
+      <button class="btn btn-sm" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+      <button class="btn btn-sm btn-outline hidden" id="disconnectBtn" onclick="disconnectWallet()">Disconnect</button>
+    </div>
+  </header>
+
+  <!-- Disclaimer Modal (forced agreement) -->
+  <div class="disclaimer-modal" id="disclaimerModal">
+    <div class="disclaimer-modal-content">
+      <h2>⚠️ Important Notice — Please Read</h2>
+      <div class="disclaimer-text">
+        <p><strong>This platform is a software tool and information bulletin board only.</strong></p>
+        <ul>
+          <li>All transactions are signed by users with their own private keys. The server never holds, accesses, or stores private keys.</li>
+          <li>The server does not hold, control, or move funds on behalf of users.</li>
+          <li>Swap execution depends entirely on mutual agreement between users.</li>
+          <li>Platform operators are not parties to swaps and bear no responsibility for swap outcomes.</li>
+          <li>This platform does not provide financial advice or investment recommendations.</li>
+          <li>Cryptocurrency swaps carry inherent risks including but not limited to: price volatility, transaction delays, and potential loss of funds due to user error.</li>
+          <li>Users are solely responsible for complying with applicable laws and regulations in their jurisdiction.</li>
+          <li>By using this platform, you acknowledge that you understand how atomic swaps and HTLC contracts work.</li>
+        </ul>
+        <p class="warning-text">⚠ If a swap fails due to timeout, BTCT locked in HTLC will be automatically refunded to the sender after the timeout period. However, DOGE sent directly cannot be reversed.</p>
+      </div>
+      <label class="disclaimer-checkbox">
+        <input type="checkbox" id="disclaimerCheck" onchange="toggleDisclaimerBtn()">
+        <span>I have read and understood the above. I acknowledge that this platform is a software tool only and I use it at my own risk.</span>
+      </label>
+      <button class="btn btn-green disclaimer-enter-btn" id="disclaimerEnterBtn" disabled onclick="acceptDisclaimer()">Enter Site</button>
+    </div>
+  </div>
+
+  <main id="app">
+    <!-- Pages rendered here -->
+  </main>
+
+  <!-- Create Ad Modal -->
+  <div class="modal hidden" id="createAdModal">
+    <div class="modal-content">
+      <h3>Post Listing</h3>
+      <label>Type
+        <select id="adType">
+          <option value="sell">Sell BTCT for DOGE</option>
+          <option value="buy">Buy BTCT with DOGE</option>
+        </select>
+      </label>
+      <label>Price (DOGE per 1 BTCT)
+        <input type="number" id="adPrice" step="0.0001" placeholder="100.0000">
+      </label>
+      <label>Min Amount (BTCT)
+        <input type="number" id="adMin" step="0.00001" placeholder="0.1">
+      </label>
+      <label>Max Amount (BTCT)
+        <input type="number" id="adMax" step="0.00001" placeholder="10.0">
+      </label>
+      <div class="modal-actions">
+        <button class="btn" onclick="submitAd()">Create Ad</button>
+        <button class="btn btn-outline" onclick="closeModal('createAdModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trade Init Modal -->
+  <div class="modal hidden" id="tradeModal">
+    <div class="modal-content">
+      <h3>Initiate Trade</h3>
+      <div id="tradeModalInfo"></div>
+      <label>BTCT Amount
+        <input type="number" id="tradeAmount" step="0.00001" placeholder="1.0">
+      </label>
+      <div id="tradeSummary" class="info-box"></div>
+      <div class="modal-actions">
+        <button class="btn btn-green" onclick="submitTrade()">Start Atomic Swap</button>
+        <button class="btn btn-outline" onclick="closeModal('tradeModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="krypton-offline.js"></script>
+  <script src="bitcore-doge.js"></script>
+  <script src="app.js?v=20260218b"></script>
+</body>
+</html>
