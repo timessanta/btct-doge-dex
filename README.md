@@ -94,7 +94,8 @@ ADMIN_ID=admin
 ADMIN_PASSWORD_HASH=$2b$10$... (use bcrypt)
 JWT_SECRET=your_random_32char_secret
 
-# Optional: Blockcypher token for higher DOGE API limits
+# Blockcypher API token for DOGE (free: 200 req/hr, with token: 2000 req/hr)
+# Get one at: https://accounts.blockcypher.com/signup
 BLOCKCYPHER_TOKEN=your_token
 
 # BTCT Node RPC URL
@@ -107,13 +108,14 @@ sudo -u postgres psql
 CREATE DATABASE btct_dex;
 CREATE USER exchange WITH ENCRYPTED PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE btct_dex TO exchange;
+-- PostgreSQL 15+ requires this additional grant:
+\c btct_dex
+GRANT ALL ON SCHEMA public TO exchange;
 \q
 ```
 
-### 5. Initialize database schema
-```bash
-node server/db/init.js
-```
+### 5. Database schema
+The database tables are **automatically created** when the server starts for the first time. No manual schema initialization is needed.
 
 ### 6. Generate admin password hash (optional)
 ```bash
@@ -126,7 +128,9 @@ node -e "console.log(require('bcryptjs').hashSync('your_password', 10))"
 
 ### Development
 ```bash
-npm run dev
+npm start
+# or with auto-restart on file changes:
+npx nodemon server/index.js
 ```
 
 ### Production (with PM2)
@@ -144,6 +148,13 @@ Access at: `http://localhost:3030`
 ## BTCT Node Setup
 
 You need a running BTCT full node with RPC enabled.
+
+### Install BTCT Node
+```bash
+git clone https://github.com/ABlockOfficial/bitcoinkrypton-seed.git
+cd bitcoinkrypton-seed
+npm install
+```
 
 ### Example `peer.conf`:
 ```json
