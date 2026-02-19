@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — BTCT/DOGE DEX</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      line-height: 1.7;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 32px;
+    }
+    h1 { color: #f5c542; margin-bottom: 8px; font-size: 22px; }
+    .updated { color: #888; font-size: 12px; margin-bottom: 24px; }
+    h2 { color: #4ecca3; font-size: 16px; margin: 24px 0 8px; }
+    p { color: #ccc; font-size: 14px; margin-bottom: 10px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { color: #ccc; font-size: 14px; margin-bottom: 6px; }
+    strong { color: #e0e0e0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid #0f3460;
+      font-size: 13px;
+    }
+    th { background: #0f3460; color: #f5c542; }
+    td { color: #ccc; }
+    .highlight { color: #4ecca3; font-weight: bold; }
+    .warning { color: #e94560; }
+    a { color: #4ecca3; }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #e94560;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .back-link:hover { color: #ff6b81; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Back to DEX</a>
+
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: February 18, 2026</p>
+
+    <p>This Privacy Policy explains what data is collected, how it is used, and how it is protected when you use the BTCT/DOGE DEX platform and BTCT Town.</p>
+
+    <h2>1. Platform Nature</h2>
+    <p>This platform is a <span class="highlight">non-custodial</span>, open-source decentralized exchange (DEX) that facilitates peer-to-peer HTLC atomic swaps between BTCT and DOGE. The server acts solely as a <strong>bulletin board</strong> and <strong>message relay</strong>.</p>
+    <p class="highlight">The server NEVER holds, accesses, controls, or stores private keys or user funds.</p>
+
+    <h2>2. Data Collected</h2>
+    <table>
+      <tr>
+        <th>Data Type</th>
+        <th>Description</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td>BTCT Address</td>
+        <td>Public blockchain address (not personal information)</td>
+        <td>Trade coordination, listing identification</td>
+      </tr>
+      <tr>
+        <td>DOGE Address</td>
+        <td>Public blockchain address</td>
+        <td>Trade coordination (DOGE sending)</td>
+      </tr>
+      <tr>
+        <td>Trade Data</td>
+        <td>Listing details, trade status, HTLC hashes</td>
+        <td>Atomic swap coordination</td>
+      </tr>
+      <tr>
+        <td>Chat Messages</td>
+        <td>Text messages between trade participants (max 500 chars)</td>
+        <td>Trade communication, dispute reference</td>
+      </tr>
+      <tr>
+        <td>Town Position</td>
+        <td>In-game character coordinates (BTCT Town only)</td>
+        <td>Multiplayer functionality (not stored in DB)</td>
+      </tr>
+    </table>
+
+    <h2>3. Data NOT Collected</h2>
+    <ul>
+      <li><strong>Private keys</strong> — All signing happens client-side in your browser</li>
+      <li><strong>Personal information</strong> — No name, email, phone, ID, or KYC data</li>
+      <li><strong>IP addresses</strong> — Not logged or stored by the application</li>
+      <li><strong>Cookies or tracking</strong> — No analytics, no third-party tracking</li>
+      <li><strong>Browser fingerprints</strong> — Not collected</li>
+    </ul>
+
+    <h2>4. Client-Side Storage (localStorage)</h2>
+    <p>The following data is stored <strong>only in your browser's localStorage</strong> and is never sent to the server:</p>
+    <ul>
+      <li>Wallet addresses and private keys (encrypted by your browser)</li>
+      <li>HTLC secrets (generated locally for atomic swaps)</li>
+      <li>Disclaimer acceptance status</li>
+    </ul>
+    <p class="warning">⚠ If you clear your browser data, you will lose your locally stored wallet keys and trade secrets. Always back up your private keys.</p>
+
+    <h2>5. Chat Message Policy</h2>
+    <ul>
+      <li>Chat is available <strong>only between trade participants</strong> (1:1, per-trade).</li>
+      <li>Server verifies that the sender is a participant (seller or buyer) before storing or relaying messages.</li>
+      <li>Messages are limited to <strong>500 characters</strong>.</li>
+      <li>Messages containing prohibited keywords (threats, illegal content) are <strong>automatically blocked</strong>.</li>
+      <li>Chat messages are <strong>automatically deleted after 90 days</strong> from creation.</li>
+    </ul>
+
+    <h2>6. Data Retention</h2>
+    <table>
+      <tr>
+        <th>Data Type</th>
+        <th>Retention Period</th>
+      </tr>
+      <tr>
+        <td>Trade listings (ads)</td>
+        <td>Indefinite (public bulletin board)</td>
+      </tr>
+      <tr>
+        <td>Trade records</td>
+        <td>Indefinite (blockchain coordination history)</td>
+      </tr>
+      <tr>
+        <td>Chat messages</td>
+        <td><span class="highlight">90 days</span> (automatically deleted)</td>
+      </tr>
+      <tr>
+        <td>Town player positions</td>
+        <td>Session only (in-memory, cleared on disconnect)</td>
+      </tr>
+    </table>
+
+    <h2>7. Data Sharing</h2>
+    <p>Your data is <strong>never shared with third parties</strong>. The only external service used is:</p>
+    <ul>
+      <li><strong>Blockcypher API</strong> — For DOGE balance checks and transaction broadcasting. Only public blockchain data (addresses, transactions) is sent. No private data is shared.</li>
+    </ul>
+
+    <h2>8. Security Measures</h2>
+    <ul>
+      <li>All private key operations happen <strong>client-side only</strong></li>
+      <li>Server access is protected by <strong>UFW firewall</strong>, <strong>Fail2Ban</strong>, and <strong>rate limiting</strong></li>
+      <li>API rate limits: 50,000 BTCT/24h, 30 swaps/24h, 20 listings/24h per wallet</li>
+      <li>SSH hardened (key-based, fail2ban, limited sessions)</li>
+      <li>Database access restricted to localhost only</li>
+    </ul>
+
+    <h2>9. User Rights</h2>
+    <p>Since no personal information is collected, traditional data subject rights (access, deletion, portability) apply in a limited way:</p>
+    <ul>
+      <li><strong>Your wallet data</strong> is stored only in your browser — you control it entirely.</li>
+      <li><strong>Trade records</strong> are coordination data tied to public blockchain addresses, not personal identifiers.</li>
+      <li><strong>Chat messages</strong> are auto-deleted after 90 days.</li>
+    </ul>
+
+    <h2>10. Open Source</h2>
+    <p>The full source code is publicly available at <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">github.com/timessanta/btct-doge-dex</a> (MIT License). You can verify exactly what data is collected and how it is handled.</p>
+
+    <h2>11. Contact</h2>
+    <p>For questions about this privacy policy, please open an issue on the <a href="https://github.com/timessanta/btct-doge-dex/issues" target="_blank">GitHub repository</a>.</p>
+
+    <h2>12. Changes</h2>
+    <p>This policy may be updated. Changes will be reflected in the "Last updated" date above and committed to the GitHub repository.</p>
+  </div>
+</body>
+</html>

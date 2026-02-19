@@ -1,0 +1,2005 @@
+// ======================== BTCT Town — RPG-style DEX ========================
+// Phaser 3 game with multiplayer via Socket.IO
+// Uses same wallet system as DEX (localStorage keys: dex_active_btct, dex_btct_wallets)
+
+const TILE = 32;
+const MAP_W = 30;
+const MAP_H = 22;
+const SPEED = 120;
+
+// ---- Wallet helpers (shared with DEX) ----
+function getActiveBtctAddr() { return localStorage.getItem('dex_active_btct') || ''; }
+function getActiveDogeAddr() { return localStorage.getItem('dex_active_doge') || ''; }
+function shortAddr(addr) {
+  if (!addr) return '???';
+  const a = addr.replace(/^0x/, '');
+  return '0x' + a.substring(0, 4) + '..' + a.substring(a.length - 4);
+}
+
+// ======================== TRADING SYSTEM ========================
+
+const BTCT_SAT = 1e11;
+const DOGE_SAT = 1e8;
+function satToBTCT(sat) { return (Number(sat) / BTCT_SAT).toFixed(5); }
+function btctToSat(btct) { return Math.round(Number(btct) * BTCT_SAT); }
+function satToDOGE(sat) { return (Number(sat) / DOGE_SAT).toFixed(4); }
+function dogeToSat(doge) { return Math.round(Number(doge) * DOGE_SAT); }
+
+let currentUser = null;
+let kryptonReady = false;
+let currentTradeId = null;
+let pendingAd = null;
+
+// Krypton WASM init
+(async function initWasm() {
+  try {
+    if (typeof Krypton !== 'undefined') {
+      await Krypton.WasmHelper.doImport();
+      kryptonReady = true;
+      console.log('[Town] Krypton WASM ready');
+    }
+  } catch (e) { console.warn('[Town] WASM init:', e.message); }
+})();
+
+async function ensureKrypton() {
+  if (kryptonReady) return;
+  if (typeof Krypton === 'undefined') throw new Error('Krypton library not loaded');
+  await Krypton.WasmHelper.doImport();
+  kryptonReady = true;
+}
+
+async function api(path, opts = {}) {
+  const url = '/api' + path;
+  const config = { headers: { ...(opts.headers || {}) } };
+  if (opts.method) config.method = opts.method;
+  if (opts.body) {
+    config.method = config.method || 'POST';
+    config.headers['Content-Type'] = 'application/json';
+    config.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(url, config);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API Error');
+  return data;
+}
+
+function getBtctKeyForAddr(addr) {
+  try {
+    const a = (addr || '').replace(/^0x/, '').toLowerCase();
+    const wallets = JSON.parse(localStorage.getItem('dex_btct_wallets') || '{}');
+    return wallets[a] || null;
+  } catch { return null; }
+}
+
+function getDogeWifForAddr(addr) {
+  try {
+    const wallets = JSON.parse(localStorage.getItem('dex_doge_wallets') || '{}');
+    return wallets[addr] || null;
+  } catch { return null; }
+}
+
+function syncCurrentUser() {
+  const btctAddr = getActiveBtctAddr();
+  const dogeAddr = getActiveDogeAddr();
+  if (!btctAddr) { currentUser = null; return; }
+  currentUser = {
+    btctAddress: btctAddr,
+    btctKey: getBtctKeyForAddr(btctAddr) || '',
+    dogeAddress: dogeAddr || '',
+    dogeKey: getDogeWifForAddr(dogeAddr) || '',
+  };
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ---- Map Data ----
+// 0=grass, 1=path, 2=water, 3=tree, 4=wall, 5=roof, 6=door, 7=board_npc, 8=flower, 9=fence
+const MAP = [
+  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
+  [3,0,0,0,8,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,8,0,0,0,0,0,3],
+  [3,0,5,5,5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,5,5,5,5,0,0,3],
+  [3,0,4,4,4,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,4,4,4,4,0,0,3],
+  [3,0,4,6,4,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,4,4,6,4,0,0,3],
+  [3,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,3],
+  [3,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,3],
+  [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,0,0,0,0,0,0,0,0,0,0,0,9,9,9,9,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,1,0,0,0,0,0,0,0,0,9,0,0,0,0,9,0,0,0,0,0,0,0,0,0,1,1,1,3],
+  [3,0,1,0,0,0,0,0,0,0,0,9,0,7,0,0,9,0,0,0,0,0,0,0,0,0,1,0,0,3],
+  [3,0,1,0,0,0,0,0,0,0,0,9,0,0,0,0,9,0,0,0,0,0,0,0,0,0,1,0,0,3],
+  [3,0,1,0,0,0,0,0,0,0,0,0,9,9,9,9,0,0,0,0,0,0,0,0,0,0,1,0,0,3],
+  [3,0,1,0,0,0,0,0,0,0,8,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,1,0,0,3],
+  [3,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,3],
+  [3,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,3],
+  [3,0,5,5,5,0,0,1,0,0,2,2,2,2,2,2,2,0,0,0,1,0,0,5,5,5,5,0,0,3],
+  [3,0,4,4,4,0,0,1,0,0,2,2,2,2,2,2,2,0,0,0,1,0,0,4,4,4,4,0,0,3],
+  [3,0,4,6,4,0,0,1,0,0,2,2,2,2,2,2,2,0,0,0,1,0,0,4,4,6,4,0,0,3],
+  [3,0,0,0,8,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,8,0,0,0,0,0,3],
+  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
+];
+
+// Collision map (true = blocked)
+const BLOCKED = [3, 2, 4, 5, 9]; // tree, water, wall, roof, fence
+
+// NPC location (board_npc = tile 7)
+const NPC_POS = { x: 13, y: 11 };
+
+// ---- Socket ----
+let socket = null;
+const otherPlayers = {};
+
+// ---- Panel state ----
+let panelOpen = false;
+let townScene = null;
+
+// ---- Mobile input ----
+const mobileInput = { x: 0, y: 0 };
+let _isMobile = null;
+function isMobile() {
+  if (_isMobile === null) {
+    _isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  }
+  return _isMobile;
+}
+
+// ======================== SOUND SYSTEM ========================
+const TownSounds = {
+  ctx: null,
+  enabled: true,
+  _lastFootstep: 0,
+
+  init() {
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { this.enabled = false; }
+  },
+
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  },
+
+  playFootstep() {
+    if (!this.enabled || !this.ctx) return;
+    const now = Date.now();
+    if (now - this._lastFootstep < 280) return;
+    this._lastFootstep = now;
+    this.resume();
+    const ctx = this.ctx;
+    const dur = 0.06;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (data.length * 0.15));
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800 + Math.random() * 400;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.08;
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start();
+  },
+
+  playInteract() {
+    if (!this.enabled || !this.ctx) return;
+    this.resume();
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    gain.connect(ctx.destination);
+    [520, 780].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      osc.start(t + i * 0.1);
+      osc.stop(t + 0.4);
+    });
+  },
+
+  playTradeAlert() {
+    if (!this.enabled || !this.ctx) return;
+    this.resume();
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    gain.connect(ctx.destination);
+    [440, 554, 659].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      osc.start(t + i * 0.12);
+      osc.stop(t + 0.6);
+    });
+  }
+};
+
+// ======================== BOOT SCENE ========================
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
+
+  create() {
+    TownSounds.init();
+    this.generateTileset();
+    this.generateWaterFrames();
+    this.generateCharacter();
+    this.generateNPC();
+    this.scene.start('Town');
+  }
+
+  generateTileset() {
+    const canvas = document.createElement('canvas');
+    canvas.width = TILE * 10;
+    canvas.height = TILE;
+    const ctx = canvas.getContext('2d');
+
+    // 0: Grass — lush with blade details
+    this.drawTile(ctx, 0, () => {
+      ctx.fillStyle = '#4a8c3f';
+      ctx.fillRect(0, 0, TILE, TILE);
+      const greens = ['#3d7a34','#5a9c4f','#448838','#3e8035'];
+      for (let i = 0; i < 12; i++) {
+        ctx.fillStyle = greens[i % greens.length];
+        ctx.fillRect(Math.random()*30, Math.random()*30, 2+Math.random()*3, 1);
+      }
+      ctx.fillStyle = '#5aac4f';
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(4+Math.random()*24, 4+Math.random()*24, 1, 3);
+      }
+      ctx.fillStyle = '#8a8a78';
+      if (Math.random()>0.5) ctx.fillRect(Math.random()*28+2, Math.random()*28+2, 2, 2);
+    });
+
+    // 1: Path — cobblestone with 3D effect
+    this.drawTile(ctx, 1, () => {
+      ctx.fillStyle = '#b89b74';
+      ctx.fillRect(0, 0, TILE, TILE);
+      const stones = [[1,1,8,6],[10,0,9,7],[21,1,9,6],[0,8,7,7],[8,9,10,6],[19,8,11,7],[2,16,9,7],[12,17,8,6],[21,16,9,7],[0,24,8,7],[9,25,10,6],[20,24,10,7]];
+      stones.forEach(([x,y,w,h]) => {
+        ctx.fillStyle = '#c4a882';
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#d4b892';
+        ctx.fillRect(x, y, w, 1);
+        ctx.fillRect(x, y, 1, h);
+        ctx.fillStyle = '#a08968';
+        ctx.fillRect(x, y+h-1, w, 1);
+        ctx.fillRect(x+w-1, y, 1, h);
+      });
+    });
+
+    // 2: Water — deep blue with ripple pattern
+    this.drawTile(ctx, 2, () => {
+      ctx.fillStyle = '#2980b9';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#3498db';
+      for (let y = 0; y < TILE; y += 8) {
+        for (let x = 0; x < TILE; x += 2) {
+          const wave = Math.sin((x + y*0.5)*0.3)*2;
+          if (wave > 0.5) ctx.fillRect(x, y+wave, 2, 2);
+        }
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(8,6,2,1); ctx.fillRect(22,14,2,1); ctx.fillRect(14,24,2,1);
+    });
+
+    // 3: Tree — detailed canopy with highlights
+    this.drawTile(ctx, 3, () => {
+      ctx.fillStyle = '#3d7a34';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#4a8c3f';
+      for (let i=0;i<6;i++) ctx.fillRect(Math.random()*28,Math.random()*28,3,2);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.ellipse(16,26,10,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#5a3620';
+      ctx.fillRect(13,16,6,14);
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(14,16,4,14);
+      ctx.fillStyle = '#4d2e18';
+      ctx.fillRect(14,19,3,1); ctx.fillRect(15,23,2,1); ctx.fillRect(14,26,3,1);
+      ctx.fillStyle = '#1a5c10';
+      ctx.beginPath(); ctx.arc(16,12,12,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#2d6b1e';
+      ctx.beginPath(); ctx.arc(14,10,9,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(19,11,8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3d8c2e';
+      ctx.beginPath(); ctx.arc(15,8,7,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(18,10,6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#4a9c3e';
+      ctx.beginPath(); ctx.arc(13,7,3,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(17,6,2,0,Math.PI*2); ctx.fill();
+    });
+
+    // 4: Wall — stone bricks with 3D shading
+    this.drawTile(ctx, 4, () => {
+      ctx.fillStyle = '#6c7a7b';
+      ctx.fillRect(0, 0, TILE, TILE);
+      for (let row = 0; row < 4; row++) {
+        const offset = row % 2 === 0 ? 0 : 8;
+        for (let col = -1; col < 3; col++) {
+          const x = offset + col * 16;
+          const y = row * 8;
+          if (x >= -16 && x < TILE) {
+            ctx.fillStyle = '#8c9ea0';
+            ctx.fillRect(x+1, y+1, 14, 6);
+            ctx.fillStyle = '#9cafb0';
+            ctx.fillRect(x+1, y+1, 14, 1);
+            ctx.fillRect(x+1, y+1, 1, 6);
+            ctx.fillStyle = '#7a8889';
+            ctx.fillRect(x+1, y+6, 14, 1);
+            ctx.fillRect(x+14, y+1, 1, 6);
+          }
+        }
+      }
+    });
+
+    // 5: Roof — shingles with depth
+    this.drawTile(ctx, 5, () => {
+      ctx.fillStyle = '#a93226';
+      ctx.fillRect(0, 0, TILE, TILE);
+      for (let row = 0; row < 6; row++) {
+        const offset = row % 2 === 0 ? 0 : 5;
+        const y = row * 6 - 1;
+        for (let col = 0; col < 5; col++) {
+          const x = offset + col * 10 - 5;
+          ctx.fillStyle = '#c0392b';
+          ctx.fillRect(x, y, 9, 5);
+          ctx.fillStyle = '#d44637';
+          ctx.fillRect(x, y, 9, 1);
+          ctx.fillStyle = '#922b21';
+          ctx.fillRect(x, y+4, 9, 2);
+        }
+      }
+    });
+
+    // 6: Door — arched wooden door in stone frame
+    this.drawTile(ctx, 6, () => {
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#8c9ea0';
+      ctx.fillRect(1, 1, 14, 6);
+      ctx.fillRect(17, 1, 14, 6);
+      ctx.fillStyle = '#5a3620';
+      ctx.fillRect(7, 3, 18, 29);
+      ctx.fillStyle = '#8B5E3C';
+      ctx.fillRect(9, 5, 14, 27);
+      ctx.fillStyle = '#7a5030';
+      ctx.fillRect(15, 5, 2, 27);
+      ctx.fillStyle = '#a07050';
+      ctx.fillRect(9, 5, 14, 2);
+      ctx.fillStyle = '#f5c542';
+      ctx.fillRect(20, 18, 2, 3);
+      ctx.fillStyle = '#d4a830';
+      ctx.fillRect(20, 18, 2, 1);
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(9, 28, 14, 4);
+    });
+
+    // 7: Board NPC — bulletin board with notices
+    this.drawTile(ctx, 7, () => {
+      ctx.fillStyle = '#4a8c3f';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#3d7a34';
+      for (let i=0;i<4;i++) ctx.fillRect(Math.random()*28,Math.random()*28,2,2);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(14, 22, 8, 3);
+      ctx.fillStyle = '#5a3620';
+      ctx.fillRect(14, 14, 4, 18);
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(15, 14, 2, 18);
+      ctx.fillStyle = '#8B5E3C';
+      ctx.fillRect(3, 2, 26, 14);
+      ctx.fillStyle = '#d4a853';
+      ctx.fillRect(4, 3, 24, 12);
+      ctx.fillStyle = '#c49843';
+      ctx.fillRect(4, 6, 24, 1); ctx.fillRect(4, 10, 24, 1);
+      ctx.fillStyle = '#f0e6d0';
+      ctx.fillRect(6, 4, 8, 6);
+      ctx.fillStyle = '#e8dcc0';
+      ctx.fillRect(16, 5, 10, 4);
+      ctx.fillStyle = '#f5eee0';
+      ctx.fillRect(17, 10, 8, 4);
+      ctx.fillStyle = '#555';
+      ctx.fillRect(7,5,6,1); ctx.fillRect(7,7,5,1); ctx.fillRect(17,6,8,1); ctx.fillRect(18,11,6,1);
+    });
+
+    // 8: Flower — varied garden flowers
+    this.drawTile(ctx, 8, () => {
+      ctx.fillStyle = '#4a8c3f';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#3d7a34';
+      for (let i=0;i<5;i++) ctx.fillRect(Math.random()*28,Math.random()*28,2,1);
+      const flowers = [
+        {x:6,y:10,c:'#e74c3c'},{x:16,y:6,c:'#f39c12'},{x:24,y:12,c:'#9b59b6'},
+        {x:10,y:22,c:'#e91e63'},{x:22,y:22,c:'#3498db'}
+      ];
+      flowers.forEach(f => {
+        ctx.fillStyle = '#2d6b1e';
+        ctx.fillRect(f.x, f.y+3, 1, 6);
+        ctx.fillStyle = '#3d8c2e';
+        ctx.fillRect(f.x+1, f.y+5, 2, 1);
+        ctx.fillStyle = f.c;
+        ctx.fillRect(f.x-2,f.y,2,2); ctx.fillRect(f.x+1,f.y,2,2);
+        ctx.fillRect(f.x-1,f.y-2,2,2); ctx.fillRect(f.x-1,f.y+2,2,2);
+        ctx.fillStyle = '#f5c542';
+        ctx.fillRect(f.x-1,f.y,2,2);
+      });
+    });
+
+    // 9: Fence — wooden picket fence
+    this.drawTile(ctx, 9, () => {
+      ctx.fillStyle = '#4a8c3f';
+      ctx.fillRect(0, 0, TILE, TILE);
+      ctx.fillStyle = '#3d7a34';
+      for (let i=0;i<4;i++) ctx.fillRect(Math.random()*28,Math.random()*28,2,2);
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(1, 24, 30, 3);
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(0, 20, TILE, 3); ctx.fillRect(0, 10, TILE, 3);
+      ctx.fillStyle = '#8B5E3C';
+      ctx.fillRect(0, 10, TILE, 1); ctx.fillRect(0, 20, TILE, 1);
+      for (let i = 0; i < 5; i++) {
+        const x = 2 + i * 7;
+        ctx.fillStyle = '#7c5030';
+        ctx.fillRect(x, 8, 4, 18);
+        ctx.fillStyle = '#8B5E3C';
+        ctx.fillRect(x, 8, 4, 1); ctx.fillRect(x, 8, 1, 18);
+        ctx.fillStyle = '#7c5030';
+        ctx.fillRect(x+1, 6, 2, 2);
+        ctx.fillStyle = '#8B5E3C';
+        ctx.fillRect(x+1, 6, 2, 1);
+      }
+    });
+
+    this.textures.addCanvas('tiles', canvas);
+  }
+
+  drawTile(ctx, index, drawFn) {
+    ctx.save();
+    ctx.translate(index * TILE, 0);
+    ctx.beginPath();
+    ctx.rect(0, 0, TILE, TILE);
+    ctx.clip();
+    drawFn();
+    ctx.restore();
+  }
+
+  generateWaterFrames() {
+    for (let f = 0; f < 3; f++) {
+      const canvas = document.createElement('canvas');
+      canvas.width = TILE;
+      canvas.height = TILE;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1a6b9c';
+      ctx.fillRect(0, 0, TILE, TILE);
+      const offset = f * 4;
+      ctx.fillStyle = '#2980b9';
+      for (let y = 0; y < TILE; y += 4) {
+        for (let x = 0; x < TILE; x += 2) {
+          const wave = Math.sin((x + offset + y * 0.7) * 0.35) * 2;
+          if (wave > 0) ctx.fillRect(x, y, 2, 3);
+        }
+      }
+      ctx.fillStyle = '#3498db';
+      for (let y = 2; y < TILE; y += 6) {
+        for (let x = 0; x < TILE; x += 2) {
+          const wave = Math.sin((x + offset * 1.5 + y * 0.4) * 0.5);
+          if (wave > 0.6) ctx.fillRect(x, y, 3, 1);
+        }
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      const sparkles = [[6,4],[18,12],[10,22],[26,8],[14,16]];
+      sparkles.forEach(([sx,sy], i) => {
+        if ((f + i) % 3 === 0) ctx.fillRect(sx, sy, 2, 1);
+      });
+      this.textures.addCanvas('water_' + f, canvas);
+    }
+  }
+
+  generateCharacter() {
+    // 4 directions × 3 frames: idle(0), walk-left-foot(1), walk-right-foot(2)
+    const canvas = document.createElement('canvas');
+    const W = 24, H = 32;
+    canvas.width = W * 3;
+    canvas.height = H * 4;
+    const ctx = canvas.getContext('2d');
+
+    for (let dir = 0; dir < 4; dir++) {
+      for (let frame = 0; frame < 3; frame++) {
+        const ox = frame * W;
+        const oy = dir * H;
+        ctx.save();
+        ctx.translate(ox, oy);
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+        // --- Legs ---
+        ctx.fillStyle = '#34495e';
+        if (frame === 0) {
+          ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
+          ctx.fillStyle = '#2c3e50';
+          ctx.fillRect(7, 29, 5, 2); ctx.fillRect(12, 29, 5, 2);
+        } else if (frame === 1) {
+          ctx.fillRect(6, 24, 4, 6); ctx.fillRect(14, 22, 4, 5);
+          ctx.fillStyle = '#2c3e50';
+          ctx.fillRect(5, 29, 5, 2); ctx.fillRect(14, 26, 5, 2);
+        } else {
+          ctx.fillRect(6, 22, 4, 5); ctx.fillRect(14, 24, 4, 6);
+          ctx.fillStyle = '#2c3e50';
+          ctx.fillRect(5, 26, 5, 2); ctx.fillRect(14, 29, 5, 2);
+        }
+
+        // --- Body/Torso ---
+        ctx.fillStyle = '#3498db';
+        ctx.fillRect(7, 14, 10, 11);
+        ctx.fillStyle = '#2e86c1';
+        ctx.fillRect(7, 14, 10, 1);
+        ctx.fillRect(11, 15, 2, 9);
+
+        // --- Arms ---
+        ctx.fillStyle = '#3498db';
+        if (frame === 0) {
+          ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
+          ctx.fillStyle = '#f0c987';
+          ctx.fillRect(4, 22, 3, 2); ctx.fillRect(17, 22, 3, 2);
+        } else if (frame === 1) {
+          ctx.fillRect(4, 14, 3, 8); ctx.fillRect(17, 16, 3, 8);
+          ctx.fillStyle = '#f0c987';
+          ctx.fillRect(4, 21, 3, 2); ctx.fillRect(17, 23, 3, 2);
+        } else {
+          ctx.fillRect(4, 16, 3, 8); ctx.fillRect(17, 14, 3, 8);
+          ctx.fillStyle = '#f0c987';
+          ctx.fillRect(4, 23, 3, 2); ctx.fillRect(17, 21, 3, 2);
+        }
+
+        // --- Head ---
+        ctx.fillStyle = '#f0c987';
+        ctx.beginPath(); ctx.arc(12, 9, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e0b878';
+        if (dir === 1) ctx.fillRect(5, 8, 2, 3);
+        if (dir === 2) ctx.fillRect(17, 8, 2, 3);
+
+        // --- Hair ---
+        ctx.fillStyle = '#5a3620';
+        ctx.beginPath(); ctx.arc(12, 7, 7, Math.PI, 2 * Math.PI); ctx.fill();
+        ctx.fillRect(5, 5, 14, 3);
+        if (dir === 0) ctx.fillRect(7, 4, 4, 3);
+
+        // --- Eyes ---
+        if (dir === 0) {
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(8, 8, 3, 3); ctx.fillRect(13, 8, 3, 3);
+          ctx.fillStyle = '#2c3e50';
+          ctx.fillRect(9, 9, 2, 2); ctx.fillRect(14, 9, 2, 2);
+        } else if (dir === 1) {
+          ctx.fillStyle = '#fff'; ctx.fillRect(6, 8, 3, 3);
+          ctx.fillStyle = '#2c3e50'; ctx.fillRect(6, 9, 2, 2);
+        } else if (dir === 2) {
+          ctx.fillStyle = '#fff'; ctx.fillRect(15, 8, 3, 3);
+          ctx.fillStyle = '#2c3e50'; ctx.fillRect(16, 9, 2, 2);
+        }
+        if (dir === 3) {
+          ctx.fillStyle = '#5a3620'; ctx.fillRect(5, 4, 14, 8);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    this.textures.addSpriteSheet('char', canvas, { frameWidth: W, frameHeight: H });
+  }
+
+  generateNPC() {
+    const canvas = document.createElement('canvas');
+    const W = 24, H = 32;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(12, 30, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Legs
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(7, 24, 4, 6); ctx.fillRect(13, 24, 4, 6);
+    ctx.fillStyle = '#1a252f';
+    ctx.fillRect(6, 29, 5, 2); ctx.fillRect(13, 29, 5, 2);
+
+    // Body — green vest
+    ctx.fillStyle = '#27ae60';
+    ctx.fillRect(6, 14, 12, 11);
+    ctx.fillStyle = '#219a52';
+    ctx.fillRect(6, 14, 12, 1); ctx.fillRect(11, 15, 2, 9);
+
+    // Arms
+    ctx.fillStyle = '#27ae60';
+    ctx.fillRect(3, 15, 3, 7); ctx.fillRect(18, 15, 3, 7);
+    ctx.fillStyle = '#f0c987';
+    ctx.fillRect(3, 21, 3, 2); ctx.fillRect(18, 21, 3, 2);
+
+    // Head
+    ctx.fillStyle = '#f0c987';
+    ctx.beginPath(); ctx.arc(12, 9, 7, 0, Math.PI * 2); ctx.fill();
+
+    // Eyes with whites
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(8, 8, 3, 3); ctx.fillRect(13, 8, 3, 3);
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(9, 9, 2, 2); ctx.fillRect(14, 9, 2, 2);
+    // Smile
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(10, 12, 4, 1);
+
+    // Hat — merchant hat
+    ctx.fillStyle = '#f5c542';
+    ctx.fillRect(3, 4, 18, 4);
+    ctx.fillStyle = '#d4a830';
+    ctx.fillRect(5, 1, 14, 4);
+    ctx.fillStyle = '#f5c542';
+    ctx.fillRect(5, 1, 14, 1);
+    // Hat band
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(5, 4, 14, 1);
+
+    this.textures.addImage('npc', canvas);
+  }
+}
+
+// ======================== TOWN SCENE ========================
+class TownScene extends Phaser.Scene {
+  constructor() { super('Town'); }
+
+  create() {
+    // Build tilemap
+    const mapData = new Phaser.Tilemaps.MapData({
+      width: MAP_W, height: MAP_H,
+      tileWidth: TILE, tileHeight: TILE,
+      format: Phaser.Tilemaps.Formats.ARRAY_2D
+    });
+
+    this.map = new Phaser.Tilemaps.Tilemap(this, mapData);
+    const tileset = this.map.addTilesetImage('tiles', 'tiles', TILE, TILE, 0, 0);
+
+    // Ground layer
+    this.groundLayer = this.map.createBlankLayer('ground', tileset, 0, 0, MAP_W, MAP_H, TILE, TILE);
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        this.groundLayer.putTileAt(MAP[y][x], x, y);
+      }
+    }
+
+    // Set collisions
+    this.groundLayer.setCollision(BLOCKED);
+
+    // NPC sprite
+    this.npcSprite = this.add.image(NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2, 'npc');
+    this.npcSprite.setDepth(NPC_POS.y * TILE);
+
+    // NPC label
+    this.npcLabel = this.add.text(NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE - 8, 'Bulletin Board', {
+      fontSize: '11px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      padding: { x: 6, y: 2 }
+    }).setOrigin(0.5).setDepth(9999);
+
+    // NPC interaction hint (hidden initially)
+    this.npcHint = this.add.text(NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE + 12, isMobile() ? '[ACT]' : '[SPACE]', {
+      fontSize: '10px', color: '#4ecca3', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      padding: { x: 5, y: 2 }
+    }).setOrigin(0.5).setDepth(9999).setVisible(false);
+
+    // Player character
+    this.createAnimations();
+    const startX = 15 * TILE + TILE / 2;
+    const startY = 15 * TILE + TILE / 2;
+    this.player = this.physics.add.sprite(startX, startY, 'char', 0);
+    this.player.setSize(16, 10);
+    this.player.setOffset(4, 22);
+    this.player.setDepth(startY);
+    this.physics.add.collider(this.player, this.groundLayer);
+
+    // Player name label
+    const addr = getActiveBtctAddr();
+    this.playerLabel = this.add.text(startX, startY - 22, shortAddr(addr), {
+      fontSize: '11px', color: '#4ecca3', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      padding: { x: 5, y: 2 }
+    }).setOrigin(0.5).setDepth(99999);
+
+    // Camera
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
+    this.cameras.main.setZoom(1.5);
+
+    // Controls (defensive — keyboard may not exist on mobile)
+    townScene = this;
+    if (this.input.keyboard) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.wasd = {
+        up: this.input.keyboard.addKey('W'),
+        down: this.input.keyboard.addKey('S'),
+        left: this.input.keyboard.addKey('A'),
+        right: this.input.keyboard.addKey('D'),
+      };
+      this.spaceKey = this.input.keyboard.addKey('SPACE');
+      this.spaceKey.on('down', () => this.tryInteract());
+    }
+
+    // Other players group
+    this.otherPlayersGroup = this.add.group();
+
+    // Setup Socket.IO
+    this.setupSocket();
+
+    // Update wallet display
+    this.updateWalletDisplay();
+
+    // ---- Water animation ----
+    this.waterFrame = 0;
+    this.waterSprites = [];
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        if (MAP[y][x] === 2) {
+          const s = this.add.image(x * TILE + TILE/2, y * TILE + TILE/2, 'water_0');
+          s.setDepth(-1);
+          this.waterSprites.push(s);
+        }
+      }
+    }
+    this.time.addEvent({
+      delay: 400,
+      loop: true,
+      callback: () => {
+        this.waterFrame = (this.waterFrame + 1) % 3;
+        this.waterSprites.forEach(s => s.setTexture('water_' + this.waterFrame));
+      }
+    });
+
+    // ---- NPC bobbing ----
+    this.tweens.add({
+      targets: this.npcSprite,
+      y: this.npcSprite.y - 2,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  createAnimations() {
+    // down (3 frames)
+    this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('char', { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
+    // left
+    this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('char', { start: 3, end: 5 }), frameRate: 8, repeat: -1 });
+    // right
+    this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('char', { start: 6, end: 8 }), frameRate: 8, repeat: -1 });
+    // up
+    this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('char', { start: 9, end: 11 }), frameRate: 8, repeat: -1 });
+  }
+
+  update() {
+    if (!this.player) return;
+
+    const up = this.cursors?.up?.isDown || this.wasd?.up?.isDown || mobileInput.y < -0.3;
+    const down = this.cursors?.down?.isDown || this.wasd?.down?.isDown || mobileInput.y > 0.3;
+    const left = this.cursors?.left?.isDown || this.wasd?.left?.isDown || mobileInput.x < -0.3;
+    const right = this.cursors?.right?.isDown || this.wasd?.right?.isDown || mobileInput.x > 0.3;
+
+    this.player.setVelocity(0);
+
+    if (left) {
+      this.player.setVelocityX(-SPEED);
+      this.player.anims.play('walk-left', true);
+    } else if (right) {
+      this.player.setVelocityX(SPEED);
+      this.player.anims.play('walk-right', true);
+    }
+
+    if (up) {
+      this.player.setVelocityY(-SPEED);
+      if (!left && !right) this.player.anims.play('walk-up', true);
+    } else if (down) {
+      this.player.setVelocityY(SPEED);
+      if (!left && !right) this.player.anims.play('walk-down', true);
+    }
+
+    if (!up && !down && !left && !right) {
+      this.player.anims.stop();
+    }
+
+    // Footstep sound
+    if (up || down || left || right) TownSounds.playFootstep();
+
+    // Depth sorting
+    this.player.setDepth(this.player.y);
+
+    // Update label position
+    this.playerLabel.setPosition(this.player.x, this.player.y - 22);
+
+    // Update self bubble position
+    if (this.selfBubble) this.selfBubble.setPosition(this.player.x, this.player.y - 36);
+
+    // Check NPC proximity
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2);
+    this.npcHint.setVisible(dist < TILE * 2);
+
+    // Send position to server (throttled)
+    this.sendPosition();
+  }
+
+  // ---- Socket.IO ----
+  setupSocket() {
+    socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+
+    const scene = this;
+    const emitJoin = () => {
+      const addr = getActiveBtctAddr();
+      socket.emit('townJoin', {
+        address: addr,
+        x: scene.player ? Math.round(scene.player.x) : 480,
+        y: scene.player ? Math.round(scene.player.y) : 480,
+      });
+    };
+
+    // Join/rejoin on connect (handles initial + reconnections)
+    socket.on('connect', () => {
+      console.log('[Town] Socket connected:', socket.id);
+      // Clear stale other players on reconnect
+      for (const id in otherPlayers) {
+        if (otherPlayers[id].sprite) otherPlayers[id].sprite.destroy();
+        if (otherPlayers[id].label) otherPlayers[id].label.destroy();
+        if (otherPlayers[id].bubble) otherPlayers[id].bubble.destroy();
+        delete otherPlayers[id];
+      }
+      emitJoin();
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Town] Socket connect error:', err.message);
+    });
+
+    // Player joined
+    socket.on('townPlayers', (players) => {
+      Object.keys(players).forEach(id => {
+        if (id !== socket.id) {
+          try { this.addOtherPlayer(id, players[id]); } catch (e) { console.error('[Town] addOtherPlayer error:', e); }
+        } else if (players[id].adText) {
+          // Show own ad bubble
+          this.setSelfBubble(players[id].adText);
+        }
+      });
+      this.updatePlayerCount(Object.keys(players).length);
+    });
+
+    // New player
+    socket.on('townPlayerJoined', (data) => {
+      if (data.id !== socket.id) {
+        this.addOtherPlayer(data.id, data);
+      }
+      this.updatePlayerCount(data.totalPlayers || 0);
+    });
+
+    // Player moved
+    socket.on('townPlayerMoved', (data) => {
+      if (data.id !== socket.id && otherPlayers[data.id]) {
+        const p = otherPlayers[data.id];
+        // Smooth lerp
+        this.tweens.add({
+          targets: p.sprite,
+          x: data.x, y: data.y,
+          duration: 150,
+          onUpdate: () => {
+            p.label.setPosition(p.sprite.x, p.sprite.y - 22);
+            p.sprite.setDepth(p.sprite.y);
+            if (p.bubble) p.bubble.setPosition(p.sprite.x, p.sprite.y - 34);
+          }
+        });
+
+        // Animation direction
+        if (data.dir) {
+          p.sprite.anims.play('walk-' + data.dir, true);
+        } else {
+          p.sprite.anims.stop();
+        }
+      }
+    });
+
+    // Player left
+    socket.on('townPlayerLeft', (data) => {
+      if (otherPlayers[data.id]) {
+        otherPlayers[data.id].sprite.destroy();
+        otherPlayers[data.id].label.destroy();
+        if (otherPlayers[data.id].bubble) otherPlayers[data.id].bubble.destroy();
+        delete otherPlayers[data.id];
+      }
+      this.updatePlayerCount(data.totalPlayers || 0);
+    });
+
+    // Ad bubble updates
+    socket.on('townAdUpdate', (data) => {
+      if (data.id && otherPlayers[data.id]) {
+        this.setPlayerBubble(data.id, data.adText);
+      }
+      // Update own bubble if this is our address
+      if (data.address) {
+        const myAddr = getActiveBtctAddr();
+        if (myAddr && data.address === myAddr.replace(/^0x/, '').toLowerCase()) {
+          this.setSelfBubble(data.adText);
+        }
+      }
+    });
+
+    // Trade status real-time updates
+    socket.on('tradeStatusUpdate', (data) => {
+      if (currentTradeId && data.tradeId === currentTradeId) {
+        townShowTradeDetail(currentTradeId);
+      }
+    });
+
+    socket.on('newMessage', (msg) => {
+      const chatBox = document.getElementById('townChatMessages');
+      if (chatBox && msg) {
+        const t = new Date(msg.created_at).toLocaleTimeString();
+        chatBox.innerHTML += `<div class="chat-msg"><span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+  }
+
+  addOtherPlayer(id, data) {
+    if (otherPlayers[id]) return;
+
+    // Generate color from address
+    const color = this.addrToColor(data.address || '');
+    const sprite = this.physics.add.sprite(data.x || 15 * TILE, data.y || 15 * TILE, 'char', 0);
+    sprite.setSize(16, 10);
+    sprite.setOffset(4, 22);
+    sprite.setTint(color);
+    sprite.setDepth(data.y || 0);
+
+    const label = this.add.text(sprite.x, sprite.y - 22, shortAddr(data.address), {
+      fontSize: '11px', color: '#f0f0f0', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      padding: { x: 5, y: 2 }
+    }).setOrigin(0.5).setDepth(99999);
+
+    otherPlayers[id] = { sprite, label, address: data.address, bubble: null };
+
+    // Show ad bubble if player has active ad
+    if (data.adText) {
+      this.setPlayerBubble(id, data.adText);
+    }
+
+    // Make clickable
+    sprite.setInteractive();
+    sprite.on('pointerdown', () => {
+      this.showPlayerInfo(data.address);
+    });
+  }
+
+  setPlayerBubble(id, text) {
+    if (!otherPlayers[id]) return;
+    const p = otherPlayers[id];
+    if (p.bubble) p.bubble.destroy();
+    if (!text) return;
+
+    p.bubble = this.add.text(p.sprite.x, p.sprite.y - 34, text, {
+      fontSize: '9px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 2,
+      backgroundColor: 'rgba(22,33,62,0.85)',
+      padding: { x: 5, y: 3 }
+    }).setOrigin(0.5).setDepth(99999);
+  }
+
+  setSelfBubble(text) {
+    if (this.selfBubble) this.selfBubble.destroy();
+    this.selfBubble = null;
+    if (!text || !this.player) return;
+
+    this.selfBubble = this.add.text(this.player.x, this.player.y - 36, text, {
+      fontSize: '9px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 2,
+      backgroundColor: 'rgba(22,33,62,0.85)',
+      padding: { x: 5, y: 3 }
+    }).setOrigin(0.5).setDepth(99999);
+  }
+
+  addrToColor(addr) {
+    if (!addr || addr.length < 6) return 0xffffff;
+    const hex = addr.replace(/^0x/, '').substring(0, 6);
+    const r = parseInt(hex.substring(0, 2), 16) || 128;
+    const g = parseInt(hex.substring(2, 4), 16) || 128;
+    const b = parseInt(hex.substring(4, 6), 16) || 128;
+    // Brighten to avoid too dark
+    const br = Math.min(255, r + 80);
+    const bg = Math.min(255, g + 80);
+    const bb = Math.min(255, b + 80);
+    return (br << 16) | (bg << 8) | bb;
+  }
+
+  sendPosition() {
+    if (!socket) return;
+    const now = Date.now();
+    if (this._lastSend && now - this._lastSend < 100) return;
+    this._lastSend = now;
+
+    let dir = null;
+    if (this.player.body.velocity.x < 0) dir = 'left';
+    else if (this.player.body.velocity.x > 0) dir = 'right';
+    else if (this.player.body.velocity.y < 0) dir = 'up';
+    else if (this.player.body.velocity.y > 0) dir = 'down';
+
+    socket.emit('townMove', {
+      x: Math.round(this.player.x),
+      y: Math.round(this.player.y),
+      dir: dir,
+    });
+  }
+
+  updatePlayerCount(count) {
+    document.getElementById('player-count').textContent = count + ' online';
+  }
+
+  updateWalletDisplay() {
+    const addr = getActiveBtctAddr();
+    const el = document.getElementById('wallet-display');
+    if (addr) {
+      el.textContent = shortAddr(addr);
+      el.style.color = '#4ecca3';
+    } else {
+      el.textContent = 'No Wallet — Set in DEX first';
+      el.style.color = '#e94560';
+    }
+  }
+
+  // ---- Interactions ----
+  tryInteract() {
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2);
+
+    if (dist < TILE * 2) {
+      TownSounds.playInteract();
+      this.openBulletinBoard();
+      return;
+    }
+
+    // Check if near another player
+    for (const id in otherPlayers) {
+      const p = otherPlayers[id];
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, p.sprite.x, p.sprite.y);
+      if (d < TILE * 2) {
+        this.showPlayerInfo(p.address);
+        return;
+      }
+    }
+  }
+
+  async openBulletinBoard() {
+    panelOpen = true;
+    syncCurrentUser();
+    const panel = document.getElementById('interaction-panel');
+    const title = document.getElementById('panel-title');
+    const content = document.getElementById('panel-content');
+    panel.classList.remove('hidden');
+    title.textContent = 'Bulletin Board';
+
+    content.innerHTML = `
+      <div class="panel-tabs">
+        <button class="tab-btn active" id="tabListings" onclick="townSwitchTab('listings')">Listings</button>
+        <button class="tab-btn" id="tabMyTrades" onclick="townSwitchTab('myTrades')">My Trades</button>
+      </div>
+      <div id="tab-content"><div style="color:#888;text-align:center;padding:20px;">Loading...</div></div>
+    `;
+
+    townLoadListings();
+  }
+
+  showPlayerInfo(address) {
+    if (!address) return;
+    syncCurrentUser();
+    const modal = document.getElementById('trade-modal');
+    const title = document.getElementById('modal-title');
+    const content = document.getElementById('modal-content');
+
+    title.textContent = 'Player ' + shortAddr(address);
+    content.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <div style="color:#aaa;font-size:12px;">BTCT Address</div>
+        <div style="color:#4ecca3;font-size:13px;word-break:break-all;">0x${address.replace(/^0x/,'')}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="townShowPlayerAds('${address}')">View Listings</button>
+        <button class="btn btn-danger" onclick="closeModal()">Close</button>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+  }
+}
+
+// ======================== GLOBAL UI FUNCTIONS ========================
+
+function closePanel() {
+  panelOpen = false;
+  document.getElementById('interaction-panel').classList.add('hidden');
+}
+
+function closeModal() {
+  document.getElementById('trade-modal').classList.add('hidden');
+  currentTradeId = null;
+}
+
+// ======================== PANEL TAB SYSTEM ========================
+
+function townSwitchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (tab === 'listings') {
+    document.getElementById('tabListings').classList.add('active');
+    townLoadListings();
+  } else {
+    document.getElementById('tabMyTrades').classList.add('active');
+    townLoadMyTrades();
+  }
+}
+
+async function townLoadListings() {
+  const el = document.getElementById('tab-content');
+  if (!el) return;
+  el.innerHTML = '<div style="color:#888;text-align:center;padding:12px;">Loading...</div>';
+
+  try {
+    const ads = await api('/ads');
+
+    let html = `<button class="btn btn-primary btn-sm" onclick="townShowPostModal()" style="margin-bottom:10px;width:100%;">+ Post Listing</button>`;
+
+    if (!ads || ads.length === 0) {
+      html += '<div style="color:#888;text-align:center;padding:16px;">No listings yet</div>';
+    } else {
+      ads.forEach(ad => {
+        const typeClass = ad.type === 'sell' ? 'sell' : 'buy';
+        const typeLabel = ad.type === 'sell' ? 'SELLING BTCT' : 'BUYING BTCT';
+        const priceStr = parseFloat(ad.price).toFixed(4);
+        const minBtct = satToBTCT(ad.min_btct);
+        const maxBtct = satToBTCT(ad.remaining);
+        const isOwn = currentUser && ad.btct_address === currentUser.btctAddress;
+        html += `
+          <div class="listing-item ${isOwn ? 'own' : ''}" onclick="${isOwn ? `townCloseAd(${ad.id})` : `townShowTradeStart(${ad.id})`}">
+            <div class="listing-type ${typeClass}">${typeLabel}</div>
+            <div class="listing-price">1 BTCT = ${priceStr} DOGE</div>
+            <div class="listing-range">${minBtct} ~ ${maxBtct} BTCT</div>
+            <div class="listing-addr">${shortAddr(ad.btct_address)}${isOwn ? ' <span style="color:#f5c542;">(You)</span>' : ''}</div>
+          </div>`;
+      });
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:#e94560;padding:16px;">Error: ${e.message}</div>`;
+  }
+}
+
+async function townLoadMyTrades() {
+  const el = document.getElementById('tab-content');
+  if (!el) return;
+  if (!currentUser) {
+    el.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Connect wallet in DEX first</div>';
+    return;
+  }
+  el.innerHTML = '<div style="color:#888;text-align:center;padding:12px;">Loading...</div>';
+
+  try {
+    const trades = await api(`/trades?address=${currentUser.btctAddress}`);
+
+    if (!trades || trades.length === 0) {
+      el.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">No trades yet</div>';
+      return;
+    }
+
+    let html = '';
+    trades.forEach(t => {
+      const isSeller = currentUser.btctAddress.toLowerCase() === t.seller_address.toLowerCase();
+      const role = isSeller ? 'Seller' : 'Buyer';
+      const statusClass = t.status === 'completed' ? 'done' : t.status === 'cancelled' ? 'cancelled' : 'active';
+      html += `
+        <div class="listing-item" onclick="townShowTradeDetail(${t.id})">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:#f5c542;font-weight:bold;">Trade #${t.id}</span>
+            <span class="trade-badge ${statusClass}">${tradeStatusLabel(t.status)}</span>
+          </div>
+          <div style="color:#ccc;font-size:12px;margin-top:4px;">${satToBTCT(t.btct_amount)} BTCT ↔ ${satToDOGE(t.doge_amount)} DOGE</div>
+          <div style="color:#888;font-size:11px;">You: ${role} · ${shortAddr(isSeller ? t.buyer_address : t.seller_address)}</div>
+        </div>`;
+    });
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:#e94560;padding:16px;">Error: ${e.message}</div>`;
+  }
+}
+
+function tradeStatusLabel(status) {
+  const labels = {
+    negotiating: 'Negotiating', hash_published: 'Hash Published',
+    btct_locked: 'BTCT Locked', doge_locked: 'DOGE Locked',
+    seller_redeemed: 'Seller Redeemed', completed: 'Completed',
+    cancelled: 'Cancelled', expired: 'Expired'
+  };
+  return labels[status] || status;
+}
+
+// ======================== POST LISTING ========================
+
+function townShowPostModal() {
+  syncCurrentUser();
+  if (!currentUser) return alert('Set your wallet in DEX first (← DEX link)');
+
+  const modal = document.getElementById('trade-modal');
+  const title = document.getElementById('modal-title');
+  const content = document.getElementById('modal-content');
+
+  title.textContent = 'Post Listing';
+  content.innerHTML = `
+    <div class="form-group">
+      <label>Type</label>
+      <select id="townAdType">
+        <option value="sell">SELL BTCT (receive DOGE)</option>
+        <option value="buy">BUY BTCT (pay DOGE)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Price (DOGE per 1 BTCT)</label>
+      <input type="number" id="townAdPrice" step="0.0001" min="0.0001" placeholder="e.g. 0.5000">
+    </div>
+    <div class="form-group">
+      <label>Min BTCT</label>
+      <input type="number" id="townAdMin" step="0.00001" min="0.00001" placeholder="e.g. 1">
+    </div>
+    <div class="form-group">
+      <label>Max BTCT</label>
+      <input type="number" id="townAdMax" step="0.00001" min="0.00001" placeholder="e.g. 100">
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="townSubmitAd()">Post</button>
+      <button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+}
+
+async function townSubmitAd() {
+  if (!currentUser) return;
+  const type = document.getElementById('townAdType').value;
+  const price = document.getElementById('townAdPrice').value;
+  const minBtct = btctToSat(document.getElementById('townAdMin').value);
+  const maxBtct = btctToSat(document.getElementById('townAdMax').value);
+
+  if (!price || !minBtct || !maxBtct) return alert('Fill all fields');
+
+  try {
+    await api('/ads', {
+      body: { btctAddress: currentUser.btctAddress, type, price, minBtct, maxBtct }
+    });
+    closeModal();
+    townLoadListings();
+  } catch (e) { alert(e.message); }
+}
+
+async function townCloseAd(adId) {
+  if (!currentUser) return;
+  if (!confirm('Close this listing?')) return;
+  try {
+    await api(`/ads/${adId}/close`, { body: { btctAddress: currentUser.btctAddress } });
+    townLoadListings();
+  } catch (e) { alert(e.message); }
+}
+
+// ======================== TRADE START ========================
+
+async function townShowTradeStart(adId) {
+  syncCurrentUser();
+  if (!currentUser) return alert('Set your wallet in DEX first');
+
+  try {
+    const ads = await api('/ads');
+    pendingAd = ads.find(a => a.id === adId);
+    if (!pendingAd) return alert('Listing not found');
+
+    const modal = document.getElementById('trade-modal');
+    const title = document.getElementById('modal-title');
+    const content = document.getElementById('modal-content');
+
+    const typeLabel = pendingAd.type === 'sell' ? 'SELLING BTCT' : 'BUYING BTCT';
+    const typeClass = pendingAd.type === 'sell' ? 'sell' : 'buy';
+
+    title.textContent = 'Start Trade';
+    content.innerHTML = `
+      <div class="info-box">
+        <span class="listing-type ${typeClass}" style="font-size:14px;">${typeLabel}</span>
+        <div style="margin-top:6px;color:#f5c542;font-size:15px;font-weight:bold;">1 BTCT = ${Number(pendingAd.price).toFixed(4)} DOGE</div>
+        <div style="color:#aaa;font-size:12px;margin-top:4px;">Range: ${satToBTCT(pendingAd.min_btct)} – ${satToBTCT(pendingAd.remaining)} BTCT</div>
+        <div style="color:#666;font-size:11px;margin-top:2px;">Seller: ${shortAddr(pendingAd.btct_address)}</div>
+      </div>
+      <div class="form-group">
+        <label>BTCT Amount</label>
+        <input type="number" id="townTradeAmount" step="0.00001" min="0.00001" placeholder="Enter BTCT amount" oninput="townCalcTrade()">
+      </div>
+      <div id="townTradeSummary" style="color:#ccc;font-size:13px;min-height:20px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="townSubmitTrade()">Start Atomic Swap</button>
+        <button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+      </div>
+      <div style="color:#666;font-size:11px;margin-top:8px;text-align:center;">Trustless HTLC — no middleman needed</div>
+    `;
+    modal.classList.remove('hidden');
+  } catch (e) { alert(e.message); }
+}
+
+function townCalcTrade() {
+  const amt = Number(document.getElementById('townTradeAmount').value);
+  const el = document.getElementById('townTradeSummary');
+  if (!pendingAd || amt <= 0) { el.innerHTML = ''; return; }
+  const dogeAmt = amt * Number(pendingAd.price);
+  el.innerHTML = `<strong style="color:#4ecca3;">${amt.toFixed(5)} BTCT</strong> ↔ <strong style="color:#f5c542;">${dogeAmt.toFixed(4)} DOGE</strong>`;
+}
+
+async function townSubmitTrade() {
+  if (!currentUser || !pendingAd) return;
+  const amount = Number(document.getElementById('townTradeAmount').value);
+  if (amount <= 0) return alert('Enter a valid amount');
+
+  try {
+    const trade = await api('/trades', {
+      body: { adId: pendingAd.id, buyerAddress: currentUser.btctAddress, btctAmount: btctToSat(amount) }
+    });
+    pendingAd = null;
+    townShowTradeDetail(trade.id);
+  } catch (e) { alert(e.message); }
+}
+
+// ======================== TRADE DETAIL (HTLC 5-Step) ========================
+
+async function townShowTradeDetail(tradeId) {
+  syncCurrentUser();
+  const modal = document.getElementById('trade-modal');
+  const title = document.getElementById('modal-title');
+  const content = document.getElementById('modal-content');
+
+  currentTradeId = tradeId;
+  socket.emit('joinTrade', tradeId);
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    const isSeller = currentUser && currentUser.btctAddress.toLowerCase() === trade.seller_address.toLowerCase();
+    const isBuyer = currentUser && currentUser.btctAddress.toLowerCase() === trade.buyer_address.toLowerCase();
+
+    const steps = ['Hash Published', 'BTCT Locked', 'DOGE Sent', 'Seller Redeems', 'Buyer Redeems'];
+    const stepStates = townGetStepStates(trade.status);
+
+    title.textContent = `Trade #${trade.id}`;
+
+    let html = `
+      <div class="info-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong style="color:#4ecca3;">${satToBTCT(trade.btct_amount)} BTCT</strong>
+          <span>↔</span>
+          <strong style="color:#f5c542;">${satToDOGE(trade.doge_amount)} DOGE</strong>
+        </div>
+        <div style="color:#888;font-size:11px;margin-top:4px;">
+          Seller: ${shortAddr(trade.seller_address)} · Buyer: ${shortAddr(trade.buyer_address)}
+        </div>
+      </div>
+
+      <div class="swap-steps">
+        ${steps.map((s, i) => `<div class="swap-step ${stepStates[i]}"><span class="step-num">${i + 1}</span>${s}</div>`).join('')}
+      </div>
+
+      ${townGetActionHTML(trade, isSeller, isBuyer)}
+
+      ${trade.status === 'completed' ? `
+        <div class="info-box" style="border-color:#4ecca3;color:#4ecca3;">
+          ✓ Atomic swap completed!
+          ${trade.btct_redeem_tx ? `<br><span style="font-size:11px;">BTCT TX: ${trade.btct_redeem_tx}</span>` : ''}
+        </div>` : ''}
+
+      ${['negotiating', 'hash_published'].includes(trade.status) ? `
+        <button class="btn btn-danger btn-sm" style="margin-top:12px;width:100%;" onclick="townCancelTrade(${trade.id})">Cancel Trade</button>` : ''}
+
+      <!-- Chat -->
+      <div style="margin-top:16px;border-top:1px solid #0f3460;padding-top:12px;">
+        <div style="font-weight:bold;color:#f5c542;font-size:13px;margin-bottom:8px;">Chat</div>
+        <div id="townChatMessages" style="max-height:120px;overflow-y:auto;background:#0a0a1a;border-radius:4px;padding:8px;font-size:12px;margin-bottom:8px;min-height:40px;"></div>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="townChatInput" placeholder="Type..." maxlength="500" style="flex:1;padding:6px 8px;background:#1a1a3e;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;font-size:12px;" onkeypress="if(event.key==='Enter')townSendChat()">
+          <button class="btn btn-sm btn-primary" onclick="townSendChat()">Send</button>
+        </div>
+      </div>
+
+      <button class="btn btn-sm" style="margin-top:12px;width:100%;background:#333;color:#aaa;" onclick="closeModal()">Close</button>
+    `;
+
+    content.innerHTML = html;
+    modal.classList.remove('hidden');
+
+    // Load chat messages
+    townLoadChat(tradeId);
+
+  } catch (e) {
+    title.textContent = 'Error';
+    content.innerHTML = `<div style="color:#e94560;padding:16px;">${e.message}</div><button class="btn btn-sm" onclick="closeModal()">Close</button>`;
+    modal.classList.remove('hidden');
+  }
+}
+
+function townGetStepStates(status) {
+  const order = ['hash_published', 'btct_locked', 'doge_locked', 'seller_redeemed', 'completed'];
+  const idx = order.indexOf(status);
+  return order.map((_, i) => {
+    if (status === 'negotiating') return i === 0 ? 'active' : '';
+    if (status === 'cancelled' || status === 'expired') return '';
+    if (i < idx) return 'done';
+    if (i === idx) return 'active';
+    return '';
+  });
+}
+
+function townGetActionHTML(trade, isSeller, isBuyer) {
+  if (['completed', 'cancelled', 'expired'].includes(trade.status)) return '';
+
+  // Step 1: Seller publishes hash
+  if (trade.status === 'negotiating' && isSeller) {
+    const hasDogeWallet = currentUser && currentUser.dogeAddress;
+    return `<div class="action-box"><h4>Step 1: Generate Secret & Publish Hash</h4>
+      <p style="font-size:12px;color:#aaa;">Generate a cryptographic secret. Its hash locks both sides.</p>
+      ${!hasDogeWallet ? '<p style="font-size:11px;color:#e74c3c;">⚠ DOGE wallet required — add one in DEX first</p>' : ''}
+      <button class="btn btn-primary" style="width:100%;" onclick="townPublishHash(${trade.id})" ${!hasDogeWallet ? 'disabled' : ''}>Generate Secret & Publish Hash</button></div>`;
+  }
+  if (trade.status === 'negotiating' && isBuyer) {
+    return `<div class="action-box"><h4>Waiting for seller...</h4><p style="font-size:12px;color:#aaa;">Seller needs to generate secret & publish hash.</p></div>`;
+  }
+
+  // Step 2: Seller locks BTCT
+  if (trade.status === 'hash_published' && isSeller) {
+    return `<div class="action-box"><h4>Step 2: Lock BTCT in HTLC</h4>
+      <p style="font-size:12px;color:#aaa;">Lock ${satToBTCT(trade.btct_amount)} BTCT in HTLC contract.</p>
+      <p style="font-size:11px;color:#666;">Hash: ${trade.hash_lock}</p>
+      <button class="btn btn-primary" style="width:100%;" onclick="townLockBTCT(${trade.id})">Lock BTCT</button></div>`;
+  }
+  if (trade.status === 'hash_published' && isBuyer) {
+    return `<div class="action-box"><h4>Waiting for BTCT lock...</h4><p style="font-size:11px;color:#888;">Hash: ${trade.hash_lock}</p></div>`;
+  }
+
+  // Step 3: Buyer locks DOGE in P2SH HTLC
+  if (trade.status === 'btct_locked' && isBuyer) {
+    return `<div class="action-box"><h4>Step 3: Lock DOGE in HTLC</h4>
+      <p style="font-size:12px;color:#aaa;">Lock ${satToDOGE(trade.doge_amount)} DOGE in P2SH HTLC. Seller claims by revealing secret.</p>
+      <p style="font-size:11px;color:#666;">Seller DOGE: ${trade.seller_doge_address || 'N/A'}</p>
+      <button class="btn btn-primary" style="width:100%;background:#27ae60;" onclick="townSendDoge(${trade.id})">Lock ${satToDOGE(trade.doge_amount)} DOGE in HTLC</button></div>`;
+  }
+  if (trade.status === 'btct_locked' && isSeller) {
+    return `<div class="action-box"><h4>Waiting for DOGE HTLC...</h4>
+      <p style="font-size:11px;color:#888;">HTLC: 0x${trade.btct_htlc_address}</p></div>`;
+  }
+
+  // Step 4: Seller redeems DOGE from P2SH (reveals secret)
+  if (trade.status === 'doge_locked' && isSeller) {
+    const secret = localStorage.getItem(`dex_secret_${trade.id}`);
+    return `<div class="action-box"><h4>Step 4: Redeem DOGE from HTLC</h4>
+      <p style="font-size:12px;color:#aaa;">Claim DOGE by revealing your secret. Buyer can then claim BTCT.</p>
+      <p style="font-size:11px;color:#666;">DOGE HTLC: ${trade.doge_htlc_address || 'N/A'}</p>
+      <p style="font-size:11px;color:#666;">Secret: ${secret || 'NOT FOUND!'}</p>
+      <button class="btn btn-primary" style="width:100%;background:#27ae60;" onclick="townSellerRedeem(${trade.id})">Reveal Secret & Redeem DOGE</button></div>`;
+  }
+  if (trade.status === 'doge_locked' && isBuyer) {
+    const timedOut = trade.doge_timeout && DogeHTLC.isTimedOut(trade.doge_timeout);
+    const timeStr = trade.doge_timeout ? DogeHTLC.formatTimeRemaining(trade.doge_timeout) : '';
+    return `<div class="action-box"><h4>Waiting for seller to redeem...</h4>
+      <p style="font-size:12px;color:#aaa;">Secret will be revealed soon. Timeout: ${timeStr}</p>
+      ${timedOut ? `<button class="btn btn-primary" style="width:100%;background:#e74c3c;" onclick="townRefundDoge(${trade.id})">Refund DOGE (Timeout)</button>` : ''}
+    </div>`;
+  }
+
+  // Step 5: Buyer redeems BTCT
+  if (trade.status === 'seller_redeemed' && isBuyer) {
+    return `<div class="action-box"><h4>Step 5: Redeem BTCT</h4>
+      <p style="font-size:12px;color:#4ecca3;">Secret revealed! Claim your BTCT from HTLC.</p>
+      <p style="font-size:11px;color:#666;">Secret: ${trade.secret_revealed}</p>
+      <button class="btn btn-primary" style="width:100%;background:#27ae60;" onclick="townBuyerRedeem(${trade.id})">Redeem BTCT</button></div>`;
+  }
+  if (trade.status === 'seller_redeemed' && isSeller) {
+    return `<div class="action-box"><h4>Waiting for buyer...</h4><p style="color:#4ecca3;font-size:12px;">✓ You've claimed your DOGE!</p></div>`;
+  }
+
+  return '';
+}
+
+// ======================== HTLC ACTIONS ========================
+
+// Step 1: Publish Hash
+async function townPublishHash(tradeId) {
+  if (!currentUser) return;
+  if (!currentUser.dogeAddress) return alert('DOGE wallet required. Add one in DEX Wallet tab first.');
+  await ensureKrypton();
+
+  try {
+    const secretBytes = Krypton.PrivateKey.generate().serialize();
+    const secretHex = Krypton.BufferUtils.toHex(secretBytes);
+    const hashBytes = await Krypton.Hash.computeSha256(secretBytes);
+    const hashHex = Krypton.BufferUtils.toHex(hashBytes);
+
+    localStorage.setItem(`dex_secret_${tradeId}`, secretHex);
+
+    await api(`/trades/${tradeId}/hash`, {
+      body: {
+        sellerAddress: currentUser.btctAddress,
+        hashLock: hashHex,
+        sellerDogeAddress: currentUser.dogeAddress
+      }
+    });
+
+    alert('✓ Hash published!\n\nSECRET (backup!): ' + secretHex);
+    socket.emit('tradeUpdate', { tradeId, status: 'hash_published' });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+// Step 2: Lock BTCT in HTLC
+async function townLockBTCT(tradeId) {
+  if (!currentUser || !currentUser.btctKey) return alert('BTCT wallet key not found');
+  await ensureKrypton();
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    const blockHeight = (await api('/btct/block')).height;
+
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(currentUser.btctKey));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const senderAddr = keyPair.publicKey.toAddress();
+
+    const htlcSender = senderAddr;
+    const htlcRecipient = Krypton.Address.fromHex(trade.buyer_address);
+    const hashAlgo = Krypton.Hash.Algorithm.SHA256;
+    const hashRoot = Krypton.BufferUtils.fromHex(trade.hash_lock);
+    const hashCount = 1;
+    const timeout = blockHeight + 1440;
+
+    const bufSize = htlcSender.serializedSize + htlcRecipient.serializedSize + 1 + hashRoot.byteLength + 1 + 4;
+    const data = new Krypton.SerialBuffer(bufSize);
+    htlcSender.serialize(data);
+    htlcRecipient.serialize(data);
+    data.writeUint8(hashAlgo);
+    data.write(hashRoot);
+    data.writeUint8(hashCount);
+    data.writeUint32(timeout);
+
+    const value = Number(trade.btct_amount);
+    const tx = new Krypton.ExtendedTransaction(
+      senderAddr, Krypton.Account.Type.BASIC,
+      Krypton.Address.CONTRACT_CREATION, Krypton.Account.Type.HTLC,
+      value, blockHeight + 1,
+      Krypton.Transaction.Flag.CONTRACT_CREATION, data
+    );
+
+    const signature = Krypton.Signature.create(keyPair.privateKey, keyPair.publicKey, tx.serializeContent());
+    tx.proof = Krypton.SignatureProof.singleSig(keyPair.publicKey, signature).serialize();
+
+    const htlcAddress = tx.getContractCreationAddress();
+    const txHex = Krypton.BufferUtils.toHex(tx.serialize());
+    const result = await api('/btct/broadcast', { body: { txHex } });
+
+    await api(`/trades/${tradeId}/btct-locked`, {
+      body: { sellerAddress: currentUser.btctAddress, htlcTx: result.hash, htlcAddress: htlcAddress.toHex(), timeout }
+    });
+
+    alert('✓ BTCT locked in HTLC!\nContract: 0x' + htlcAddress.toHex());
+    socket.emit('tradeUpdate', { tradeId, status: 'btct_locked' });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('HTLC creation failed: ' + e.message); console.error(e); }
+}
+
+// Step 3: Lock DOGE in HTLC P2SH
+async function townSendDoge(tradeId) {
+  if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet not connected. Set it in DEX first.');
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    const dogeAmountSat = Number(trade.doge_amount);
+    const sellerDogeAddr = trade.seller_doge_address;
+    const buyerDogeAddr = currentUser.dogeAddress;
+
+    if (!sellerDogeAddr) return alert('Seller DOGE address not found');
+    if (!buyerDogeAddr) return alert('Your DOGE address not found');
+
+    // Create HTLC P2SH
+    const locktime = DogeHTLC.getDefaultLocktime();
+    const htlc = DogeHTLC.createHTLC(trade.hash_lock, sellerDogeAddr, buyerDogeAddr, locktime);
+
+    if (!confirm(`Lock ${satToDOGE(dogeAmountSat)} DOGE in HTLC P2SH?\n\nP2SH: ${htlc.p2shAddress}\nTimeout: ${new Date(locktime * 1000).toLocaleString()}\nFee: 0.01 DOGE`)) return;
+
+    const utxos = await api(`/doge/utxos/${buyerDogeAddr}`);
+    const rawTx = DogeHTLC.buildFundingTx(currentUser.dogeKey, htlc.p2shAddress, dogeAmountSat, utxos);
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    // Save HTLC info locally
+    localStorage.setItem(`doge_htlc_${tradeId}`, JSON.stringify({
+      redeemScriptHex: htlc.redeemScriptHex, p2shAddress: htlc.p2shAddress, locktime, amountSat: dogeAmountSat
+    }));
+
+    await api(`/trades/${tradeId}/doge-locked`, {
+      body: {
+        buyerAddress: currentUser.btctAddress, htlcTx: result.txid, htlcAddress: htlc.p2shAddress,
+        timeout: locktime, buyerDogeAddress: buyerDogeAddr, dogeRedeemScript: htlc.redeemScriptHex
+      }
+    });
+
+    alert('✓ DOGE locked in HTLC P2SH!\nTX: ' + result.txid);
+    socket.emit('tradeUpdate', { tradeId, status: 'doge_locked' });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('DOGE HTLC failed: ' + e.message); console.error(e); }
+}
+
+// Step 4: Seller redeems DOGE from P2SH (reveals secret)
+async function townSellerRedeem(tradeId) {
+  if (!currentUser) return;
+  if (!currentUser.dogeKey) return alert('DOGE wallet required to redeem');
+
+  const secret = localStorage.getItem(`dex_secret_${tradeId}`);
+  if (!secret) return alert('Secret not found! Check localStorage.');
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    if (!trade.doge_redeem_script || !trade.doge_htlc_address) return alert('DOGE HTLC data not found');
+
+    const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
+    if (!utxos || utxos.length === 0) return alert('No DOGE in HTLC P2SH. Wait for confirmation.');
+
+    const rawTx = DogeHTLC.buildRedeemTx(currentUser.dogeKey, trade.doge_redeem_script, secret, utxos);
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    await api(`/trades/${tradeId}/seller-redeemed`, {
+      body: { sellerAddress: currentUser.btctAddress, redeemTx: result.txid, secret }
+    });
+
+    alert('✓ DOGE redeemed! TX: ' + result.txid);
+    socket.emit('tradeUpdate', { tradeId, status: 'seller_redeemed', detail: { secret } });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('DOGE redeem failed: ' + e.message); console.error(e); }
+}
+
+// DOGE HTLC Refund (buyer reclaims after timeout)
+async function townRefundDoge(tradeId) {
+  if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet required');
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    if (!trade.doge_redeem_script || !trade.doge_htlc_address) return alert('DOGE HTLC data not found');
+    if (!DogeHTLC.isTimedOut(trade.doge_timeout)) {
+      return alert('Timeout not expired. Remaining: ' + DogeHTLC.formatTimeRemaining(trade.doge_timeout));
+    }
+
+    const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
+    if (!utxos || utxos.length === 0) return alert('No DOGE in HTLC (already claimed or refunded)');
+
+    const rawTx = DogeHTLC.buildRefundTx(currentUser.dogeKey, trade.doge_redeem_script, trade.doge_timeout, utxos);
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    alert('✓ DOGE refunded! TX: ' + result.txid);
+    await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+    socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('DOGE refund failed: ' + e.message); console.error(e); }
+}
+
+// Step 5: Buyer redeems BTCT
+async function townBuyerRedeem(tradeId) {
+  if (!currentUser || !currentUser.btctKey) return alert('BTCT wallet key not found');
+  await ensureKrypton();
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    if (!trade.secret_revealed) return alert('Secret not yet revealed');
+
+    const blockHeight = (await api('/btct/block')).height;
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(currentUser.btctKey));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const recipientAddr = keyPair.publicKey.toAddress();
+
+    const htlcAddr = trade.btct_htlc_address;
+    const htlcAccount = await api(`/btct/account/${htlcAddr}`);
+    const htlcBalance = Number(htlcAccount.balance);
+    if (htlcBalance <= 0) return alert('HTLC balance is 0');
+
+    const htlcAddress = Krypton.Address.fromHex(htlcAddr);
+    const tx = new Krypton.ExtendedTransaction(
+      htlcAddress, Krypton.Account.Type.HTLC,
+      recipientAddr, Krypton.Account.Type.BASIC,
+      htlcBalance, blockHeight + 1,
+      Krypton.Transaction.Flag.NONE, new Uint8Array(0)
+    );
+
+    const hashSize = 32;
+    const secretBytes = Krypton.BufferUtils.fromHex(trade.secret_revealed);
+    const hashRoot = Krypton.BufferUtils.fromHex(trade.hash_lock);
+
+    const signature = Krypton.Signature.create(keyPair.privateKey, keyPair.publicKey, tx.serializeContent());
+    const sigProof = Krypton.SignatureProof.singleSig(keyPair.publicKey, signature).serialize();
+
+    const proof = new Krypton.SerialBuffer(1 + 1 + 1 + hashSize + hashSize + sigProof.byteLength);
+    proof.writeUint8(Krypton.HashedTimeLockedContract.ProofType.REGULAR_TRANSFER);
+    proof.writeUint8(Krypton.Hash.Algorithm.SHA256);
+    proof.writeUint8(1);
+    proof.write(hashRoot);
+    proof.write(secretBytes);
+    proof.write(sigProof);
+    tx.proof = proof;
+
+    const txHex = Krypton.BufferUtils.toHex(tx.serialize());
+    const result = await api('/btct/broadcast', { body: { txHex } });
+
+    await api(`/trades/${tradeId}/buyer-redeemed`, {
+      body: { buyerAddress: currentUser.btctAddress, redeemTx: result.hash }
+    });
+
+    alert('✓ BTCT redeemed! Trade complete!\nTX: ' + result.hash);
+    socket.emit('tradeUpdate', { tradeId, status: 'completed' });
+    townShowTradeDetail(tradeId);
+  } catch (e) { alert('BTCT redeem failed: ' + e.message); console.error(e); }
+}
+
+async function townCancelTrade(tradeId) {
+  if (!currentUser) return;
+  if (!confirm('Cancel this trade?')) return;
+  try {
+    await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+    closeModal();
+    townLoadMyTrades();
+  } catch (e) { alert(e.message); }
+}
+
+// ======================== CHAT ========================
+
+async function townLoadChat(tradeId) {
+  try {
+    const msgs = await api(`/trades/${tradeId}/messages`);
+    const el = document.getElementById('townChatMessages');
+    if (!el) return;
+    el.innerHTML = msgs.map(m => {
+      const t = new Date(m.created_at).toLocaleTimeString();
+      return `<div style="margin-bottom:6px;"><span style="color:#4ecca3;font-size:11px;">${shortAddr(m.sender_address)}</span> <span style="color:#555;font-size:10px;">${t}</span><br><span style="color:#ccc;">${escapeHtml(m.content)}</span></div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch {}
+}
+
+function townSendChat() {
+  const input = document.getElementById('townChatInput');
+  if (!input || !currentUser || !currentTradeId) return;
+  const content = input.value.trim();
+  if (!content) return;
+
+  socket.emit('chatMessage', {
+    tradeId: currentTradeId,
+    senderAddress: currentUser.btctAddress,
+    content
+  });
+  input.value = '';
+}
+
+// Show a specific player's active listings
+async function townShowPlayerAds(address) {
+  const modal = document.getElementById('trade-modal');
+  const title = document.getElementById('modal-title');
+  const content = document.getElementById('modal-content');
+
+  title.textContent = 'Player Listings';
+  content.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Loading...</div>';
+
+  try {
+    const allAds = await api('/ads');
+    const addr = address.replace(/^0x/, '').toLowerCase();
+    const playerAds = allAds.filter(a => a.btct_address === addr);
+
+    if (playerAds.length === 0) {
+      content.innerHTML = `<div style="color:#888;text-align:center;padding:20px;">No active listings from this player.</div>
+        <button class="btn btn-sm" style="width:100%;background:#333;color:#aaa;" onclick="closeModal()">Close</button>`;
+      return;
+    }
+
+    let html = '';
+    playerAds.forEach(ad => {
+      const typeClass = ad.type === 'sell' ? 'sell' : 'buy';
+      const typeLabel = ad.type === 'sell' ? 'SELLING BTCT' : 'BUYING BTCT';
+      html += `
+        <div class="listing-item" onclick="townShowTradeStart(${ad.id})">
+          <div class="listing-type ${typeClass}">${typeLabel}</div>
+          <div class="listing-price">1 BTCT = ${parseFloat(ad.price).toFixed(4)} DOGE</div>
+          <div class="listing-range">${satToBTCT(ad.min_btct)} ~ ${satToBTCT(ad.remaining)} BTCT</div>
+        </div>`;
+    });
+    html += `<button class="btn btn-sm" style="width:100%;background:#333;color:#aaa;margin-top:8px;" onclick="closeModal()">Close</button>`;
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = `<div style="color:#e94560;padding:16px;">${e.message}</div>`;
+  }
+}
+
+// ======================== TOWN DISCLAIMER ========================
+
+function checkTownDisclaimer() {
+  if (localStorage.getItem('btct_town_disclaimer_accepted')) {
+    document.getElementById('townDisclaimerModal').style.display = 'none';
+    return true;
+  }
+  document.getElementById('townDisclaimerModal').style.display = 'flex';
+  return false;
+}
+
+function toggleTownDisclaimer() {
+  const btn = document.getElementById('townDisclaimerEnterBtn');
+  btn.disabled = !document.getElementById('townDisclaimerCheck').checked;
+}
+
+function acceptTownDisclaimer() {
+  localStorage.setItem('btct_town_disclaimer_accepted', 'true');
+  document.getElementById('townDisclaimerModal').style.display = 'none';
+}
+
+// Check on page load
+if (!localStorage.getItem('btct_town_disclaimer_accepted')) {
+  // Show disclaimer — game still loads behind it
+}
+
+// ======================== PHASER CONFIG ========================
+
+const config = {
+  type: Phaser.AUTO,
+  width: window.innerWidth,
+  height: window.innerHeight - 44,
+  parent: 'game-container',
+  pixelArt: true,
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
+  scene: [BootScene, TownScene],
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  backgroundColor: '#0a0a1a'
+};
+
+const game = new Phaser.Game(config);
+
+// Handle resize
+window.addEventListener('resize', () => {
+  game.scale.resize(window.innerWidth, window.innerHeight - 44);
+});
+
+// ======================== MOBILE CONTROLS ========================
+
+function setupMobileControls() {
+  const controls = document.getElementById('mobile-controls');
+  if (!controls) return;
+  controls.style.display = 'block';
+
+  // Hide desktop help
+  const help = document.getElementById('controls-help');
+  if (help) help.style.display = 'none';
+
+  const base = document.getElementById('joystick-base');
+  const stick = document.getElementById('joystick-stick');
+  const actBtn = document.getElementById('mobile-action-btn');
+
+  let joyTouchId = null;
+
+  base.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    joyTouchId = e.changedTouches[0].identifier;
+    moveStick(e.changedTouches[0]);
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (joyTouchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joyTouchId) {
+        e.preventDefault();
+        moveStick(e.changedTouches[i]);
+        break;
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joyTouchId) {
+        joyTouchId = null;
+        mobileInput.x = 0;
+        mobileInput.y = 0;
+        stick.style.transform = 'translate(-50%, -50%)';
+        break;
+      }
+    }
+  });
+
+  document.addEventListener('touchcancel', (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joyTouchId) {
+        joyTouchId = null;
+        mobileInput.x = 0;
+        mobileInput.y = 0;
+        stick.style.transform = 'translate(-50%, -50%)';
+        break;
+      }
+    }
+  });
+
+  function moveStick(touch) {
+    const rect = base.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = touch.clientX - cx;
+    const dy = touch.clientY - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxR = rect.width / 2;
+
+    let sx = dx, sy = dy;
+    if (dist > maxR) {
+      sx = (dx / dist) * maxR;
+      sy = (dy / dist) * maxR;
+    }
+
+    stick.style.transform = `translate(calc(-50% + ${sx}px), calc(-50% + ${sy}px))`;
+
+    const deadzone = 0.25;
+    const norm = Math.min(dist / maxR, 1);
+    if (norm > deadzone) {
+      mobileInput.x = dx / dist;
+      mobileInput.y = dy / dist;
+    } else {
+      mobileInput.x = 0;
+      mobileInput.y = 0;
+    }
+  }
+
+  // Action button
+  actBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    actBtn.classList.add('active');
+    if (townScene) {
+      TownSounds.playInteract();
+      townScene.tryInteract();
+    }
+  }, { passive: false });
+
+  actBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    actBtn.classList.remove('active');
+  }, { passive: false });
+}
+
+// Auto-init mobile controls
+if (isMobile()) {
+  setupMobileControls();
+}

@@ -73,6 +73,11 @@ async function initDB() {
       )
     `);
 
+    // DOGE HTLC P2SH columns (added for true atomic swap)
+    await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS seller_doge_address VARCHAR(50)`);
+    await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS buyer_doge_address VARCHAR(50)`);
+    await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS doge_redeem_script TEXT`);
+
     console.log('[DB] Tables initialized');
   } catch (err) {
     console.error('[DB] Init error:', err.message);

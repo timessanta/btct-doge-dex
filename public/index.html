@@ -16,6 +16,7 @@
       <a class="nav-link" onclick="navigateTo('myAds')">My Listings</a>
       <a class="nav-link" onclick="navigateTo('myTrades')">Swap History</a>
       <a class="nav-link" onclick="navigateTo('wallet')">Wallet</a>
+      <a class="nav-link" href="/town" style="color:#f5c542;">🏘 Town</a>
     </nav>
     <div class="header-right">
       <span id="userInfo"></span>
@@ -40,7 +41,8 @@
           <li>Users are solely responsible for complying with applicable laws and regulations in their jurisdiction.</li>
           <li>By using this platform, you acknowledge that you understand how atomic swaps and HTLC contracts work.</li>
         </ul>
-        <p class="warning-text">⚠ If a swap fails due to timeout, BTCT locked in HTLC will be automatically refunded to the sender after the timeout period. However, DOGE sent directly cannot be reversed.</p>
+        <p class="warning-text">⚠ If a swap fails due to timeout, both BTCT and DOGE locked in HTLC contracts will be automatically refundable to the sender after their respective timeout periods. Ensure you understand how HTLC atomic swaps work before trading.</p>
+        <p style="font-size:12px;margin-top:12px;"><a href="/privacy" target="_blank" style="color:#4ecca3;">Privacy Policy</a></p>
       </div>
       <label class="disclaimer-checkbox">
         <input type="checkbox" id="disclaimerCheck" onchange="toggleDisclaimerBtn()">
@@ -99,6 +101,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="krypton-offline.js"></script>
   <script src="bitcore-doge.js"></script>
-  <script src="app.js?v=20260218b"></script>
+  <script src="doge-htlc.js"></script>
+  <script src="app.js?v=20260219a"></script>
 </body>
 </html>

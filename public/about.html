@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTCT/DOGE DEX — Decentralized Atomic Swap Exchange</title>
+  <meta name="description" content="Trade BTCT and DOGE directly from your browser with HTLC atomic swaps. No signup, no custody, no middleman. Open source.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a1a;
+      --card: #16213e;
+      --border: #0f3460;
+      --accent: #4ecca3;
+      --gold: #f5c542;
+      --red: #e94560;
+      --text: #e0e0e0;
+      --muted: #888;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 20px 60px;
+      background: linear-gradient(180deg, #0f3460 0%, var(--bg) 100%);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(78,204,163,0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 800;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(15px, 2.5vw, 19px);
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .btn-primary { background: var(--accent); color: #0a0a1a; }
+    .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--accent); }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      padding: 40px 20px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--gold);
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Section */
+    section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 60px 20px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: clamp(22px, 4vw, 32px);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 40px;
+      font-size: 15px;
+    }
+
+    /* Features Grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+    }
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 14px;
+    }
+    .feature-card h3 {
+      font-size: 17px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* How it works */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      position: relative;
+      padding-bottom: 32px;
+    }
+    .step:last-child { padding-bottom: 0; }
+    .step-num {
+      min-width: 40px;
+      height: 40px;
+      background: var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--accent);
+      position: relative;
+      z-index: 1;
+    }
+    .step:not(:last-child) .step-num::after {
+      content: '';
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: calc(100% + 32px - 40px);
+      background: var(--border);
+    }
+    .step-content h4 {
+      font-size: 15px;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .step-content p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Unique Section */
+    .unique-banner {
+      background: linear-gradient(135deg, rgba(15,52,96,0.6) 0%, rgba(233,69,96,0.1) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .unique-banner h3 {
+      font-size: 22px;
+      margin-bottom: 12px;
+      color: var(--gold);
+    }
+    .unique-banner p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .unique-tags {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .tag {
+      background: rgba(78,204,163,0.12);
+      border: 1px solid rgba(78,204,163,0.25);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Tech */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .tech-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    .tech-item .emoji { font-size: 28px; margin-bottom: 8px; }
+    .tech-item h4 { font-size: 14px; color: #fff; margin-bottom: 4px; }
+    .tech-item p { font-size: 12px; color: var(--muted); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    footer a { color: var(--accent); }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .hero { padding: 50px 16px 36px; }
+      .hero p { font-size: 14px; margin-bottom: 24px; }
+      .hero-buttons { flex-direction: column; align-items: center; gap: 10px; }
+      .hero-buttons .btn { width: 100%; max-width: 260px; justify-content: center; padding: 12px 16px; font-size: 14px; }
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px 12px;
+        padding: 32px 24px;
+        max-width: 320px;
+        margin: 0 auto;
+      }
+      .stat-value { font-size: 22px; }
+      .stat-label { font-size: 11px; }
+      section { padding: 36px 16px; }
+      .section-title { font-size: 20px; margin-bottom: 8px; }
+      .section-sub { font-size: 13px; margin-bottom: 28px; }
+      .features { grid-template-columns: 1fr; gap: 12px; }
+      .feature-card { padding: 20px 18px; }
+      .feature-icon { font-size: 26px; margin-bottom: 10px; }
+      .feature-card h3 { font-size: 15px; }
+      .feature-card p { font-size: 13px; }
+      .step { gap: 14px; padding-bottom: 24px; }
+      .step-num { min-width: 34px; height: 34px; font-size: 14px; }
+      .step:not(:last-child) .step-num::after { top: 34px; height: calc(100% + 24px - 34px); }
+      .step-content h4 { font-size: 14px; }
+      .step-content p { font-size: 12px; }
+      .unique-banner { padding: 28px 20px; border-radius: 12px; }
+      .unique-banner h3 { font-size: 18px; }
+      .unique-banner p { font-size: 13px; }
+      .unique-tags { gap: 6px; }
+      .tag { font-size: 11px; padding: 3px 10px; }
+      .tech-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .tech-item { padding: 16px 12px; }
+      .tech-item .emoji { font-size: 24px; }
+      .tech-item h4 { font-size: 12px; }
+      .tech-item p { font-size: 11px; }
+      footer { padding: 28px 16px; }
+      .footer-links { gap: 14px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">Open Source · MIT License</div>
+    <h1>BTCT/DOGE DEX</h1>
+    <p>Trade Bitcoin Time and Dogecoin directly — no accounts, no custody, no middleman. Powered by HTLC atomic swaps.</p>
+    <div class="hero-buttons">
+      <a href="/" class="btn btn-primary">🚀 Launch DEX</a>
+      <a href="/town" class="btn btn-outline">🏘️ Enter BTCT Town</a>
+      <a href="https://github.com/timessanta/btct-doge-dex" target="_blank" class="btn btn-outline">⭐ GitHub</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Private Keys Stored</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">100%</div>
+      <div class="stat-label">Client-Side Signing</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">5-Step</div>
+      <div class="stat-label">Atomic Swap</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">MIT</div>
+      <div class="stat-label">Open Source</div>
+    </div>
+  </div>
+
+  <!-- Core Features -->
+  <section>
+    <h2 class="section-title">Core Features</h2>
+    <p class="section-sub">Everything you need for trustless cross-chain trading</p>
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h3>Non-Custodial</h3>
+        <p>The server never holds, accesses, or stores private keys. All signing happens in your browser. Your keys, your coins.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚛️</div>
+        <h3>HTLC Atomic Swaps</h3>
+        <p>Both BTCT and DOGE are locked in Hash Time-Locked Contracts. Either both parties get their coins, or both get refunded.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🐕</div>
+        <h3>DOGE P2SH HTLC</h3>
+        <p>Dogecoin is locked in a P2SH script with hash lock + time lock. No direct transfers — full atomicity guaranteed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏘️</div>
+        <h3>RPG Trading Town</h3>
+        <p>Walk around a pixel-art village, see other traders in real-time, and trade face-to-face at the Bulletin Board NPC.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>1:1 Trade Chat</h3>
+        <p>Encrypted per-trade chat between buyer and seller. Messages auto-delete after 90 days. No external messaging needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Mobile Ready</h3>
+        <p>Virtual joystick + action button for touch devices. Full trading experience on any screen size.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section>
+    <h2 class="section-title">How Atomic Swap Works</h2>
+    <p class="section-sub">5 steps to a trustless cross-chain trade</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Seller Creates Secret</h4>
+          <p>Generates a random secret and publishes its SHA-256 hash. Shares DOGE receiving address.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Seller Locks BTCT</h4>
+          <p>BTCT is locked in an on-chain HTLC contract with a 24-hour timeout. Only the secret can unlock it.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Buyer Locks DOGE</h4>
+          <p>DOGE is locked in a P2SH HTLC script (12-hour timeout) using the same hash. Fully refundable on timeout.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Seller Claims DOGE</h4>
+          <p>Seller reveals the secret to claim DOGE from the P2SH. The secret is now public on the blockchain.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h4>Buyer Claims BTCT</h4>
+          <p>Buyer uses the revealed secret to unlock the BTCT HTLC. Trade complete — both got their coins.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- World's First -->
+  <section>
+    <div class="unique-banner">
+      <h3>🌍 A World First</h3>
+      <p>The first DEX to combine RPG-style multiplayer town, HTLC atomic swaps, real-time trade chat, and mobile support — all in a single open-source web application.</p>
+      <div class="unique-tags">
+        <span class="tag">RPG Town</span>
+        <span class="tag">Atomic Swap</span>
+        <span class="tag">P2SH HTLC</span>
+        <span class="tag">Non-Custodial</span>
+        <span class="tag">Multiplayer</span>
+        <span class="tag">Open Source</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section>
+    <h2 class="section-title">Tech Stack</h2>
+    <p class="section-sub">Built with proven technologies</p>
+    <div class="tech-grid">
+      <div class="tech-item">
+        <div class="emoji">⛓️</div>
+        <h4>BTCT Full Node</h4>
+        <p>Local RPC for blockchain ops</p>
+      </div>
+      <div class="tech-item">
+        <div class="emoji">🐕</div>
+        <h4>Blockcypher API</h4>
+        <p>DOGE blockchain access</p>
+      </div>
+      <div class="tech-item">
+        <div class="emoji">🎮</div>
+        <h4>Phaser 3</h4>
+        <p>RPG Town game engine</p>
+      </div>
+      <div class="tech-item">
+        <div class="emoji">🔌</div>
+        <h4>Socket.IO</h4>
+        <p>Real-time multiplayer</p>
+      </div>
+      <div class="tech-item">
+        <div class="emoji">🔑</div>
+        <h4>bitcore-lib-doge</h4>
+        <p>Client-side DOGE signing</p>
+      </div>
+      <div class="tech-item">
+        <div class="emoji">🛡️</div>
+        <h4>WASM + Argon2d</h4>
+        <p>BTCT offline signing</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="/">DEX</a>
+      <a href="/town">BTCT Town</a>
+      <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub</a>
+      <a href="/privacy">Privacy Policy</a>
+    </div>
+    <p>BTCT/DOGE DEX — Open source, non-custodial, decentralized.</p>
+    <p style="margin-top:4px;">MIT License · <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">timessanta/btct-doge-dex</a></p>
+  </footer>
+
+</body>
+</html>

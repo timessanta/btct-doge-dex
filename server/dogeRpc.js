@@ -1,5 +1,10 @@
-// DOGE API Client for DEX (Blockcypher — read-only, no private keys)
+// DOGE API Client for DEX (Blockcypher for queries, local node for broadcast)
 const BLOCKCYPHER_BASE = 'https://api.blockcypher.com/v1/doge/main';
+
+// Local Dogecoin Core RPC (for broadcast)
+const DOGE_RPC_URL = 'http://127.0.0.1:22555';
+const DOGE_RPC_USER = process.env.DOGE_RPC_USER || 'dogerpc';
+const DOGE_RPC_PASS = process.env.DOGE_RPC_PASS || '';
 
 // Balance cache
 const balanceCache = new Map();
@@ -85,10 +90,13 @@ async function getUTXOs(address) {
   const data = await apiGet(`/addrs/${address}?unspentOnly=true&includeScript=true`);
   const utxos = [];
   const refs = [...(data.txrefs || []), ...(data.unconfirmed_txrefs || [])];
+  const addr = new bitcore.Address(address);
+  const fallbackScript = addr.isPayToScriptHash()
+    ? bitcore.Script.buildScriptHashOut(addr).toHex()
+    : bitcore.Script.buildPublicKeyHashOut(addr).toHex();
   for (const ref of refs) {
     if (ref.spent) continue;
-    const script = ref.script ||
-      bitcore.Script.buildPublicKeyHashOut(new bitcore.Address(address)).toHex();
+    const script = ref.script || fallbackScript;
     utxos.push({
       txId: ref.tx_hash,
       outputIndex: ref.tx_output_n,
@@ -98,6 +106,29 @@ async function getUTXOs(address) {
     });
   }
   return utxos;
+}
+
+// Broadcast raw TX via local Dogecoin Core RPC (sendrawtransaction)
+async function broadcastRawTx(rawHex) {
+  const auth = Buffer.from(`${DOGE_RPC_USER}:${DOGE_RPC_PASS}`).toString('base64');
+  const res = await fetch(DOGE_RPC_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Basic ${auth}`
+    },
+    body: JSON.stringify({
+      jsonrpc: '1.0',
+      id: 'dex-broadcast',
+      method: 'sendrawtransaction',
+      params: [rawHex]
+    })
+  });
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(`DOGE RPC sendrawtransaction: ${data.error.message || JSON.stringify(data.error)}`);
+  }
+  return data.result; // txid
 }
 
 async function sendWithWif(wif, toAddress, amountSat) {
@@ -122,8 +153,7 @@ async function sendWithWif(wif, toAddress, amountSat) {
     .sign(privateKey);
 
   const rawHex = tx.serialize();
-  const result = await apiPost('/txs/push', { tx: rawHex });
-  const txid = result.tx && result.tx.hash ? result.tx.hash : (result.hash || 'unknown');
+  const txid = await broadcastRawTx(rawHex);
   console.log(`[DOGE] Sent ${satoshisToDoge(amountSat)} DOGE from ${fromAddress} → ${toAddress}, txid: ${txid}`);
   return { txid, fee: satoshisToDoge(feeSat) };
 }
@@ -134,6 +164,7 @@ module.exports = {
   getTransactionsByAddress,
   getUTXOs,
   sendWithWif,
+  broadcastRawTx,
   SATOSHIS_PER_DOGE,
   dogeToSatoshis,
   satoshisToDoge

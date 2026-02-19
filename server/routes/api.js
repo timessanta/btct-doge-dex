@@ -7,6 +7,28 @@ const dogeRpc = require('../dogeRpc');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Helper: update town bubble for a given address
+async function updateTownBubble(req, address) {
+  try {
+    const io = req.app.get('io');
+    const townPlayers = req.app.get('townPlayers');
+    const getAdBubbleText = req.app.get('getAdBubbleText');
+    if (!io || !townPlayers || !getAdBubbleText) return;
+
+    const adText = await getAdBubbleText(address);
+
+    // Find all sockets for this address and update
+    for (const [sid, player] of Object.entries(townPlayers)) {
+      if (player.address === address) {
+        player.adText = adText;
+        io.emit('townAdUpdate', { id: sid, adText, address });
+      }
+    }
+  } catch (e) {
+    console.error('[TownBubble] Error:', e.message);
+  }
+}
+
 // Admin credentials (use environment variables in production)
 const ADMIN_ID = process.env.ADMIN_ID || 'admin';
 const ADMIN_PW_HASH = process.env.ADMIN_PASSWORD_HASH || '$2b$10$example.hash.replace.in.production';
@@ -63,6 +85,9 @@ router.post('/ads', async (req, res) => {
       [addr, type, price, minBtct, maxBtct]
     );
     res.json(ad);
+
+    // Update town bubble
+    updateTownBubble(req, addr);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -79,6 +104,9 @@ router.post('/ads/:id/close', async (req, res) => {
     );
     if (!ad) return res.status(404).json({ error: 'Ad not found or not yours' });
     res.json(ad);
+
+    // Update town bubble (ad closed, may have another active ad)
+    updateTownBubble(req, addr);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -244,7 +272,7 @@ router.get('/trades', async (req, res) => {
 // Publish hash lock (seller publishes H = SHA256(secret))
 router.post('/trades/:id/hash', async (req, res) => {
   try {
-    const { sellerAddress, hashLock } = req.body;
+    const { sellerAddress, hashLock, sellerDogeAddress } = req.body;
     if (!sellerAddress || !hashLock) {
       return res.status(400).json({ error: 'Missing sellerAddress or hashLock' });
     }
@@ -257,8 +285,8 @@ router.post('/trades/:id/hash', async (req, res) => {
     if (!trade) return res.status(404).json({ error: 'Trade not found or not in negotiating state' });
 
     await pool.query(
-      `UPDATE trades SET hash_lock = $1, status = 'hash_published' WHERE id = $2`,
-      [hashLock, req.params.id]
+      `UPDATE trades SET hash_lock = $1, seller_doge_address = $2, status = 'hash_published' WHERE id = $3`,
+      [hashLock, sellerDogeAddress || null, req.params.id]
     );
     res.json({ success: true });
   } catch (e) {
@@ -308,10 +336,10 @@ router.post('/trades/:id/btct-locked', async (req, res) => {
   }
 });
 
-// Report DOGE HTLC creation (buyer locked DOGE)
+// Report DOGE HTLC creation (buyer locked DOGE in P2SH)
 router.post('/trades/:id/doge-locked', async (req, res) => {
   try {
-    const { buyerAddress, htlcTx, htlcAddress, timeout } = req.body;
+    const { buyerAddress, htlcTx, htlcAddress, timeout, buyerDogeAddress, dogeRedeemScript } = req.body;
     if (!buyerAddress || !htlcTx || !htlcAddress) {
       return res.status(400).json({ error: 'Missing fields' });
     }
@@ -324,9 +352,10 @@ router.post('/trades/:id/doge-locked', async (req, res) => {
     if (!trade) return res.status(404).json({ error: 'Trade not found' });
 
     await pool.query(
-      `UPDATE trades SET doge_htlc_tx = $1, doge_htlc_address = $2, doge_timeout = $3, status = 'doge_locked'
-       WHERE id = $4`,
-      [htlcTx, htlcAddress, timeout || 0, req.params.id]
+      `UPDATE trades SET doge_htlc_tx = $1, doge_htlc_address = $2, doge_timeout = $3,
+       buyer_doge_address = $4, doge_redeem_script = $5, status = 'doge_locked'
+       WHERE id = $6`,
+      [htlcTx, htlcAddress, timeout || 0, buyerDogeAddress || null, dogeRedeemScript || null, req.params.id]
     );
     res.json({ success: true });
   } catch (e) {
@@ -392,7 +421,7 @@ router.post('/trades/:id/cancel', async (req, res) => {
     const { rows: [trade] } = await pool.query(
       `SELECT * FROM trades WHERE id = $1
        AND (seller_address = $2 OR buyer_address = $2)
-       AND status IN ('negotiating', 'hash_published')`,
+       AND status IN ('negotiating', 'hash_published', 'btct_locked', 'doge_locked')`,
       [req.params.id, addr]
     );
     if (!trade) return res.status(404).json({ error: 'Trade not found or cannot cancel' });
@@ -498,7 +527,8 @@ router.post('/doge/import', async (req, res) => {
 router.get('/doge/utxos/:address', async (req, res) => {
   try {
     const { address } = req.params;
-    if (!/^D[1-9A-HJ-NP-Za-km-z]{25,33}$/.test(address)) {
+    // Accept P2PKH (D...) and P2SH (9... or A...) addresses
+    if (!/^[D9A][1-9A-HJ-NP-Za-km-z]{25,33}$/.test(address)) {
       return res.status(400).json({ error: 'Invalid DOGE address format' });
     }
     const utxos = await dogeRpc.getUTXOs(address);
@@ -509,25 +539,12 @@ router.get('/doge/utxos/:address', async (req, res) => {
   }
 });
 
-// Broadcast signed DOGE transaction (no private key — only raw hex)
+// Broadcast signed DOGE transaction via local Dogecoin Core RPC
 router.post('/doge/broadcast', async (req, res) => {
   try {
     const { rawTx } = req.body;
     if (!rawTx) return res.status(400).json({ error: 'rawTx (hex) required' });
-    const BLOCKCYPHER_BASE = 'https://api.blockcypher.com/v1/doge/main';
-    const token = process.env.BLOCKCYPHER_TOKEN;
-    const url = token ? `${BLOCKCYPHER_BASE}/txs/push?token=${token}` : `${BLOCKCYPHER_BASE}/txs/push`;
-    const bcRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tx: rawTx })
-    });
-    if (!bcRes.ok) {
-      const text = await bcRes.text();
-      throw new Error(`Broadcast failed [${bcRes.status}]: ${text}`);
-    }
-    const result = await bcRes.json();
-    const txid = result.tx?.hash || result.hash || 'unknown';
+    const txid = await dogeRpc.broadcastRawTx(rawTx);
     console.log(`[DOGE] Broadcast TX: ${txid}`);
     res.json({ success: true, txid });
   } catch (err) {
@@ -638,6 +655,9 @@ router.post('/admin/ads/:id/delete', requireAdmin, async (req, res) => {
     );
     if (!ad) return res.status(404).json({ error: 'Ad not found' });
     res.json({ success: true, ad });
+
+    // Update town bubble for deleted ad's owner
+    updateTownBubble(req, ad.btct_address);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

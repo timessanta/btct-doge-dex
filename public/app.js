@@ -1232,11 +1232,13 @@ function getActionHTML(trade, isSeller, isBuyer) {
 
   // Step 1: Seller publishes hash
   if (trade.status === 'negotiating' && isSeller) {
+    const hasDogeWallet = currentUser && currentUser.dogeAddress;
     return `
       <div class="action-box">
         <h4>Step 1: Generate Secret & Publish Hash</h4>
         <p>Generate a cryptographic secret. Its hash will be used to lock both sides of the trade.</p>
-        <button class="btn btn-purple" onclick="publishHash(${trade.id})">Generate Secret & Publish Hash</button>
+        ${!hasDogeWallet ? '<p class="warn small">⚠ DOGE wallet required — add one in Wallet tab first</p>' : ''}
+        <button class="btn btn-purple" onclick="publishHash(${trade.id})" ${!hasDogeWallet ? 'disabled' : ''}>Generate Secret & Publish Hash</button>
       </div>
     `;
   }
@@ -1262,16 +1264,16 @@ function getActionHTML(trade, isSeller, isBuyer) {
     return `<div class="action-box"><h4>Waiting for seller to lock BTCT...</h4><p>Hash: <span class="mono">${trade.hash_lock}</span></p></div>`;
   }
 
-  // Step 3: Buyer locks DOGE
+  // Step 3: Buyer locks DOGE in P2SH HTLC
   if (trade.status === 'btct_locked' && isBuyer) {
     return `
       <div class="action-box">
-        <h4>Step 3: Send DOGE</h4>
-        <p>Send ${satToDOGE(trade.doge_amount)} DOGE to the seller's address.</p>
-        <p class="dim small">Seller DOGE Address: <span class="mono">${trade.seller_doge_address}</span></p>
+        <h4>Step 3: Lock DOGE in HTLC</h4>
+        <p>Lock ${satToDOGE(trade.doge_amount)} DOGE in an HTLC P2SH address. The seller can only claim by revealing the secret.</p>
         <p class="dim small">BTCT HTLC: <span class="mono">0x${trade.btct_htlc_address}</span></p>
         <p class="dim small">Hash: <span class="mono">${trade.hash_lock}</span></p>
-        <button class="btn btn-green" onclick="sendDogeAutomatically(${trade.id})">Send ${satToDOGE(trade.doge_amount)} DOGE</button>
+        <p class="dim small">Seller DOGE: <span class="mono">${trade.seller_doge_address || 'N/A'}</span></p>
+        <button class="btn btn-green" onclick="sendDogeAutomatically(${trade.id})">Lock ${satToDOGE(trade.doge_amount)} DOGE in HTLC</button>
       </div>
     `;
   }
@@ -1279,20 +1281,22 @@ function getActionHTML(trade, isSeller, isBuyer) {
   if (trade.status === 'btct_locked' && isSeller) {
     return `
       <div class="action-box">
-        <h4>Waiting for buyer to lock DOGE...</h4>
+        <h4>Waiting for buyer to lock DOGE in HTLC...</h4>
         <p>Your BTCT is locked in HTLC: <span class="mono">0x${trade.btct_htlc_address}</span></p>
         <p class="dim small">Timeout: block ${trade.btct_timeout}</p>
       </div>
     `;
   }
 
-  // Step 4: Seller redeems DOGE (reveals secret)
+  // Step 4: Seller redeems DOGE from P2SH (reveals secret)
   if (trade.status === 'doge_locked' && isSeller) {
     const secret = localStorage.getItem(`dex_secret_${trade.id}`);
     return `
       <div class="action-box">
         <h4>Step 4: Redeem DOGE (Reveals Secret)</h4>
-        <p>Claim the DOGE by revealing your secret. This will allow the buyer to also redeem the BTCT.</p>
+        <p>Claim the DOGE from the HTLC P2SH by revealing your secret. This will allow the buyer to also redeem the BTCT.</p>
+        <p class="dim small">DOGE HTLC: <span class="mono">${trade.doge_htlc_address}</span></p>
+        <p class="dim small">Timeout: <span class="mono">${trade.doge_timeout ? new Date(trade.doge_timeout * 1000).toLocaleString() : 'N/A'}</span></p>
         <p class="dim small">Your Secret: <span class="mono">${secret || 'NOT FOUND — check localStorage!'}</span></p>
         <button class="btn btn-green" onclick="sellerRedeem(${trade.id})">Reveal Secret & Redeem DOGE</button>
       </div>
@@ -1300,7 +1304,13 @@ function getActionHTML(trade, isSeller, isBuyer) {
   }
 
   if (trade.status === 'doge_locked' && isBuyer) {
-    return `<div class="action-box"><h4>Waiting for seller to redeem DOGE...</h4><p>Once redeemed, the secret will be revealed and you can claim your BTCT.</p></div>`;
+    const timedOut = trade.doge_timeout && DogeHTLC.isTimedOut(trade.doge_timeout);
+    const timeStr = trade.doge_timeout ? DogeHTLC.formatTimeRemaining(trade.doge_timeout) : '';
+    return `<div class="action-box"><h4>Waiting for seller to redeem DOGE...</h4>
+      <p>Once redeemed, the secret will be revealed and you can claim your BTCT.</p>
+      <p class="dim small">DOGE HTLC: ${trade.doge_htlc_address} · Timeout: ${timeStr}</p>
+      ${timedOut ? `<button class="btn btn-red" onclick="refundDoge(${trade.id})">Refund DOGE (Timeout Expired)</button>` : ''}
+    </div>`;
   }
 
   // Step 5: Buyer redeems BTCT with revealed secret
@@ -1328,6 +1338,7 @@ function getActionHTML(trade, isSeller, isBuyer) {
 // Step 1: Seller generates secret and publishes hash
 async function publishHash(tradeId) {
   if (!currentUser) return;
+  if (!currentUser.dogeAddress) return alert('DOGE wallet required. Add a DOGE wallet first.');
   await ensureKrypton();
 
   try {
@@ -1342,9 +1353,13 @@ async function publishHash(tradeId) {
     // Save secret locally (NEVER sent to server!)
     localStorage.setItem(`dex_secret_${tradeId}`, secretHex);
 
-    // Publish hash to server
+    // Publish hash + seller DOGE address to server
     await api(`/trades/${tradeId}/hash`, {
-      body: { sellerAddress: currentUser.btctAddress, hashLock: hashHex }
+      body: {
+        sellerAddress: currentUser.btctAddress,
+        hashLock: hashHex,
+        sellerDogeAddress: currentUser.dogeAddress
+      }
     });
 
     alert('✓ Hash published! Your secret is saved locally.\n\nSECRET (backup!): ' + secretHex);
@@ -1428,74 +1443,135 @@ async function lockBTCT(tradeId) {
   }
 }
 
-// Step 3: Buyer sends DOGE automatically
+// Step 3: Buyer locks DOGE in HTLC P2SH
 async function sendDogeAutomatically(tradeId) {
   if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet not connected');
 
   try {
     const trade = await api(`/trades/${tradeId}`);
-    const dogeAmount = satToDOGE(trade.doge_amount);
-    const toAddress = trade.seller_doge_address;
+    const dogeAmountSat = Number(trade.doge_amount);
+    const sellerDogeAddr = trade.seller_doge_address;
+    const buyerDogeAddr = currentUser.dogeAddress;
 
-    if (!toAddress) return alert('Seller DOGE address not found');
+    if (!sellerDogeAddr) return alert('Seller DOGE address not found. Seller must publish hash first.');
+    if (!buyerDogeAddr) return alert('Your DOGE address not found');
 
-    const confirmed = confirm(`Send ${dogeAmount} DOGE to ${toAddress}?`);
+    // Create HTLC P2SH
+    const locktime = DogeHTLC.getDefaultLocktime();
+    const htlc = DogeHTLC.createHTLC(trade.hash_lock, sellerDogeAddr, buyerDogeAddr, locktime);
+
+    const confirmed = confirm(
+      `Lock ${satToDOGE(dogeAmountSat)} DOGE in HTLC P2SH?\n\n` +
+      `P2SH Address: ${htlc.p2shAddress}\n` +
+      `Timeout: ${new Date(locktime * 1000).toLocaleString()}\n` +
+      `Fee: 0.01 DOGE\n\n` +
+      `The seller can claim only by revealing the secret.\n` +
+      `If unclaimed, you can refund after timeout.`
+    );
     if (!confirmed) return;
 
-    // Sign & send DOGE client-side (private key never leaves browser)
-    const result = await signAndSendDoge(currentUser.dogeKey, toAddress, dogeAmount);
+    // Get UTXOs and build funding TX
+    const utxos = await api(`/doge/utxos/${buyerDogeAddr}`);
+    const rawTx = DogeHTLC.buildFundingTx(currentUser.dogeKey, htlc.p2shAddress, dogeAmountSat, utxos);
 
-    alert(`✓ DOGE sent!\nTX: ${result.txid}`);
+    // Broadcast
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    alert(`✓ DOGE locked in HTLC P2SH!\nP2SH: ${htlc.p2shAddress}\nTX: ${result.txid}`);
+
+    // Save HTLC info locally for refund
+    localStorage.setItem(`doge_htlc_${tradeId}`, JSON.stringify({
+      redeemScriptHex: htlc.redeemScriptHex,
+      p2shAddress: htlc.p2shAddress,
+      locktime: locktime,
+      amountSat: dogeAmountSat
+    }));
 
     // Report to server
-    await reportDogeLocked(tradeId, result.txid);
-  } catch (e) {
-    alert('DOGE send failed: ' + e.message);
-    console.error(e);
-  }
-}
-
-// Step 3: Report DOGE locked (called by sendDogeAutomatically or manually)
-async function reportDogeLocked(tradeId, dogeTxHash) {
-  if (!currentUser) return;
-  if (!dogeTxHash) {
-    dogeTxHash = document.getElementById('dogeTxHash')?.value.trim();
-    if (!dogeTxHash) return alert('Enter DOGE TX hash');
-  }
-
-  try {
     await api(`/trades/${tradeId}/doge-locked`, {
       body: {
         buyerAddress: currentUser.btctAddress,
-        htlcTx: dogeTxHash,
-        htlcAddress: 'auto', // Auto-sent via DEX wallet
-        timeout: 0
+        htlcTx: result.txid,
+        htlcAddress: htlc.p2shAddress,
+        timeout: locktime,
+        buyerDogeAddress: buyerDogeAddr,
+        dogeRedeemScript: htlc.redeemScriptHex
       }
     });
     socket.emit('tradeUpdate', { tradeId, status: 'doge_locked' });
     navigateTo('trade');
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    alert('DOGE HTLC creation failed: ' + e.message);
+    console.error(e);
+  }
 }
 
-// Step 4: Seller redeems DOGE (reveals secret)
+// Step 4: Seller redeems DOGE from P2SH (reveals secret)
 async function sellerRedeem(tradeId) {
   if (!currentUser) return;
+  if (!currentUser.dogeKey) return alert('DOGE wallet required to redeem DOGE from HTLC');
+
   const secret = localStorage.getItem(`dex_secret_${tradeId}`);
   if (!secret) return alert('Secret not found in localStorage!');
 
   try {
-    // TODO: Actually redeem DOGE from P2SH using secret
-    // For now, manually mark as redeemed
+    const trade = await api(`/trades/${tradeId}`);
+    if (!trade.doge_redeem_script) return alert('DOGE redeem script not found');
+    if (!trade.doge_htlc_address) return alert('DOGE HTLC address not found');
+
+    // Get UTXOs on the P2SH address
+    const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
+    if (!utxos || utxos.length === 0) return alert('No DOGE found in HTLC P2SH. Wait for confirmation.');
+
+    const rawTx = DogeHTLC.buildRedeemTx(currentUser.dogeKey, trade.doge_redeem_script, secret, utxos);
+
+    // Broadcast redeem TX
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    alert(`✓ DOGE redeemed!\nTX: ${result.txid}\nSecret is now public.`);
+
+    // Report to server
     await api(`/trades/${tradeId}/seller-redeemed`, {
       body: {
         sellerAddress: currentUser.btctAddress,
-        redeemTx: 'manual-' + Date.now(),
+        redeemTx: result.txid,
         secret: secret
       }
     });
     socket.emit('tradeUpdate', { tradeId, status: 'seller_redeemed', detail: { secret } });
     navigateTo('trade');
-  } catch (e) { alert(e.message); }
+  } catch (e) { alert('DOGE redeem failed: ' + e.message); console.error(e); }
+}
+
+// DOGE HTLC Refund (buyer reclaims after timeout)
+async function refundDoge(tradeId) {
+  if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet required');
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    if (!trade.doge_redeem_script || !trade.doge_htlc_address) {
+      return alert('DOGE HTLC data not found');
+    }
+    if (!DogeHTLC.isTimedOut(trade.doge_timeout)) {
+      return alert('Timeout has not expired yet. Remaining: ' + DogeHTLC.formatTimeRemaining(trade.doge_timeout));
+    }
+
+    // Get UTXOs on P2SH
+    const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
+    if (!utxos || utxos.length === 0) return alert('No DOGE in HTLC (already claimed or refunded)');
+
+    const rawTx = DogeHTLC.buildRefundTx(currentUser.dogeKey, trade.doge_redeem_script, trade.doge_timeout, utxos);
+    const result = await api('/doge/broadcast', { body: { rawTx } });
+
+    alert(`✓ DOGE refunded!\nTX: ${result.txid}`);
+
+    // Cancel the trade
+    await api(`/trades/${tradeId}/cancel`, {
+      body: { address: currentUser.btctAddress }
+    });
+    socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+    navigateTo('trade');
+  } catch (e) { alert('DOGE refund failed: ' + e.message); console.error(e); }
 }
 
 // Step 5: Buyer redeems BTCT with revealed secret

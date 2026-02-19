@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTCT Town</title>
+  <link rel="stylesheet" href="town-style.css?v=20260219e">
+</head>
+<body>
+  <!-- Top Bar -->
+  <div id="top-bar">
+    <div class="top-left">
+      <a href="/" class="back-link">← DEX</a>
+      <span class="town-title">BTCT Town</span>
+    </div>
+    <div class="top-right">
+      <span id="player-count">0 online</span>
+      <span id="wallet-display">No Wallet</span>
+    </div>
+  </div>
+
+  <!-- Game Container -->
+  <div id="game-container"></div>
+
+  <!-- Interaction Panel (appears when near NPC/player) -->
+  <div id="interaction-panel" class="panel hidden">
+    <div class="panel-header">
+      <span id="panel-title">Bulletin Board</span>
+      <button id="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div id="panel-content"></div>
+  </div>
+
+  <!-- Trade Modal -->
+  <div id="trade-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-title">Trade</span>
+        <button onclick="closeModal()">✕</button>
+      </div>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Town Disclaimer Modal -->
+  <div class="disclaimer-modal" id="townDisclaimerModal">
+    <div class="disclaimer-modal-content">
+      <h2>⚠️ BTCT Town — Important Notice</h2>
+      <div class="disclaimer-text">
+        <p><strong>BTCT Town is a visual interface for the BTCT/DOGE DEX.</strong></p>
+        <ul>
+          <li>BTCT Town is a UI layer only. All trades are executed via HTLC atomic swaps on their respective blockchains.</li>
+          <li>The server acts as a bulletin board and message relay. It never holds, accesses, or stores private keys.</li>
+          <li>All transaction signing happens in your browser. Your private keys never leave your device.</li>
+          <li>Chat messages between trade participants are stored on the server for dispute reference and automatically deleted after 90 days.</li>
+          <li>The only data collected is: BTCT addresses (public keys) and chat messages. No personal information is collected.</li>
+          <li>Platform operators are not parties to any trade and bear no responsibility for trade outcomes.</li>
+          <li>Users are solely responsible for complying with applicable laws in their jurisdiction.</li>
+        </ul>
+        <p class="warning-text">⚠ If a swap fails due to timeout, both BTCT and DOGE locked in HTLC contracts are refundable after their timeout periods. Ensure you understand how HTLC atomic swaps work.</p>
+        <p style="font-size:12px;margin-top:12px;"><a href="/privacy" target="_blank" style="color:#4ecca3;">Privacy Policy</a></p>
+      </div>
+      <label class="disclaimer-checkbox">
+        <input type="checkbox" id="townDisclaimerCheck" onchange="toggleTownDisclaimer()">
+        <span>I have read and understood the above. I use BTCT Town at my own risk.</span>
+      </label>
+      <button class="btn btn-primary disclaimer-enter-btn" id="townDisclaimerEnterBtn" disabled onclick="acceptTownDisclaimer()">Enter BTCT Town</button>
+    </div>
+  </div>
+
+  <!-- Mobile Controls (hidden by default, shown on touch devices) -->
+  <div id="mobile-controls">
+    <div id="joystick-base">
+      <div id="joystick-stick"></div>
+    </div>
+    <div id="mobile-action-btn">ACT</div>
+  </div>
+
+  <!-- Controls Help -->
+  <div id="controls-help">
+    <span>Arrow Keys / WASD to move</span>
+    <span>SPACE near NPC to interact</span>
+    <span><a href="/privacy" target="_blank" style="color:#666;">Privacy Policy</a></span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="krypton-offline.js"></script>
+  <script src="bitcore-doge.js"></script>
+  <script src="doge-htlc.js"></script>
+  <script src="town.js?v=20260219f"></script>
+</body>
+</html>
