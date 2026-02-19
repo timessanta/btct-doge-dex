@@ -64,7 +64,7 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 
 ## Prerequisites
 
-- **Node.js** >= 16.0.0
+- **Node.js** >= 18.0.0 (LTS 18.x recommended — most stable with bitcoinkrypton-seed)
 - **PostgreSQL** >= 12
 - **BTCT Full Node** (bitcoinkrypton-seed)
 - **Dogecoin Core** >= 1.14.9 (optional, for local broadcast)
@@ -81,6 +81,12 @@ Before following this guide, prepare these 3 things to avoid getting stuck mid-w
 - **Blockcypher API token**: Needed for DOGE balance/UTXO queries. Get a free token at [https://accounts.blockcypher.com/signup](https://accounts.blockcypher.com/signup) before starting. The free plan (200 req/hr) is sufficient for testing.
 
 - **BTCT full node synced**: The BTCT node (`bitcoinkrypton-seed`) must be running and **fully synchronized** before trades will display correctly. Block sync can take time — start it first while completing the rest of the setup.
+
+- **Port availability**: Make sure ports `3030` (DEX server) and `12211` (BTCT RPC) are not already in use:
+  ```bash
+  netstat -tulpn | grep -E '3030|12211'
+  ```
+  No output means the ports are free.
 
 ---
 
