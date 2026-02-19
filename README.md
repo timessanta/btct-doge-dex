@@ -17,10 +17,14 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 
 - ✅ **Non-custodial**: Server never holds, accesses, or stores private keys
 - ✅ **Trustless**: HTLC ensures atomic execution (all-or-nothing)
+- ✅ **DOGE P2SH HTLC**: Dogecoin locked in P2SH scripts with hash lock + time lock
 - ✅ **Zero fees**: Platform does not charge trading fees
 - ✅ **Client-side signing**: All transactions signed in the browser
+- ✅ **RPG Trading Town**: Multiplayer pixel-art town with Phaser 3 (trade at NPC bulletin board)
+- ✅ **Mobile support**: Virtual joystick + action button for touch devices
+- ✅ **1:1 trade chat**: Per-trade WebSocket chat with auto-delete
 - ✅ **Rate limiting**: Built-in AML compliance measures (50,000 BTCT/24h per wallet)
-- ✅ **Open source**: Auditable code
+- ✅ **Open source**: Auditable code (MIT License)
 
 ---
 
@@ -31,14 +35,15 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 │        Frontend (Browser)                │
 │  - Private keys (localStorage)          │
 │  - Transaction signing (client-side)    │
-│  - HTLC contracts                        │
+│  - HTLC contracts (BTCT + DOGE P2SH)    │
+│  - RPG Town (Phaser 3 multiplayer)      │
 └──────────────┬──────────────────────────┘
                │ HTTPS
 ┌──────────────┴──────────────────────────┐
 │        Backend (Node.js)                 │
 │  - Bulletin board (PostgreSQL)          │
 │  - Blockchain RPC relay                 │
-│  - WebSocket chat                       │
+│  - WebSocket chat + multiplayer         │
 │  - NO private key access                │
 └──────────────┬──────────────────────────┘
                │
@@ -46,10 +51,14 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
       │                 │
 ┌─────▼─────┐    ┌──────▼──────┐
 │   BTCT    │    │    DOGE     │
-│ Full Node │    │Blockcypher  │
-│   (RPC)   │    │    API      │
+│ Full Node │    │  Hybrid    │
+│   (RPC)   │    │ Local+API  │
 └───────────┘    └─────────────┘
 ```
+
+**DOGE Hybrid Architecture:**
+- **Broadcast**: Local Dogecoin Core pruning node RPC (`sendrawtransaction`)
+- **UTXO/Balance**: Blockcypher API (pruning node cannot query external addresses)
 
 ---
 
@@ -58,6 +67,7 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 - **Node.js** >= 16.0.0
 - **PostgreSQL** >= 12
 - **BTCT Full Node** (bitcoinkrypton-seed)
+- **Dogecoin Core** >= 1.14.9 (optional, for local broadcast)
 - **PM2** (optional, for production)
 
 ---
@@ -94,9 +104,15 @@ ADMIN_ID=admin
 ADMIN_PASSWORD_HASH=$2b$10$... (use bcrypt)
 JWT_SECRET=your_random_32char_secret
 
-# Blockcypher API token for DOGE (free: 200 req/hr, with token: 2000 req/hr)
-# Get one at: https://accounts.blockcypher.com/signup
+# Blockcypher API token for DOGE UTXO/balance queries
+# Free: 200 req/hr | With token: 2000 req/hr
+# Sign up at: https://accounts.blockcypher.com/signup
 BLOCKCYPHER_TOKEN=your_token
+
+# Dogecoin Core RPC (optional, for local broadcast)
+# If not set, DOGE broadcast falls back to Blockcypher
+DOGE_RPC_USER=dogerpc
+DOGE_RPC_PASS=your_rpc_password
 
 # BTCT Node RPC URL
 BTCT_RPC_URL=http://127.0.0.1:12211
@@ -231,8 +247,20 @@ cd bitcoinkrypton-seed/rpc
 
 - **BTCT**: `krypton-offline.js` (included in `public/`)
 - **DOGE**: `bitcore-doge.js` (browserify bundle, ~2MB)
+- **DOGE HTLC**: `doge-htlc.js` (P2SH HTLC create/fund/redeem/refund)
 
 All transaction signing happens in the browser. Private keys never leave the user's device.
+
+---
+
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Main DEX trading interface |
+| `/town` | BTCT Town — multiplayer RPG with trading NPC |
+| `/about` | Landing page with feature overview |
+| `/privacy` | Privacy Policy |
 
 ---
 
