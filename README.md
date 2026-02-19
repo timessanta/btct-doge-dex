@@ -1,7 +1,7 @@
 # BTCT/DOGE Decentralized Exchange (DEX)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
 
 **⚠️ DISCLAIMER: This is a reference implementation for educational purposes only.**
 
@@ -30,30 +30,34 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────┐
-│        Frontend (Browser)                │
-│  - Private keys (localStorage)          │
-│  - Transaction signing (client-side)    │
-│  - HTLC contracts (BTCT + DOGE P2SH)    │
-│  - RPG Town (Phaser 3 multiplayer)      │
-└──────────────┬──────────────────────────┘
-               │ HTTPS
-┌──────────────┴──────────────────────────┐
-│        Backend (Node.js)                 │
-│  - Bulletin board (PostgreSQL)          │
-│  - Blockchain RPC relay                 │
-│  - WebSocket chat + multiplayer         │
-│  - NO private key access                │
-└──────────────┬──────────────────────────┘
-               │
-      ┌────────┴────────┐
-      │                 │
-┌─────▼─────┐    ┌──────▼──────┐
-│   BTCT    │    │    DOGE     │
-│ Full Node │    │  Hybrid    │
-│   (RPC)   │    │ Local+API  │
-└───────────┘    └─────────────┘
+```mermaid
+flowchart TB
+    subgraph Browser["🌐 Browser (Client-Side)"]
+        PK["🔑 Private Keys\n(localStorage)"]
+        SIGN["✍️ Transaction Signing\n(krypton-offline.js / bitcore-doge.js)"]
+        HTLC["🔒 HTLC Contracts\n(BTCT + DOGE P2SH)"]
+        TOWN["🎮 RPG Town\n(Phaser 3 Multiplayer)"]
+    end
+
+    subgraph Backend["⚙️ Backend (Node.js)"]
+        DB["🗄️ PostgreSQL\nTrade Listings"]
+        WS["💬 WebSocket\nChat + Multiplayer"]
+        RELAY["📡 Blockchain\nRPC Relay"]
+    end
+
+    subgraph Blockchain["⛓️ Blockchain Nodes"]
+        BTCTNODE["₿ BTCT Full Node\n(RPC :12211)"]
+        DOGELOCAL["🐕 Dogecoin Core\nPruning Node\n(Broadcast)"]
+        DOGEAPI["☁️ Blockcypher API\n(UTXO / Balance)"]
+    end
+
+    Browser -- "HTTPS / WSS" --> Backend
+    Backend --> DB
+    Backend --> WS
+    Backend --> RELAY
+    RELAY --> BTCTNODE
+    RELAY --> DOGELOCAL
+    RELAY --> DOGEAPI
 ```
 
 **DOGE Hybrid Architecture:**
