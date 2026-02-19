@@ -47,6 +47,19 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// ===================== BTCT/DOGE CHART DATA =====================
+
+router.get('/btct-chart', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT price, completed_at FROM trades WHERE status = 'completed' AND completed_at IS NOT NULL ORDER BY completed_at ASC LIMIT 100`
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ===================== TRADE ADS (Public Board) =====================
 
 // List active ads

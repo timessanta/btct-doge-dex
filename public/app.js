@@ -359,6 +359,9 @@ async function loadDogePrice() {
     if (highEl) highEl.textContent = '$' + high.toFixed(5);
     if (lowEl) lowEl.textContent = '$' + low.toFixed(5);
     if (volEl) volEl.textContent = (vol / 1e6).toFixed(1) + 'M';
+
+    // Mini chart
+    loadDogeChart(change >= 0);
   } catch (e) {
     const priceEl = document.getElementById('dogePrice');
     if (priceEl) priceEl.textContent = 'N/A';
@@ -370,6 +373,171 @@ async function loadDogePrice() {
     if (currentPage === 'market') loadDogePrice();
     else { clearInterval(dogePriceInterval); dogePriceInterval = null; }
   }, 30000);
+}
+
+async function loadDogeChart(isUp) {
+  try {
+    const res = await fetch('https://api.binance.com/api/v3/klines?symbol=DOGEUSDT&interval=1h&limit=24');
+    const klines = await res.json();
+    const closes = klines.map(k => parseFloat(k[4]));
+    const canvas = document.getElementById('dogeChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+
+    const min = Math.min(...closes);
+    const max = Math.max(...closes);
+    const range = max - min || 1;
+    const pad = 4;
+
+    const color = isUp ? '#4ecca3' : '#e94560';
+    const fillColor = isUp ? 'rgba(78,204,163,0.12)' : 'rgba(233,69,96,0.12)';
+
+    // Draw filled area
+    ctx.beginPath();
+    ctx.moveTo(pad, h - pad);
+    closes.forEach((c, i) => {
+      const x = pad + (i / (closes.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((c - min) / range) * (h - pad * 2);
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(w - pad, h - pad);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // Draw line
+    ctx.beginPath();
+    closes.forEach((c, i) => {
+      const x = pad + (i / (closes.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((c - min) / range) * (h - pad * 2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Last point dot
+    const lastX = w - pad;
+    const lastY = h - pad - ((closes[closes.length - 1] - min) / range) * (h - pad * 2);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  } catch (e) { /* ignore chart errors */ }
+}
+
+async function loadBtctChart() {
+  try {
+    const trades = await api('/btct-chart');
+    const priceEl = document.getElementById('btctPrice');
+    const changeEl = document.getElementById('btctChange');
+    const tradesEl = document.getElementById('btctTrades');
+    const highEl = document.getElementById('btctHigh');
+    const lowEl = document.getElementById('btctLow');
+
+    if (!trades || trades.length === 0) {
+      if (priceEl) priceEl.textContent = 'No trades yet';
+      if (priceEl) priceEl.style.fontSize = '14px';
+      if (changeEl) changeEl.textContent = '';
+      if (tradesEl) tradesEl.textContent = '0';
+      if (highEl) highEl.textContent = '--';
+      if (lowEl) lowEl.textContent = '--';
+      // Draw empty chart placeholder
+      const canvas = document.getElementById('btctChart');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        ctx.scale(dpr, dpr);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Waiting for trades...', w / 2, h / 2 + 4);
+      }
+      return;
+    }
+
+    const prices = trades.map(t => parseFloat(t.price));
+    const lastPrice = prices[prices.length - 1];
+    const firstPrice = prices[0];
+    const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+    const high = Math.max(...prices);
+    const low = Math.min(...prices);
+
+    if (priceEl) { priceEl.textContent = lastPrice.toFixed(4) + ' DOGE'; priceEl.style.fontSize = ''; }
+    if (changeEl) {
+      changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      changeEl.className = 'price-change ' + (change >= 0 ? 'up' : 'down');
+    }
+    if (tradesEl) tradesEl.textContent = trades.length;
+    if (highEl) highEl.textContent = high.toFixed(4) + ' DOGE';
+    if (lowEl) lowEl.textContent = low.toFixed(4) + ' DOGE';
+
+    // Draw chart
+    const canvas = document.getElementById('btctChart');
+    if (!canvas || prices.length < 2) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+    const pad = 4;
+    const isUp = change >= 0;
+    const color = isUp ? '#4ecca3' : '#e94560';
+    const fillColor = isUp ? 'rgba(78,204,163,0.12)' : 'rgba(233,69,96,0.12)';
+
+    // Filled area
+    ctx.beginPath();
+    ctx.moveTo(pad, h - pad);
+    prices.forEach((p, i) => {
+      const x = pad + (i / (prices.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((p - min) / range) * (h - pad * 2);
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(w - pad, h - pad);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    prices.forEach((p, i) => {
+      const x = pad + (i / (prices.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((p - min) / range) * (h - pad * 2);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Last dot
+    const lastX = w - pad;
+    const lastY = h - pad - ((prices[prices.length - 1] - min) / range) * (h - pad * 2);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  } catch (e) { /* ignore */ }
 }
 
 // ===================== NAVIGATION =====================
@@ -421,15 +589,26 @@ async function loadMarket(el) {
         <h3>🐕 DOGE / USDT</h3>
         <div class="price-main" id="dogePrice">--</div>
         <div class="price-change" id="dogeChange">--</div>
+        <canvas id="dogeChart" width="268" height="80" style="width:100%;height:80px;margin:8px 0;border-radius:6px;"></canvas>
         <div class="price-row"><span class="label">24h High</span><span class="value" id="dogeHigh">--</span></div>
         <div class="price-row"><span class="label">24h Low</span><span class="value" id="dogeLow">--</span></div>
         <div class="price-row"><span class="label">24h Volume</span><span class="value" id="dogeVol">--</span></div>
         <div class="source">via Binance</div>
+        <div class="chart-divider"></div>
+        <h3>⚡ BTCT / DOGE</h3>
+        <div class="price-main" id="btctPrice">--</div>
+        <div class="price-change" id="btctChange">--</div>
+        <canvas id="btctChart" width="268" height="80" style="width:100%;height:80px;margin:8px 0;border-radius:6px;"></canvas>
+        <div class="price-row"><span class="label">Trades</span><span class="value" id="btctTrades">--</span></div>
+        <div class="price-row"><span class="label">24h High</span><span class="value" id="btctHigh">--</span></div>
+        <div class="price-row"><span class="label">24h Low</span><span class="value" id="btctLow">--</span></div>
+        <div class="source">DEX trades</div>
       </div>
     </div>
   `;
 
   loadDogePrice();
+  loadBtctChart();
 
   try {
     const ads = await api('/ads');
