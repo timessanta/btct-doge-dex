@@ -72,6 +72,18 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 
 ---
 
+## Pre-Installation Checklist
+
+Before following this guide, prepare these 3 things to avoid getting stuck mid-way:
+
+- **Domain name**: Required if you want SSL (e.g. `dex.yourdomain.com`). If you don't have a domain, skip the SSL/Nginx section and access via IP directly (`http://YOUR_IP:3030`).
+
+- **Blockcypher API token**: Needed for DOGE balance/UTXO queries. Get a free token at [https://accounts.blockcypher.com/signup](https://accounts.blockcypher.com/signup) before starting. The free plan (200 req/hr) is sufficient for testing.
+
+- **BTCT full node synced**: The BTCT node (`bitcoinkrypton-seed`) must be running and **fully synchronized** before trades will display correctly. Block sync can take time — start it first while completing the rest of the setup.
+
+---
+
 ## Installation
 
 ### 1. Clone the repository
