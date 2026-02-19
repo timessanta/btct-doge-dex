@@ -435,6 +435,62 @@ details summary:hover { color: var(--text); }
 .success-text { color: var(--green); }
 .empty { text-align: center; padding: 40px; color: var(--text-dim); }
 
+/* Market Layout */
+.market-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+.market-main { min-width: 0; }
+
+/* Price Panel */
+.price-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  position: sticky;
+  top: 80px;
+}
+.price-panel h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.price-panel .price-main {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.price-panel .price-change {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.price-panel .price-change.up { color: var(--green); }
+.price-panel .price-change.down { color: var(--red); }
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.price-row:last-child { border-bottom: none; }
+.price-row .label { color: var(--text-dim); }
+.price-row .value { font-weight: 600; }
+.price-panel .source {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  margin-top: 12px;
+  opacity: 0.6;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   header { padding: 10px 12px; }
@@ -444,6 +500,8 @@ details summary:hover { color: var(--text); }
   .swap-step:first-child { border-radius: 8px 8px 0 0; }
   .swap-step:last-child { border-radius: 0 0 8px 8px; }
   .listing-card { flex-direction: column; align-items: flex-start; }
+  .market-layout { grid-template-columns: 1fr; }
+  .price-panel { position: static; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .admin-table { font-size: 0.75rem; }
 }

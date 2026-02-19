@@ -331,6 +331,47 @@ function updateUI() {
   }
 }
 
+// ===================== DOGE PRICE (Binance) =====================
+
+let dogePriceInterval = null;
+
+async function loadDogePrice() {
+  try {
+    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=DOGEUSDT');
+    const d = await res.json();
+    const price = parseFloat(d.lastPrice);
+    const change = parseFloat(d.priceChangePercent);
+    const high = parseFloat(d.highPrice);
+    const low = parseFloat(d.lowPrice);
+    const vol = parseFloat(d.volume);
+
+    const priceEl = document.getElementById('dogePrice');
+    const changeEl = document.getElementById('dogeChange');
+    const highEl = document.getElementById('dogeHigh');
+    const lowEl = document.getElementById('dogeLow');
+    const volEl = document.getElementById('dogeVol');
+
+    if (priceEl) priceEl.textContent = '$' + price.toFixed(5);
+    if (changeEl) {
+      changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      changeEl.className = 'price-change ' + (change >= 0 ? 'up' : 'down');
+    }
+    if (highEl) highEl.textContent = '$' + high.toFixed(5);
+    if (lowEl) lowEl.textContent = '$' + low.toFixed(5);
+    if (volEl) volEl.textContent = (vol / 1e6).toFixed(1) + 'M';
+  } catch (e) {
+    const priceEl = document.getElementById('dogePrice');
+    if (priceEl) priceEl.textContent = 'N/A';
+  }
+
+  // Auto-refresh every 30s while on market page
+  if (dogePriceInterval) clearInterval(dogePriceInterval);
+  dogePriceInterval = setInterval(() => {
+    if (currentPage === 'market') loadDogePrice();
+    else { clearInterval(dogePriceInterval); dogePriceInterval = null; }
+  }, 30000);
+}
+
 // ===================== NAVIGATION =====================
 
 function navigateTo(page, param, pushHash = true) {
@@ -372,8 +413,23 @@ async function loadMarket(el) {
       <h2>Bulletin Board</h2>
       <button class="btn" onclick="showModal('createAdModal')" ${currentUser ? '' : 'disabled title="Connect wallet first"'}>Post Listing</button>
     </div>
-    <div id="listingList"><div class="empty">Loading...</div></div>
+    <div class="market-layout">
+      <div class="market-main">
+        <div id="listingList"><div class="empty">Loading...</div></div>
+      </div>
+      <div class="price-panel" id="pricePanel">
+        <h3>🐕 DOGE / USDT</h3>
+        <div class="price-main" id="dogePrice">--</div>
+        <div class="price-change" id="dogeChange">--</div>
+        <div class="price-row"><span class="label">24h High</span><span class="value" id="dogeHigh">--</span></div>
+        <div class="price-row"><span class="label">24h Low</span><span class="value" id="dogeLow">--</span></div>
+        <div class="price-row"><span class="label">24h Volume</span><span class="value" id="dogeVol">--</span></div>
+        <div class="source">via Binance</div>
+      </div>
+    </div>
   `;
+
+  loadDogePrice();
 
   try {
     const ads = await api('/ads');
