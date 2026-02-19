@@ -76,7 +76,7 @@ A non-custodial, peer-to-peer atomic swap platform for exchanging BTCT (Bitcoin 
 
 Before following this guide, prepare these 3 things to avoid getting stuck mid-way:
 
-- **Domain name**: Required if you want SSL (e.g. `dex.yourdomain.com`). If you don't have a domain, skip the SSL/Nginx section and access via IP directly (`http://YOUR_IP:3030`).
+- **Domain name**: Required if you want SSL (e.g. `dex.yourdomain.com`). Make sure the domain's **DNS A record already points to your server's public IP** before running certbot — SSL issuance will fail otherwise. If you don't have a domain, skip the SSL/Nginx section and access via IP directly (`http://YOUR_IP:3030`).
 
 - **Blockcypher API token**: Needed for DOGE balance/UTXO queries. Get a free token at [https://accounts.blockcypher.com/signup](https://accounts.blockcypher.com/signup) before starting. The free plan (200 req/hr) is sufficient for testing.
 
@@ -169,6 +169,13 @@ pm2 save
 pm2 startup
 ```
 
+**Log rotation** (prevents logs from filling up disk over time):
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 50M
+pm2 set pm2-logrotate:retain 7
+```
+
 Access at: `http://localhost:3030`
 
 ---
@@ -246,6 +253,22 @@ sudo certbot --nginx -d dex.yourdomain.com
 Auto-renewal is configured automatically. Verify:
 ```bash
 sudo certbot renew --dry-run
+```
+
+### 6. Enable gzip compression
+Add the following inside the `http {}` block of `/etc/nginx/nginx.conf` to compress JS/CSS assets (`bitcore-doge.js` is ~2MB and benefits significantly):
+```nginx
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_buffers 16 8k;
+gzip_http_version 1.1;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm;
+```
+Then reload Nginx:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### 4. Firewall (UFW)
