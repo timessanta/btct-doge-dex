@@ -161,6 +161,100 @@ Access at: `http://localhost:3030`
 
 ---
 
+## Production Deployment (Nginx + SSL)
+
+For production, use Nginx as a reverse proxy in front of the Node.js server.
+
+### 1. Install Nginx
+```bash
+sudo apt update
+sudo apt install nginx
+```
+
+### 2. Configure Nginx reverse proxy
+```bash
+sudo nano /etc/nginx/sites-available/dex
+```
+
+```nginx
+server {
+    listen 80;
+    server_name dex.yourdomain.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name dex.yourdomain.com;
+
+    ssl_certificate     /etc/letsencrypt/live/dex.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dex.yourdomain.com/privkey.pem;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Rate limiting (optional)
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+    location / {
+        proxy_pass http://127.0.0.1:3030;
+        proxy_http_version 1.1;
+
+        # WebSocket support (required for RPG Town multiplayer + trade chat)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+Enable the site:
+```bash
+sudo ln -s /etc/nginx/sites-available/dex /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 3. SSL Certificate (Let's Encrypt)
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d dex.yourdomain.com
+```
+
+Auto-renewal is configured automatically. Verify:
+```bash
+sudo certbot renew --dry-run
+```
+
+### 4. Firewall (UFW)
+Allow only necessary ports — keep Node.js port (3030) blocked from external access:
+```bash
+sudo ufw allow 22      # SSH
+sudo ufw allow 80      # HTTP (redirect to HTTPS)
+sudo ufw allow 443     # HTTPS
+sudo ufw deny 3030     # Block direct Node.js access from outside
+sudo ufw enable
+```
+
+### 5. Trust the proxy in Express
+Make sure your `.env` or `server/index.js` has trust proxy enabled so Express reads the real client IP correctly via `X-Forwarded-For`:
+```js
+app.set('trust proxy', 1);
+```
+This is already included in the default `server/index.js`.
+
+---
+
 ## BTCT Node Setup
 
 You need a running BTCT full node with RPC enabled.
