@@ -35,6 +35,7 @@ let pendingAd = null;
   try {
     if (typeof Krypton !== 'undefined') {
       await Krypton.WasmHelper.doImport();
+      try { Krypton.GenesisConfig.main(); } catch (e) { /* already initialized */ }
       kryptonReady = true;
       console.log('[Town] Krypton WASM ready');
     }
@@ -45,6 +46,7 @@ async function ensureKrypton() {
   if (kryptonReady) return;
   if (typeof Krypton === 'undefined') throw new Error('Krypton library not loaded');
   await Krypton.WasmHelper.doImport();
+  try { Krypton.GenesisConfig.main(); } catch (e) { /* already initialized */ }
   kryptonReady = true;
 }
 

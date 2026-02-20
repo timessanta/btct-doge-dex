@@ -6,7 +6,7 @@ const DogeHTLC = (function() {
   'use strict';
 
   const HTLC_TIMEOUT_SEC = 43200; // 12 hours (must be < BTCT 24h timeout)
-  const FEE_SAT = 1000000; // 0.01 DOGE
+  const FEE_SAT = 2000000; // 0.02 DOGE
 
   function getBitcore() {
     const b = window.bitcoreDoge;
@@ -121,7 +121,7 @@ const DogeHTLC = (function() {
       .change(fromAddress)
       .sign(privateKey);
 
-    return tx.serialize();
+    return tx.uncheckedSerialize();
   }
 
   /**
@@ -294,12 +294,57 @@ const DogeHTLC = (function() {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   }
 
+  /**
+   * Build a simple P2PKH transaction (standard DOGE send)
+   *
+   * @param {string} wif - Sender's DOGE private key (WIF)
+   * @param {string} toAddress - Recipient DOGE address
+   * @param {number} amountSat - Amount in satoshis
+   * @param {Array} utxos - UTXOs from /doge/utxos API
+   * @returns {string} Serialized transaction hex
+   */
+  function buildSimpleTx(wif, toAddress, amountSat, utxos) {
+    const bitcore = getBitcore();
+
+    const privateKey = new bitcore.PrivateKey(wif);
+    const fromAddress = privateKey.toAddress().toString();
+
+    if (!utxos || utxos.length === 0) throw new Error('No UTXOs (balance is 0)');
+    const totalSat = utxos.reduce((sum, u) => sum + u.satoshis, 0);
+    // Estimate fee: ~2 DOGE (Dogecoin recommended minimum relay fee)
+    const feeSat = 2000000;
+    if (totalSat < amountSat + feeSat) {
+      throw new Error('Insufficient balance. Have: ' + (totalSat / 1e8).toFixed(8) +
+        ' DOGE, need: ' + ((amountSat + feeSat) / 1e8).toFixed(8) + ' DOGE');
+    }
+
+    const tx = new bitcore.Transaction()
+      .from(utxos)
+      .to(toAddress, amountSat)
+      .fee(feeSat)
+      .change(fromAddress)
+      .sign(privateKey);
+
+    return tx.uncheckedSerialize();
+  }
+
+  /**
+   * Derive DOGE address from WIF private key
+   */
+  function wifToAddress(wif) {
+    const bitcore = getBitcore();
+    const privateKey = new bitcore.PrivateKey(wif);
+    return privateKey.toAddress().toString();
+  }
+
   // Public API
   return {
     createHTLC,
     buildFundingTx,
     buildRedeemTx,
     buildRefundTx,
+    buildSimpleTx,
+    wifToAddress,
     getDefaultLocktime,
     isTimedOut,
     formatTimeRemaining,

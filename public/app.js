@@ -13,6 +13,7 @@ let adminToken = localStorage.getItem('dex_admin_token') || null;
 (async function initWasm() {
   try {
     await Krypton.WasmHelper.doImport();
+    try { Krypton.GenesisConfig.main(); } catch (e) { /* already initialized */ }
     kryptonReady = true;
     console.log('[WASM] Krypton initialized');
   } catch (e) {
@@ -23,6 +24,7 @@ let adminToken = localStorage.getItem('dex_admin_token') || null;
 async function ensureKrypton() {
   if (kryptonReady) return;
   await Krypton.WasmHelper.doImport();
+  try { Krypton.GenesisConfig.main(); } catch (e) { /* already initialized */ }
   kryptonReady = true;
 }
 
@@ -334,6 +336,7 @@ function updateUI() {
 // ===================== DOGE PRICE (Binance) =====================
 
 let dogePriceInterval = null;
+let walletInterval = null;
 
 async function loadDogePrice() {
   try {
@@ -741,6 +744,13 @@ async function loadWallet(el) {
     return;
   }
 
+  // Auto-refresh every 30s while on wallet page (server cache is 90s, so Blockcypher call ~every 90s)
+  if (walletInterval) clearInterval(walletInterval);
+  walletInterval = setInterval(() => {
+    if (currentPage === 'wallet') loadWallet(document.getElementById('app'));
+    else { clearInterval(walletInterval); walletInterval = null; }
+  }, 30000);
+
   const btctWallets = getStoredBtctWallets();
   const dogeWallets = getStoredDogeWallets();
   const btctAddrs = Object.keys(btctWallets);
@@ -913,7 +923,7 @@ async function loadWallet(el) {
           <input type="text" id="walletDogeSendTo" placeholder="D...">
           <label>Amount (DOGE)</label>
           <input type="number" id="walletDogeSendAmount" step="0.01" placeholder="0.00">
-          <p class="small fee-notice">Network fee: ~0.01 DOGE</p>
+          <p class="small fee-notice">Network fee: ~0.02 DOGE</p>
           <button class="btn btn-full" onclick="walletSendDoge()">Send DOGE</button>
         </div>
 
@@ -1248,36 +1258,21 @@ function walletSaveDogeAddr() {
 
 // Sign & broadcast DOGE transaction entirely client-side (non-custodial)
 async function signAndSendDoge(wif, toAddress, amountDoge) {
-  const bitcore = window.bitcoreDoge;
-  if (!bitcore) throw new Error('bitcore-doge not loaded');
+  if (typeof DogeHTLC === 'undefined') throw new Error('doge-htlc not loaded');
 
-  const privateKey = new bitcore.PrivateKey(wif);
-  const fromAddress = privateKey.toAddress().toString();
   const amountSat = Math.round(Number(amountDoge) * 1e8);
-  const feeSat = 1000000; // 0.01 DOGE
+  const fromAddress = DogeHTLC.wifToAddress(wif);
 
   // Get UTXOs from server (no private key sent)
   const utxos = await api(`/doge/utxos/${fromAddress}`);
   if (!utxos || utxos.length === 0) throw new Error('No UTXOs (balance is 0)');
 
-  const totalSat = utxos.reduce((sum, u) => sum + u.satoshis, 0);
-  if (totalSat < amountSat + feeSat) {
-    throw new Error(`Insufficient balance. Have: ${(totalSat / 1e8).toFixed(8)} DOGE, need: ${((amountSat + feeSat) / 1e8).toFixed(8)} DOGE`);
-  }
-
-  // Build & sign transaction client-side
-  const tx = new bitcore.Transaction()
-    .from(utxos)
-    .to(toAddress, amountSat)
-    .fee(feeSat)
-    .change(fromAddress)
-    .sign(privateKey);
-
-  const rawTx = tx.serialize();
+  // Build & sign transaction via DogeHTLC (uses verified getBitcore() pattern)
+  const rawTx = DogeHTLC.buildSimpleTx(wif, toAddress, amountSat, utxos);
 
   // Broadcast signed TX (server only sees raw hex, never private key)
   const result = await api('/doge/broadcast', { body: { rawTx } });
-  return { txid: result.txid, fee: 0.01 };
+  return { txid: result.txid, fee: 0.02 };
 }
 
 async function walletSendDoge() {
@@ -1290,7 +1285,7 @@ async function walletSendDoge() {
   if (!toAddr) return showWalletMsg('walletDogeError', 'Enter recipient address');
   if (!amount || Number(amount) <= 0) return showWalletMsg('walletDogeError', 'Enter valid amount');
 
-  if (!confirm(`Send ${amount} DOGE to ${toAddr}?\n\nNetwork fee: ~0.01 DOGE`)) return;
+  if (!confirm(`Send ${amount} DOGE to ${toAddr}?\n\nNetwork fee: ~0.02 DOGE`)) return;
 
   document.getElementById('walletDogeError').classList.add('hidden');
   document.getElementById('walletDogeSuccess').classList.add('hidden');
@@ -1303,6 +1298,7 @@ async function walletSendDoge() {
     document.getElementById('walletDogeSendAmount').value = '';
     setTimeout(() => navigateTo('wallet'), 3000);
   } catch (err) {
+    console.error('[DOGE Send]', err);
     showWalletMsg('walletDogeError', err.message);
   }
 }
@@ -1699,7 +1695,7 @@ async function sendDogeAutomatically(tradeId) {
       `Lock ${satToDOGE(dogeAmountSat)} DOGE in HTLC P2SH?\n\n` +
       `P2SH Address: ${htlc.p2shAddress}\n` +
       `Timeout: ${new Date(locktime * 1000).toLocaleString()}\n` +
-      `Fee: 0.01 DOGE\n\n` +
+      `Fee: 0.02 DOGE\n\n` +
       `The seller can claim only by revealing the secret.\n` +
       `If unclaimed, you can refund after timeout.`
     );

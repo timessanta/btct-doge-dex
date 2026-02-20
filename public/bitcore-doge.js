@@ -35583,9 +35583,18 @@ module.exports = function whichTypedArray(value) {
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"available-typed-arrays":20,"call-bind":60,"call-bound":61,"for-each":112,"get-proto":118,"gopd":120,"has-tostringtag/shams":124}],245:[function(require,module,exports){
-var bitcore = require('bitcore-lib-doge'); window.bitcoreDoge = bitcore;
+(function (global){(function (){
+// Ensure Buffer is globally available for bn.js
+if (typeof global !== 'undefined' && !global.Buffer) {
+  global.Buffer = require('buffer').Buffer;
+}
+if (typeof window !== 'undefined' && !window.Buffer) {
+  window.Buffer = require('buffer').Buffer;
+}
+module.exports = require('bitcore-lib-doge');
 
-},{"bitcore-lib-doge":247}],246:[function(require,module,exports){
+}).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"bitcore-lib-doge":247,"buffer":53}],246:[function(require,module,exports){
 'use strict'
 // base-x encoding / decoding
 // Copyright (c) 2018 base-x contributors
