@@ -1638,7 +1638,7 @@ async function lockBTCT(tradeId) {
       Krypton.Address.CONTRACT_CREATION,
       Krypton.Account.Type.HTLC,
       value,
-      blockHeight + 1,
+      blockHeight,  // validityStartHeight (fee auto-calculated by Policy)
       Krypton.Transaction.Flag.CONTRACT_CREATION,
       data
     );
@@ -1676,7 +1676,7 @@ async function lockBTCT(tradeId) {
 
 // Step 3: Buyer locks DOGE in HTLC P2SH
 async function sendDogeAutomatically(tradeId) {
-  if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet not connected');
+  if (!currentUser || !currentUser.dogeWif) return alert('DOGE wallet not connected');
 
   try {
     const trade = await api(`/trades/${tradeId}`);
@@ -1703,7 +1703,7 @@ async function sendDogeAutomatically(tradeId) {
 
     // Get UTXOs and build funding TX
     const utxos = await api(`/doge/utxos/${buyerDogeAddr}`);
-    const rawTx = DogeHTLC.buildFundingTx(currentUser.dogeKey, htlc.p2shAddress, dogeAmountSat, utxos);
+    const rawTx = DogeHTLC.buildFundingTx(currentUser.dogeWif, htlc.p2shAddress, dogeAmountSat, utxos);
 
     // Broadcast
     const result = await api('/doge/broadcast', { body: { rawTx } });
@@ -1740,7 +1740,7 @@ async function sendDogeAutomatically(tradeId) {
 // Step 4: Seller redeems DOGE from P2SH (reveals secret)
 async function sellerRedeem(tradeId) {
   if (!currentUser) return;
-  if (!currentUser.dogeKey) return alert('DOGE wallet required to redeem DOGE from HTLC');
+  if (!currentUser.dogeWif) return alert('DOGE wallet required to redeem DOGE from HTLC');
 
   const secret = localStorage.getItem(`dex_secret_${tradeId}`);
   if (!secret) return alert('Secret not found in localStorage!');
@@ -1754,7 +1754,7 @@ async function sellerRedeem(tradeId) {
     const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
     if (!utxos || utxos.length === 0) return alert('No DOGE found in HTLC P2SH. Wait for confirmation.');
 
-    const rawTx = DogeHTLC.buildRedeemTx(currentUser.dogeKey, trade.doge_redeem_script, secret, utxos);
+    const rawTx = DogeHTLC.buildRedeemTx(currentUser.dogeWif, trade.doge_redeem_script, secret, utxos);
 
     // Broadcast redeem TX
     const result = await api('/doge/broadcast', { body: { rawTx } });
@@ -1776,7 +1776,7 @@ async function sellerRedeem(tradeId) {
 
 // DOGE HTLC Refund (buyer reclaims after timeout)
 async function refundDoge(tradeId) {
-  if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet required');
+  if (!currentUser || !currentUser.dogeWif) return alert('DOGE wallet required');
 
   try {
     const trade = await api(`/trades/${tradeId}`);
@@ -1791,7 +1791,7 @@ async function refundDoge(tradeId) {
     const utxos = await api(`/doge/utxos/${trade.doge_htlc_address}`);
     if (!utxos || utxos.length === 0) return alert('No DOGE in HTLC (already claimed or refunded)');
 
-    const rawTx = DogeHTLC.buildRefundTx(currentUser.dogeKey, trade.doge_redeem_script, trade.doge_timeout, utxos);
+    const rawTx = DogeHTLC.buildRefundTx(currentUser.dogeWif, trade.doge_redeem_script, trade.doge_timeout, utxos);
     const result = await api('/doge/broadcast', { body: { rawTx } });
 
     alert(`✓ DOGE refunded!\nTX: ${result.txid}`);
@@ -1825,15 +1825,18 @@ async function buyerRedeem(tradeId) {
     const htlcBalance = Number(htlcAccount.balance);
     if (htlcBalance <= 0) return alert('HTLC balance is 0');
 
-    // Build redeem transaction
+    // Build redeem transaction — subtract network fee from value
     const htlcAddress = Krypton.Address.fromHex(htlcAddr);
+    const networkFee = Number(Krypton.Policy.txFee(blockHeight));
+    const redeemValue = htlcBalance - networkFee;
+    if (redeemValue <= 0) return alert('HTLC balance too low to cover network fee');
     const tx = new Krypton.ExtendedTransaction(
       htlcAddress,
       Krypton.Account.Type.HTLC,
       recipientAddr,
       Krypton.Account.Type.BASIC,
-      htlcBalance,
-      blockHeight + 1,
+      redeemValue,  // value minus network fee
+      blockHeight,  // validityStartHeight (fee auto-calculated by Policy)
       Krypton.Transaction.Flag.NONE,
       new Uint8Array(0)
     );

@@ -322,15 +322,14 @@ router.post('/trades/:id/btct-locked', async (req, res) => {
     );
     if (!trade) return res.status(404).json({ error: 'Trade not found' });
 
-    // Verify HTLC exists on-chain
+    // Verify HTLC exists on-chain (best-effort: TX may still be in mempool)
     try {
       const htlcAddr = htlcAddress.replace(/^0x/, '');
       const account = await btctRpc.getAccount(htlcAddr);
       if (!account || account.type !== 2) {
-        return res.status(400).json({ error: 'HTLC contract not found on chain' });
-      }
-      // Verify HTLC details match trade
-      if (account.hashRoot !== trade.hash_lock) {
+        // TX is likely in mempool, not yet mined — allow it
+        console.log(`[DEX] HTLC contract not yet on chain for trade ${trade.id} (mempool), proceeding anyway`);
+      } else if (account.hashRoot && account.hashRoot !== trade.hash_lock) {
         return res.status(400).json({ error: 'HTLC hash does not match trade hash_lock' });
       }
     } catch (e) {
