@@ -559,7 +559,7 @@ function navigateTo(page, param, pushHash = true) {
   }
 
   document.querySelectorAll('.nav-link').forEach((el, i) => {
-    const pages = ['market', 'myAds', 'myTrades', 'wallet'];
+    const pages = ['market', 'myTrades', 'myAds', 'wallet'];
     el.classList.toggle('active', pages[i] === page);
   });
 
