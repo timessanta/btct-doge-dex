@@ -168,6 +168,59 @@ main {
   gap: 0;
   margin: 20px 0;
 }
+
+/* Nav trade badge */
+.trade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+  animation: badge-pop 0.3s ease;
+}
+@keyframes badge-pop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(22, 33, 62, 0.97);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  max-width: 320px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: auto;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
 .swap-step {
   flex: 1;
   text-align: center;
@@ -195,6 +248,22 @@ main {
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: 4px;
+}
+.step-timer {
+  display: block;
+  font-size: 0.62rem;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-family: monospace;
+  letter-spacing: 0;
+}
+.step-timer.urgent {
+  color: #f5a623;
+  font-weight: 700;
+}
+.step-timer.expired {
+  color: var(--red, #ff4d4f);
+  font-weight: 700;
 }
 
 /* Action box */
@@ -234,10 +303,15 @@ main {
 }
 
 /* Chat */
+.swap-notice { margin-top: 16px; padding: 12px 14px; background: rgba(255,180,0,0.08); border: 1px solid rgba(255,180,0,0.3); border-radius: 8px; color: #f0c040; font-size: 13px; line-height: 1.6; }
+.swap-notice a { color: #4ecca3; text-decoration: none; }
+.swap-notice a:hover { text-decoration: underline; }
 .chat-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
 .chat-messages { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
 .chat-msg { margin-bottom: 6px; font-size: 0.82rem; }
 .chat-msg .sender { color: var(--accent); font-family: monospace; font-size: 0.72rem; }
+.chat-msg .sender.seller { color: var(--accent); }
+.chat-msg .sender.buyer  { color: #f5c542; }
 .chat-msg .time { color: var(--text-dim); font-size: 0.7rem; margin-left: 6px; }
 .chat-input { display: flex; gap: 8px; }
 .chat-input input {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260219e">
+  <link rel="stylesheet" href="town-style.css?v=20260221b">
 </head>
 <body>
   <!-- Top Bar -->
@@ -13,9 +13,11 @@
       <a href="/" class="back-link">← DEX</a>
       <span class="town-title">BTCT Town</span>
     </div>
+    <div class="top-center">
+      <span id="wallet-display">No Wallet</span>
+    </div>
     <div class="top-right">
       <span id="player-count">0 online</span>
-      <span id="wallet-display">No Wallet</span>
     </div>
   </div>
 
@@ -68,6 +70,14 @@
     </div>
   </div>
 
+  <!-- Town Global Chat -->
+  <div id="town-chat">
+    <div id="town-chat-messages"></div>
+    <div id="town-chat-input-row">
+      <input type="text" id="town-chat-input" placeholder="Press Enter to chat..." maxlength="200" autocomplete="off">
+    </div>
+  </div>
+
   <!-- Mobile Controls (hidden by default, shown on touch devices) -->
   <div id="mobile-controls">
     <div id="joystick-base">
@@ -80,6 +90,7 @@
   <div id="controls-help">
     <span>Arrow Keys / WASD to move</span>
     <span>SPACE near NPC to interact</span>
+    <span>ENTER to chat</span>
     <span><a href="/privacy" target="_blank" style="color:#666;">Privacy Policy</a></span>
   </div>
 
@@ -88,6 +99,6 @@
   <script src="krypton-offline.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town.js?v=20260220i"></script>
+  <script src="town.js?v=20260221w"></script>
 </body>
 </html>

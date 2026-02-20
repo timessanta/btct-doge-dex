@@ -9,7 +9,16 @@ const SPEED = 120;
 
 // ---- Wallet helpers (shared with DEX) ----
 function getActiveBtctAddr() { return localStorage.getItem('dex_active_btct') || ''; }
-function getActiveDogeAddr() { return localStorage.getItem('dex_active_doge') || ''; }
+function getActiveDogeAddr() {
+  const active = localStorage.getItem('dex_active_doge') || '';
+  if (active) return active;
+  // fallback: dex_doge_wallets에 등록된 첫 번째 주소
+  try {
+    const wallets = JSON.parse(localStorage.getItem('dex_doge_wallets') || '{}');
+    const addrs = Object.keys(wallets);
+    return addrs[0] || '';
+  } catch { return ''; }
+}
 function shortAddr(addr) {
   if (!addr) return '???';
   const a = addr.replace(/^0x/, '');
@@ -142,6 +151,46 @@ let townScene = null;
 // ---- Mobile input ----
 const mobileInput = { x: 0, y: 0 };
 let _isMobile = null;
+// Global town toast (no app.js dependency)
+function townShowToast(msg, duration = 5000) {
+  let container = document.getElementById('town-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'town-toast-container';
+    Object.assign(container.style, {
+      position: 'fixed', bottom: '70px', right: '16px',
+      zIndex: '99999', display: 'flex', flexDirection: 'column', gap: '8px',
+      pointerEvents: 'none',
+    });
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  Object.assign(toast.style, {
+    background: 'rgba(22,33,62,0.97)',
+    border: '1px solid #00d4ff',
+    color: '#f0f0f0',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    maxWidth: '300px',
+    opacity: '0',
+    transform: 'translateY(10px)',
+    transition: 'opacity 0.3s, transform 0.3s',
+    pointerEvents: 'auto',
+  });
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => toast.remove(), 350);
+  }, duration);
+}
+
 function isMobile() {
   if (_isMobile === null) {
     _isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -690,6 +739,12 @@ class TownScene extends Phaser.Scene {
     // NPC sprite
     this.npcSprite = this.add.image(NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2, 'npc');
     this.npcSprite.setDepth(NPC_POS.y * TILE);
+    // Click/tap NPC to open bulletin board directly
+    this.npcSprite.setInteractive({ useHandCursor: true });
+    this.npcSprite.on('pointerdown', () => {
+      TownSounds.playInteract();
+      this.openBulletinBoard();
+    });
 
     // NPC label
     this.npcLabel = this.add.text(NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE - 8, 'Bulletin Board', {
@@ -800,10 +855,14 @@ class TownScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
-    const up = this.cursors?.up?.isDown || this.wasd?.up?.isDown || mobileInput.y < -0.3;
-    const down = this.cursors?.down?.isDown || this.wasd?.down?.isDown || mobileInput.y > 0.3;
-    const left = this.cursors?.left?.isDown || this.wasd?.left?.isDown || mobileInput.x < -0.3;
-    const right = this.cursors?.right?.isDown || this.wasd?.right?.isDown || mobileInput.x > 0.3;
+    // Block movement when chat input is focused
+    const chatInput = document.getElementById('town-chat-input');
+    const chatFocused = chatInput && (document.activeElement === chatInput);
+
+    const up = !chatFocused && (this.cursors?.up?.isDown || this.wasd?.up?.isDown || mobileInput.y < -0.3);
+    const down = !chatFocused && (this.cursors?.down?.isDown || this.wasd?.down?.isDown || mobileInput.y > 0.3);
+    const left = !chatFocused && (this.cursors?.left?.isDown || this.wasd?.left?.isDown || mobileInput.x < -0.3);
+    const right = !chatFocused && (this.cursors?.right?.isDown || this.wasd?.right?.isDown || mobileInput.x > 0.3);
 
     this.player.setVelocity(0);
 
@@ -839,6 +898,23 @@ class TownScene extends Phaser.Scene {
     // Update self bubble position
     if (this.selfBubble) this.selfBubble.setPosition(this.player.x, this.player.y - 36);
 
+    // Update self chat bubble position
+    if (this.selfChatBubble) this.selfChatBubble.setPosition(this.player.x, this.player.y - 54);
+
+    // Update other players' chat bubbles
+    for (const id in otherPlayers) {
+      const p = otherPlayers[id];
+      if (p.chatBubble) p.chatBubble.setPosition(p.sprite.x, p.sprite.y - 54);
+    }
+
+    // Update trade notif badge position
+    if (this.tradeNotifBadge) {
+      const bx = this.player.x + 10;
+      const by = this.player.y - 46;
+      this.tradeNotifBadge.setPosition(bx, by);
+      this.tradeNotifBadge.setDepth(99999);
+    }
+
     // Check NPC proximity
     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
       NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2);
@@ -865,11 +941,15 @@ class TownScene extends Phaser.Scene {
     // Join/rejoin on connect (handles initial + reconnections)
     socket.on('connect', () => {
       console.log('[Town] Socket connected:', socket.id);
+      // Register for personal notifications
+      const myAddr = getActiveBtctAddr();
+      if (myAddr) socket.emit('registerAddress', { address: myAddr });
       // Clear stale other players on reconnect
       for (const id in otherPlayers) {
         if (otherPlayers[id].sprite) otherPlayers[id].sprite.destroy();
         if (otherPlayers[id].label) otherPlayers[id].label.destroy();
         if (otherPlayers[id].bubble) otherPlayers[id].bubble.destroy();
+        if (otherPlayers[id].chatBubble) otherPlayers[id].chatBubble.destroy();
         delete otherPlayers[id];
       }
       emitJoin();
@@ -931,6 +1011,7 @@ class TownScene extends Phaser.Scene {
         otherPlayers[data.id].sprite.destroy();
         otherPlayers[data.id].label.destroy();
         if (otherPlayers[data.id].bubble) otherPlayers[data.id].bubble.destroy();
+        if (otherPlayers[data.id].chatBubble) otherPlayers[data.id].chatBubble.destroy();
         delete otherPlayers[data.id];
       }
       this.updatePlayerCount(data.totalPlayers || 0);
@@ -965,6 +1046,31 @@ class TownScene extends Phaser.Scene {
         chatBox.scrollTop = chatBox.scrollHeight;
       }
     });
+
+    // Town global chat receive
+    socket.on('townChatMsg', (data) => {
+      const container = document.getElementById('town-chat-messages');
+      if (!container) return;
+      const addr = data.address || '';
+      const color = this.addrToCssColor(addr);
+      const line = document.createElement('div');
+      line.className = 'town-chat-line';
+      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span>`;
+      container.appendChild(line);
+      // Keep max 50 messages
+      while (container.children.length > 50) container.removeChild(container.firstChild);
+      container.scrollTop = container.scrollHeight;
+      // Show chat bubble above character
+      this.showChatBubble(addr, data.content);
+    });
+
+    // New trade alert (for ad owners)
+    socket.on('newTradeAlert', (data) => {
+      this.showTradeNotif(data);
+    });
+
+    // Enter key to activate/send town chat
+    this.setupTownChat();
   }
 
   addOtherPlayer(id, data) {
@@ -1013,6 +1119,104 @@ class TownScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(99999);
   }
 
+  showTradeNotif(data) {
+    // Clear existing badge
+    this.clearTradeNotif();
+
+    // Create '!' badge above player head
+    this.tradeNotifBadge = this.add.text(
+      this.player.x + 10, this.player.y - 46, '!',
+      {
+        fontSize: '14px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        color: '#fff',
+        backgroundColor: '#e53e3e',
+        padding: { x: 5, y: 2 },
+        stroke: '#000', strokeThickness: 2,
+      }
+    ).setOrigin(0.5).setDepth(99999).setInteractive({ useHandCursor: true });
+
+    // Bounce tween
+    this.tweens.add({
+      targets: this.tradeNotifBadge,
+      y: '-=6',
+      duration: 350,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Click → open Bulletin Board on My Trades tab
+    this.tradeNotifBadge.on('pointerdown', () => {
+      this.clearTradeNotif();
+      TownSounds.playInteract();
+      this.openBulletinBoard();
+      setTimeout(() => townSwitchTab('myTrades'), 120);
+    });
+
+    // Toast
+    const btct = (Number(data.btctAmount) / 1e11).toFixed(3);
+    townShowToast(`🔔 New swap on your listing! ${btct} BTCT  —  tap ! to view`, 8000);
+  }
+
+  clearTradeNotif() {
+    if (this.tradeNotifBadge) {
+      this.tweens.killTweensOf(this.tradeNotifBadge);
+      this.tradeNotifBadge.destroy();
+      this.tradeNotifBadge = null;
+    }
+  }
+
+  showChatBubble(address, content) {
+    const myAddr = getActiveBtctAddr();
+    const isMe = address && address === myAddr;
+    // Truncate long messages
+    const text = content.length > 28 ? content.substring(0, 28) + '…' : content;
+    const style = {
+      fontSize: '11px', color: '#ffffff', fontFamily: 'Arial,sans-serif',
+      stroke: '#000000', strokeThickness: 3,
+      backgroundColor: 'rgba(20,40,80,0.92)',
+      padding: { x: 7, y: 5 }
+    };
+
+    if (isMe) {
+      // Remove previous
+      if (this.selfChatBubble) { this.tweens.killTweensOf(this.selfChatBubble); this.selfChatBubble.destroy(); }
+      if (this._selfChatTimer) { clearTimeout(this._selfChatTimer); }
+      this.selfChatBubble = this.add.text(
+        this.player.x, this.player.y - 54, `💬 ${text}`, style
+      ).setOrigin(0.5).setDepth(100001);
+      this._selfChatTimer = setTimeout(() => {
+        if (this.selfChatBubble) {
+          this.tweens.add({
+            targets: this.selfChatBubble, alpha: 0, duration: 600,
+            onComplete: () => { if (this.selfChatBubble) { this.selfChatBubble.destroy(); this.selfChatBubble = null; } }
+          });
+        }
+      }, 4500);
+    } else {
+      for (const id in otherPlayers) {
+        const p = otherPlayers[id];
+        if (p.address !== address) continue;
+        // Remove previous
+        if (p.chatBubble) { this.tweens.killTweensOf(p.chatBubble); p.chatBubble.destroy(); }
+        if (p._chatTimer) clearTimeout(p._chatTimer);
+        p.chatBubble = this.add.text(
+          p.sprite.x, p.sprite.y - 54, `💬 ${text}`, style
+        ).setOrigin(0.5).setDepth(100001);
+        const scene = this;
+        p._chatTimer = setTimeout(() => {
+          if (p.chatBubble) {
+            scene.tweens.add({
+              targets: p.chatBubble, alpha: 0, duration: 600,
+              onComplete: () => { if (p.chatBubble) { p.chatBubble.destroy(); p.chatBubble = null; } }
+            });
+          }
+        }, 4500);
+        break;
+      }
+    }
+  }
+
   setSelfBubble(text) {
     if (this.selfBubble) this.selfBubble.destroy();
     this.selfBubble = null;
@@ -1039,6 +1243,47 @@ class TownScene extends Phaser.Scene {
     return (br << 16) | (bg << 8) | bb;
   }
 
+  addrToCssColor(addr) {
+    const c = this.addrToColor(addr);
+    return '#' + ((c >> 16) & 0xff).toString(16).padStart(2, '0')
+      + ((c >> 8) & 0xff).toString(16).padStart(2, '0')
+      + (c & 0xff).toString(16).padStart(2, '0');
+  }
+
+  setupTownChat() {
+    const input = document.getElementById('town-chat-input');
+    if (!input) return;
+
+    // Global Enter key to focus chat
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement !== input) {
+        // If modal is open, don't capture
+        const modal = document.getElementById('trade-modal');
+        if (modal && !modal.classList.contains('hidden')) return;
+        input.focus();
+        e.preventDefault();
+      }
+    });
+
+    // Handle Enter/Escape inside input, stop other keys from reaching game
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const content = input.value.trim();
+        if (content && socket) {
+          socket.emit('townChat', { content });
+        }
+        input.value = '';
+        input.blur();
+        e.preventDefault();
+      } else if (e.key === 'Escape') {
+        input.value = '';
+        input.blur();
+        e.preventDefault();
+      }
+      e.stopPropagation();
+    });
+  }
+
   sendPosition() {
     if (!socket) return;
     const now = Date.now();
@@ -1062,24 +1307,45 @@ class TownScene extends Phaser.Scene {
     document.getElementById('player-count').textContent = count + ' online';
   }
 
-  updateWalletDisplay() {
+  async updateWalletDisplay() {
     const addr = getActiveBtctAddr();
+    const dogeAddr = getActiveDogeAddr();
     const el = document.getElementById('wallet-display');
-    if (addr) {
-      el.textContent = shortAddr(addr);
-      el.style.color = '#4ecca3';
-    } else {
-      el.textContent = 'No Wallet — Set in DEX first';
-      el.style.color = '#e94560';
+    if (!addr) {
+      el.innerHTML = '<span style="color:#e94560;">No Wallet — Set in DEX first</span>';
+      return;
+    }
+    el.innerHTML = `<span style="color:#4ecca3;">${shortAddr(addr)}</span>`
+      + ` <span id="town-btct-bal" style="color:#f5c542;font-size:11px;">BTCT: …</span>`
+      + ` <span id="town-doge-bal" style="color:#b8d4ff;font-size:11px;">DOGE: ${dogeAddr ? '…' : '--'}</span>`;
+    // 잔액 비동기 조회
+    try {
+      const b = await fetch(`/api/btct/balance/${addr}`).then(r => r.json());
+      const balEl = document.getElementById('town-btct-bal');
+      if (balEl) balEl.textContent = 'BTCT: ' + satToBTCT(b.balance);
+    } catch (e) {
+      const balEl = document.getElementById('town-btct-bal');
+      if (balEl) balEl.textContent = 'BTCT: ?';
+    }
+    if (dogeAddr) {
+      try {
+        const d = await fetch(`/api/doge/balance/${dogeAddr}`).then(r => r.json());
+        const balEl = document.getElementById('town-doge-bal');
+        if (balEl) balEl.textContent = 'DOGE: ' + satToDOGE(d.balance);
+      } catch (e) {
+        const balEl = document.getElementById('town-doge-bal');
+        if (balEl) balEl.textContent = 'DOGE: ?';
+      }
     }
   }
+
 
   // ---- Interactions ----
   tryInteract() {
     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
       NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2);
 
-    if (dist < TILE * 2) {
+    if (dist < TILE * 4) {  // TILE*4 = 128px (울타리 바깥에서도 도달 가능)
       TownSounds.playInteract();
       this.openBulletinBoard();
       return;
@@ -1454,6 +1720,7 @@ function townGetStepStates(status) {
   const idx = order.indexOf(status);
   return order.map((_, i) => {
     if (status === 'negotiating') return i === 0 ? 'active' : '';
+    if (status === 'completed') return 'done';
     if (status === 'cancelled' || status === 'expired') return '';
     if (i < idx) return 'done';
     if (i === idx) return 'active';
@@ -1728,10 +1995,14 @@ async function townBuyerRedeem(tradeId) {
     if (htlcBalance <= 0) return alert('HTLC balance is 0');
 
     const htlcAddress = Krypton.Address.fromHex(htlcAddr);
+    const networkFee = Number(Krypton.Policy.txFee(blockHeight));
+    const redeemValue = htlcBalance - networkFee;
+    if (redeemValue <= 0) return alert('HTLC balance too low to cover network fee');
+
     const tx = new Krypton.ExtendedTransaction(
       htlcAddress, Krypton.Account.Type.HTLC,
       recipientAddr, Krypton.Account.Type.BASIC,
-      htlcBalance, blockHeight + 1,
+      redeemValue, blockHeight,
       Krypton.Transaction.Flag.NONE, new Uint8Array(0)
     );
 

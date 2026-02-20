@@ -110,7 +110,33 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---- Town Global Chat ----
+  socket.on('townChat', (data) => {
+    if (!townPlayers[socket.id]) return;
+    const content = (data.content || '').substring(0, 200).trim();
+    if (!content) return;
+    if (containsBlockedKeyword(content)) {
+      socket.emit('chatError', { error: 'Message blocked: contains prohibited content.' });
+      return;
+    }
+    const player = townPlayers[socket.id];
+    io.emit('townChatMsg', {
+      address: player.address,
+      content,
+      time: Date.now()
+    });
+  });
+
   // ---- Chat & Trade Events ----
+
+  // Register address room for personal notifications
+  socket.on('registerAddress', (data) => {
+    const addr = (data && data.address || '').replace(/^0x/, '').toLowerCase();
+    if (addr && addr.length === 40) {
+      socket.join(`addr:${addr}`);
+    }
+  });
+
   socket.on('joinTrade', (tradeId) => {
     socket.join(`trade:${tradeId}`);
   });

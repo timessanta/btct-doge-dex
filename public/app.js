@@ -2,9 +2,43 @@
 // Server holds NO private keys. All signing happens client-side.
 const socket = io();
 
+// ---- Socket: New trade alert ----
+// Bulletin board realtime refresh
+socket.on('adListUpdate', () => {
+  if (currentPage === 'market') loadMarket(document.getElementById('app'));
+});
+
+socket.on('newTradeAlert', (data) => {
+  if (!currentUser) return;
+  const count = parseInt(localStorage.getItem(`dex_unread_${currentUser.btctAddress}`) || '0') + 1;
+  localStorage.setItem(`dex_unread_${currentUser.btctAddress}`, count);
+  setTradeBadge(count);
+  const price = Number(data.btctAmount) / 1e11;
+  showToast(`🔔 New swap started on your listing! ${price.toFixed(3)} BTCT`, 7000);
+});
+
 let currentUser = null;  // { btctAddress, btctKey, dogeAddress, dogeWif }
+
+function showToast(msg, duration = 4000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, duration);
+}
 let currentPage = 'market';
 let currentTradeId = null;
+let currentTrade = null;  // loaded trade object for chat color
 let kryptonReady = false;
 let adminToken = localStorage.getItem('dex_admin_token') || null;
 
@@ -55,6 +89,27 @@ const BTCT_SAT = 1e11;
 const DOGE_SAT = 1e8;
 
 function satToBTCT(sat) { return (Number(sat) / BTCT_SAT).toFixed(5); }
+
+function fmtDuration(ms) {
+  if (ms <= 0) return '0s';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
+}
+
+function fmtElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `${d}d ${h % 24}h`;
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
+}
 function btctToSat(btct) { return Math.round(Number(btct) * BTCT_SAT); }
 function satToDOGE(sat) { return (Number(sat) / DOGE_SAT).toFixed(4); }
 function dogeToSat(doge) { return Math.round(Number(doge) * DOGE_SAT); }
@@ -326,11 +381,36 @@ function updateUI() {
     userInfo.textContent = shortAddr(currentUser.btctAddress);
     connectBtn.classList.add('hidden');
     disconnectBtn.classList.remove('hidden');
+    // Register address room for personal notifications
+    socket.emit('registerAddress', { address: currentUser.btctAddress });
+    // Restore unread badge from localStorage
+    const count = parseInt(localStorage.getItem(`dex_unread_${currentUser.btctAddress}`) || '0');
+    setTradeBadge(count);
   } else {
     userInfo.textContent = '';
     connectBtn.classList.remove('hidden');
     disconnectBtn.classList.add('hidden');
+    setTradeBadge(0);
   }
+}
+
+// ===================== TRADE BADGE (unread notification) =====================
+
+function setTradeBadge(count) {
+  const badge = document.getElementById('trade-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.textContent = '';
+    badge.style.display = 'none';
+  }
+}
+
+function clearTradeBadge() {
+  if (currentUser) localStorage.setItem(`dex_unread_${currentUser.btctAddress}`, '0');
+  setTradeBadge(0);
 }
 
 // ===================== DOGE PRICE (Binance) =====================
@@ -546,6 +626,7 @@ async function loadBtctChart() {
 // ===================== NAVIGATION =====================
 
 function navigateTo(page, param, pushHash = true) {
+  if (window._tradeTimerInterval) { clearInterval(window._tradeTimerInterval); window._tradeTimerInterval = null; }
   currentPage = page;
   if (param !== undefined && page === 'trade') currentTradeId = param;
 
@@ -568,7 +649,10 @@ function navigateTo(page, param, pushHash = true) {
   switch (page) {
     case 'market': loadMarket(container); break;
     case 'myAds': loadMyAds(container); break;
-    case 'myTrades': loadMyTrades(container); break;
+    case 'myTrades':
+      clearTradeBadge();
+      loadMyTrades(container);
+      break;
     case 'wallet': loadWallet(container); break;
     case 'trade': loadTradeDetail(container, currentTradeId); break;
     case 'krypton': loadAdminPage(container); break;
@@ -1389,10 +1473,18 @@ async function loadTradeDetail(el, tradeId) {
   try {
     const trade = await api(`/trades/${tradeId}`);
     currentTradeId = trade.id;
+    currentTrade = trade;
     socket.emit('joinTrade', trade.id);
 
     const isSeller = currentUser && currentUser.btctAddress.toLowerCase() === trade.seller_address.toLowerCase();
     const isBuyer = currentUser && currentUser.btctAddress.toLowerCase() === trade.buyer_address.toLowerCase();
+
+    // Fetch current block height for timeout countdown
+    try {
+      const blockInfo = await api('/btct/block');
+      window._currentBlock = blockInfo.height;
+      window._blockFetchTime = Date.now();
+    } catch (e) { /* ignore */ }
 
     const steps = ['Hash Published', 'BTCT Locked', 'DOGE Locked', 'Seller Redeems', 'Buyer Redeems'];
     const stepStates = getStepStates(trade.status);
@@ -1413,7 +1505,7 @@ async function loadTradeDetail(el, tradeId) {
         </div>
 
         <div class="swap-steps">
-          ${steps.map((s, i) => `<div class="swap-step ${stepStates[i]}"><span class="step-num">${i + 1}</span>${s}</div>`).join('')}
+          ${steps.map((s, i) => `<div class="swap-step ${stepStates[i]}"><span class="step-num">${i + 1}</span>${s}<span class="step-timer" id="step-timer-${i}"></span></div>`).join('')}
         </div>
 
         ${actionHTML}
@@ -1430,6 +1522,19 @@ async function loadTradeDetail(el, tradeId) {
           <button class="btn btn-red btn-sm" style="margin-top:16px;" onclick="cancelTrade(${trade.id})">Cancel Trade</button>
         ` : ''}
 
+        ${trade.status !== 'completed' && trade.status !== 'cancelled' ? `
+          <div class="swap-notice">
+            ⚠ Verify each transaction on the explorer before proceeding to the next step.
+            Funds are locked by smart contract — if the swap fails, refund is only possible after the timeout expires
+            (BTCT: ~24h / DOGE: ~12h).
+            <span style="display:block;margin-top:6px;">
+              🔍 BTCT Explorer: <a href="https://explorer.btc-time.com" target="_blank">explorer.btc-time.com</a>
+              &nbsp;·&nbsp;
+              DOGE: <a href="https://chain.so/DOGE" target="_blank">chain.so/DOGE</a>
+            </span>
+          </div>
+        ` : ''}
+
         <div class="chat-section">
           <h4>Chat</h4>
           <div class="chat-messages" id="chatMessages"></div>
@@ -1442,9 +1547,87 @@ async function loadTradeDetail(el, tradeId) {
     `;
 
     loadChatMessages(trade.id);
+    startTradeTimers(trade);
   } catch (e) {
     el.innerHTML = `<div class="empty error-text">${e.message}</div>`;
   }
+}
+
+function startTradeTimers(trade) {
+  if (window._tradeTimerInterval) { clearInterval(window._tradeTimerInterval); window._tradeTimerInterval = null; }
+  if (!trade || trade.status === 'completed' || trade.status === 'cancelled' || trade.status === 'expired') return;
+
+  const BLOCK_MS = 60000; // ~60s per BTCT block
+
+  const update = () => {
+    const now = Date.now();
+    const blockAge = window._blockFetchTime ? (now - window._blockFetchTime) : 0;
+    const estimatedBlock = (window._currentBlock || 0) + (blockAge / BLOCK_MS);
+
+    // Step 0: Hash Published — 거래 개설 후 경과 시간
+    const el0 = document.getElementById('step-timer-0');
+    if (el0) {
+      const elapsed = now - new Date(trade.created_at).getTime();
+      el0.textContent = fmtElapsed(elapsed) + ' elapsed';
+    }
+
+    // Step 1: BTCT Locked — BTCT HTLC 만료까지
+    const el1 = document.getElementById('step-timer-1');
+    if (el1 && trade.btct_timeout && estimatedBlock > 0) {
+      const blocksLeft = trade.btct_timeout - estimatedBlock;
+      const msLeft = blocksLeft * BLOCK_MS;
+      if (blocksLeft > 0) {
+        el1.textContent = '⏳ ' + fmtDuration(msLeft);
+        el1.className = 'step-timer' + (blocksLeft < 60 ? ' urgent' : '');
+      } else {
+        el1.textContent = '⏰ expired';
+        el1.className = 'step-timer expired';
+      }
+    }
+
+    // Step 2: DOGE Locked — DOGE HTLC 만료까지
+    const el2 = document.getElementById('step-timer-2');
+    if (el2 && trade.doge_timeout) {
+      const msLeft = trade.doge_timeout * 1000 - now;
+      if (msLeft > 0) {
+        el2.textContent = '⏳ ' + fmtDuration(msLeft);
+        el2.className = 'step-timer' + (msLeft < 1800000 ? ' urgent' : '');
+      } else {
+        el2.textContent = '⏰ expired';
+        el2.className = 'step-timer expired';
+      }
+    }
+
+    // Step 3: Seller Redeems — DOGE 만료까지 (Seller가 인출해야 하는 시간)
+    const el3 = document.getElementById('step-timer-3');
+    if (el3 && trade.doge_timeout) {
+      const msLeft = trade.doge_timeout * 1000 - now;
+      if (msLeft > 0) {
+        el3.textContent = '⏳ ' + fmtDuration(msLeft);
+        el3.className = 'step-timer' + (msLeft < 1800000 ? ' urgent' : '');
+      } else {
+        el3.textContent = '⏰ expired';
+        el3.className = 'step-timer expired';
+      }
+    }
+
+    // Step 4: Buyer Redeems — BTCT HTLC 만료까지 (Buyer가 인출해야 하는 시간)
+    const el4 = document.getElementById('step-timer-4');
+    if (el4 && trade.btct_timeout && estimatedBlock > 0) {
+      const blocksLeft = trade.btct_timeout - estimatedBlock;
+      const msLeft = blocksLeft * BLOCK_MS;
+      if (blocksLeft > 0) {
+        el4.textContent = '⏳ ' + fmtDuration(msLeft);
+        el4.className = 'step-timer' + (blocksLeft < 60 ? ' urgent' : '');
+      } else {
+        el4.textContent = '⏰ expired';
+        el4.className = 'step-timer expired';
+      }
+    }
+  };
+
+  update();
+  window._tradeTimerInterval = setInterval(update, 1000);
 }
 
 function getStepStates(status) {
@@ -1452,6 +1635,7 @@ function getStepStates(status) {
   const idx = order.indexOf(status);
   return order.map((_, i) => {
     if (status === 'negotiating') return i === 0 ? 'active' : '';
+    if (status === 'completed') return 'done';
     if (i < idx) return 'done';
     if (i === idx) return 'active';
     return '';
@@ -1510,11 +1694,18 @@ function getActionHTML(trade, isSeller, isBuyer) {
   }
 
   if (trade.status === 'btct_locked' && isSeller) {
+    const currentBlock = window._currentBlock || 0;
+    const timedOut = currentBlock > 0 && trade.btct_timeout && currentBlock >= trade.btct_timeout;
+    const blocksLeft = trade.btct_timeout ? (trade.btct_timeout - currentBlock) : '?';
+    const timeLeft = (typeof blocksLeft === 'number' && blocksLeft > 0)
+      ? `~${Math.ceil(blocksLeft / 60)}h ${blocksLeft % 60}m (${blocksLeft} blocks)`
+      : (timedOut ? 'Expired' : '?');
     return `
       <div class="action-box">
         <h4>Waiting for buyer to lock DOGE in HTLC...</h4>
-        <p>Your BTCT is locked in HTLC: <span class="mono">0x${trade.btct_htlc_address}</span></p>
-        <p class="dim small">Timeout: block ${trade.btct_timeout}</p>
+        <p>Your BTCT is locked: <span class="mono">0x${trade.btct_htlc_address}</span></p>
+        <p class="dim small">Timeout: block ${trade.btct_timeout} ${timedOut ? '<span class="warn">(expired)</span>' : `(${timeLeft} left)`}</p>
+        ${timedOut ? `<button class="btn btn-red" onclick="btctRefund(${trade.id})">Refund BTCT (Timeout Expired)</button>` : ''}
       </div>
     `;
   }
@@ -1806,6 +1997,72 @@ async function refundDoge(tradeId) {
 }
 
 // Step 5: Buyer redeems BTCT with revealed secret
+async function btctRefund(tradeId) {
+  if (!currentUser) return;
+  await ensureKrypton();
+
+  try {
+    const trade = await api(`/trades/${tradeId}`);
+    const blockHeight = (await api('/btct/block')).height;
+
+    if (blockHeight < trade.btct_timeout) {
+      return alert(`BTCT HTLC timeout not yet reached.\nCurrent block: ${blockHeight}\nTimeout block: ${trade.btct_timeout}\nBlocks remaining: ${trade.btct_timeout - blockHeight}`);
+    }
+
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(currentUser.btctKey));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const senderAddr = keyPair.publicKey.toAddress();
+
+    // Seller must be the htlcSender (the one who locked BTCT)
+    if (senderAddr.toHex().toLowerCase() !== trade.seller_address.toLowerCase()) {
+      return alert('Only the seller (HTLC creator) can refund after timeout.');
+    }
+
+    // Get HTLC balance
+    const htlcAddr = trade.btct_htlc_address;
+    const htlcAccount = await api(`/btct/account/${htlcAddr}`);
+    const htlcBalance = Number(htlcAccount.balance);
+    if (htlcBalance <= 0) return alert('HTLC balance is 0 — already refunded or redeemed.');
+
+    const htlcAddress = Krypton.Address.fromHex(htlcAddr);
+    const networkFee = Number(Krypton.Policy.txFee(blockHeight));
+    const refundValue = htlcBalance - networkFee;
+    if (refundValue <= 0) return alert('HTLC balance too low to cover network fee');
+
+    const tx = new Krypton.ExtendedTransaction(
+      htlcAddress,
+      Krypton.Account.Type.HTLC,
+      senderAddr,
+      Krypton.Account.Type.BASIC,
+      refundValue,
+      blockHeight,
+      Krypton.Transaction.Flag.NONE,
+      new Uint8Array(0)
+    );
+
+    // TIMEOUT_RESOLVE proof: [u8:3] + SignatureProof (sender)
+    const signature = Krypton.Signature.create(keyPair.privateKey, keyPair.publicKey, tx.serializeContent());
+    const sigProof = Krypton.SignatureProof.singleSig(keyPair.publicKey, signature).serialize();
+    const proof = new Krypton.SerialBuffer(1 + sigProof.byteLength);
+    proof.writeUint8(Krypton.HashedTimeLockedContract.ProofType.TIMEOUT_RESOLVE);
+    proof.write(sigProof);
+    tx.proof = proof;
+
+    const txHex = Krypton.BufferUtils.toHex(tx.serialize());
+    const result = await api('/btct/broadcast', { body: { txHex } });
+
+    // Mark trade as cancelled on server
+    await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+
+    alert('✓ BTCT refunded!\nTX: ' + result.hash + '\nTrade marked as cancelled.');
+    socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+    navigateTo('trade');
+  } catch (e) {
+    alert('BTCT refund failed: ' + e.message);
+    console.error(e);
+  }
+}
+
 async function buyerRedeem(tradeId) {
   if (!currentUser) return;
   await ensureKrypton();
@@ -1906,7 +2163,13 @@ async function loadChatMessages(tradeId) {
 
 function renderChatMsg(msg) {
   const t = new Date(msg.created_at).toLocaleTimeString();
-  return `<div class="chat-msg"><span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}</div>`;
+  let role = '';
+  if (currentTrade) {
+    const addr = msg.sender_address.toLowerCase();
+    if (addr === currentTrade.seller_address.toLowerCase()) role = 'seller';
+    else if (addr === currentTrade.buyer_address.toLowerCase()) role = 'buyer';
+  }
+  return `<div class="chat-msg"><span class="sender ${role}">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}</div>`;
 }
 
 function sendChat() {

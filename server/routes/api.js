@@ -99,7 +99,9 @@ router.post('/ads', async (req, res) => {
     );
     res.json(ad);
 
-    // Update town bubble
+    // Broadcast to all clients
+    const io = req.app.get('io');
+    if (io) io.emit('adListUpdate');
     updateTownBubble(req, addr);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -118,7 +120,9 @@ router.post('/ads/:id/close', async (req, res) => {
     if (!ad) return res.status(404).json({ error: 'Ad not found or not yours' });
     res.json(ad);
 
-    // Update town bubble (ad closed, may have another active ad)
+    // Broadcast to all clients
+    const io = req.app.get('io');
+    if (io) io.emit('adListUpdate');
     updateTownBubble(req, addr);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -242,6 +246,20 @@ router.post('/trades', async (req, res) => {
       `UPDATE trade_ads SET status = 'closed' WHERE id = $1 AND remaining <= 0`,
       [adId]
     );
+
+    // Notify ad owner about the new trade
+    const io = req.app.get('io');
+    if (io) {
+      const adOwner = ad.btct_address;
+      io.to(`addr:${adOwner}`).emit('newTradeAlert', {
+        tradeId: trade.id,
+        btctAmount: trade.btct_amount,
+        dogeAmount: trade.doge_amount,
+        adType: ad.type
+      });
+      // Refresh bulletin board for all (ad remaining changed)
+      io.emit('adListUpdate');
+    }
 
     res.json(trade);
   } catch (e) {
@@ -668,7 +686,9 @@ router.post('/admin/ads/:id/delete', requireAdmin, async (req, res) => {
     if (!ad) return res.status(404).json({ error: 'Ad not found' });
     res.json({ success: true, ad });
 
-    // Update town bubble for deleted ad's owner
+    // Broadcast to all clients
+    const io = req.app.get('io');
+    if (io) io.emit('adListUpdate');
     updateTownBubble(req, ad.btct_address);
   } catch (e) {
     res.status(500).json({ error: e.message });
