@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>개인정보 처리방침 — BTCT/DOGE DEX</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', sans-serif;
+      line-height: 1.8;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 32px;
+    }
+    h1 { color: #f5c542; margin-bottom: 8px; font-size: 22px; }
+    .updated { color: #888; font-size: 12px; margin-bottom: 24px; }
+    h2 { color: #4ecca3; font-size: 16px; margin: 24px 0 8px; }
+    p { color: #ccc; font-size: 14px; margin-bottom: 10px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { color: #ccc; font-size: 14px; margin-bottom: 6px; }
+    strong { color: #e0e0e0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid #0f3460;
+      font-size: 13px;
+    }
+    th { background: #0f3460; color: #f5c542; }
+    td { color: #ccc; }
+    .highlight { color: #4ecca3; font-weight: bold; }
+    .warning { color: #e94560; }
+    a { color: #4ecca3; }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #e94560;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .back-link:hover { color: #ff6b81; }
+    .lang-link {
+      float: right;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+    .lang-link a { color: #4ecca3; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← 거래소로 돌아가기</a>
+    <span class="lang-link"><a href="/privacy">🌐 English</a></span>
+
+    <h1>개인정보 처리방침</h1>
+    <p class="updated">최종 수정일: 2026년 2월 18일</p>
+
+    <p>이 개인정보 처리방침은 BTCT/DOGE DEX 플랫폼 및 BTCT Town을 이용할 때 수집되는 데이터, 이용 방법, 보호 방법을 설명합니다.</p>
+
+    <h2>1. 플랫폼 성격</h2>
+    <p>이 플랫폼은 <span class="highlight">비수탁형(Non-Custodial)</span> 오픈소스 탈중앙화 거래소(DEX)로, BTCT와 DOGE 간의 P2P HTLC 아토믹 스왑을 중계합니다. 서버는 오직 <strong>게시판</strong> 및 <strong>메시지 중계자</strong> 역할만 수행합니다.</p>
+    <p class="highlight">서버는 개인키나 사용자 자산을 보유·접근·통제·저장하지 않습니다.</p>
+
+    <h2>2. 수집하는 데이터</h2>
+    <table>
+      <tr>
+        <th>데이터 종류</th>
+        <th>설명</th>
+        <th>목적</th>
+      </tr>
+      <tr>
+        <td>BTCT 주소</td>
+        <td>공개 블록체인 주소 (개인정보 아님)</td>
+        <td>거래 조율, 게시물 식별</td>
+      </tr>
+      <tr>
+        <td>DOGE 주소</td>
+        <td>공개 블록체인 주소</td>
+        <td>거래 조율 (DOGE 전송 대상)</td>
+      </tr>
+      <tr>
+        <td>거래 데이터</td>
+        <td>광고 상세 정보, 거래 상태, HTLC 해시</td>
+        <td>아토믹 스왑 조율</td>
+      </tr>
+      <tr>
+        <td>채팅 메시지</td>
+        <td>거래 참여자 간 텍스트 메시지 (최대 500자)</td>
+        <td>거래 소통, 분쟁 참조</td>
+      </tr>
+      <tr>
+        <td>타운 위치</td>
+        <td>인게임 캐릭터 좌표 (BTCT Town 한정)</td>
+        <td>멀티플레이어 기능 (DB에 저장 안 됨)</td>
+      </tr>
+    </table>
+
+    <h2>3. 수집하지 않는 데이터</h2>
+    <ul>
+      <li><strong>개인키</strong> — 모든 서명은 사용자의 브라우저에서만 처리됩니다</li>
+      <li><strong>개인정보</strong> — 이름, 이메일, 전화번호, 신분증, KYC 정보 없음</li>
+      <li><strong>IP 주소</strong> — 애플리케이션에서 기록·저장하지 않습니다</li>
+      <li><strong>쿠키 및 추적</strong> — 분석 도구 없음, 제3자 트래킹 없음</li>
+      <li><strong>브라우저 핑거프린트</strong> — 수집하지 않습니다</li>
+    </ul>
+
+    <h2>4. 클라이언트 저장소 (localStorage)</h2>
+    <p>아래 데이터는 <strong>브라우저의 localStorage에만</strong> 저장되며, 서버로 전송되지 않습니다:</p>
+    <ul>
+      <li>지갑 주소 및 개인키 (브라우저 내 보관)</li>
+      <li>HTLC 시크릿 (아토믹 스왑을 위해 로컬에서 생성)</li>
+      <li>면책 동의 여부</li>
+    </ul>
+    <p class="warning">⚠ 브라우저 데이터를 초기화하면 로컬에 저장된 지갑 키와 거래 시크릿을 잃게 됩니다. 반드시 개인키를 별도로 백업해 두세요.</p>
+
+    <h2>5. 채팅 메시지 정책</h2>
+    <ul>
+      <li>채팅은 <strong>거래 참여자(매도자·매수자)끼리만</strong> 이용 가능합니다 (1:1, 거래별).</li>
+      <li>서버는 메시지 저장·전달 전에 발신자가 해당 거래의 참여자인지 검증합니다.</li>
+      <li>메시지는 <strong>최대 500자</strong>로 제한됩니다.</li>
+      <li>위협·불법 내용 등 금지 키워드가 포함된 메시지는 <strong>자동 차단</strong>됩니다.</li>
+      <li>채팅 메시지는 생성일로부터 <strong>90일 후 자동 삭제</strong>됩니다.</li>
+    </ul>
+
+    <h2>6. 데이터 보존 기간</h2>
+    <table>
+      <tr>
+        <th>데이터 종류</th>
+        <th>보존 기간</th>
+      </tr>
+      <tr>
+        <td>거래 게시물(광고)</td>
+        <td>무기한 (공개 게시판)</td>
+      </tr>
+      <tr>
+        <td>거래 기록</td>
+        <td>무기한 (블록체인 조율 이력)</td>
+      </tr>
+      <tr>
+        <td>채팅 메시지</td>
+        <td><span class="highlight">90일</span> (자동 삭제)</td>
+      </tr>
+      <tr>
+        <td>타운 플레이어 위치</td>
+        <td>세션 동안만 (인메모리, 접속 해제 시 소멸)</td>
+      </tr>
+    </table>
+
+    <h2>7. 데이터 공유</h2>
+    <p>귀하의 데이터는 <strong>제3자와 공유되지 않습니다</strong>. 사용되는 유일한 외부 서비스:</p>
+    <ul>
+      <li><strong>Blockcypher API</strong> — DOGE 잔액 조회 및 트랜잭션 브로드캐스트 용도. 공개 블록체인 데이터(주소, 트랜잭션)만 전송되며, 개인 데이터는 공유되지 않습니다.</li>
+    </ul>
+
+    <h2>8. 보안 조치</h2>
+    <ul>
+      <li>모든 개인키 처리는 <strong>클라이언트(브라우저)에서만</strong> 이루어집니다</li>
+      <li>서버 접근은 <strong>UFW 방화벽</strong>, <strong>Fail2Ban</strong>, <strong>요청 속도 제한</strong>으로 보호됩니다</li>
+      <li>API 속도 제한: 지갑당 24시간 내 BTCT 50,000개, 스왑 30회, 광고 등록 20회</li>
+      <li>SSH 강화 (Fail2Ban, 접속 세션 제한)</li>
+      <li>데이터베이스 접근은 로컬호스트로만 제한</li>
+    </ul>
+
+    <h2>9. 이용자 권리</h2>
+    <p>개인정보를 수집하지 않으므로, 전통적인 정보주체 권리(열람·삭제·이동)는 다음과 같이 제한적으로 적용됩니다:</p>
+    <ul>
+      <li><strong>지갑 데이터</strong>는 브라우저에만 저장되어 있으며 이용자가 완전히 통제합니다.</li>
+      <li><strong>거래 기록</strong>은 공개 블록체인 주소에 연결된 조율 데이터로, 개인 식별자가 아닙니다.</li>
+      <li><strong>채팅 메시지</strong>는 90일 후 자동 삭제됩니다.</li>
+    </ul>
+
+    <h2>10. 오픈소스</h2>
+    <p>전체 소스 코드는 <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">github.com/timessanta/btct-doge-dex</a> (MIT 라이선스)에 공개되어 있습니다. 수집 데이터와 처리 방법을 직접 확인하실 수 있습니다.</p>
+
+    <h2>11. 문의</h2>
+    <p>이 개인정보 처리방침에 관한 문의는 <a href="https://github.com/timessanta/btct-doge-dex/issues" target="_blank">GitHub 저장소 이슈</a>를 통해 남겨주세요.</p>
+
+    <h2>12. 변경 사항</h2>
+    <p>이 방침은 업데이트될 수 있습니다. 변경 사항은 상단의 "최종 수정일"에 반영되고 GitHub 저장소에 커밋됩니다.</p>
+  </div>
+</body>
+</html>

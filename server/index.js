@@ -35,6 +35,9 @@ app.get('/town', (req, res) => {
 app.get('/privacy', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
 });
+app.get('/privacy-ko', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'privacy-ko.html'));
+});
 app.get('/about', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'about.html'));
 });
