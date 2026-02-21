@@ -41,6 +41,9 @@ app.get('/about', (req, res) => {
 app.get('/guide', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'guide.html'));
 });
+app.get('/guide-ko', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'guide-ko.html'));
+});
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });

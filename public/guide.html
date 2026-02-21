@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>사용 가이드 — BTCT/DOGE DEX</title>
-  <meta name="description" content="BTCT/DOGE DEX 사용 방법 안내. 지갑 연결부터 거래 완료까지 단계별 설명.">
+  <title>User Guide — BTCT/DOGE DEX</title>
+  <meta name="description" content="Step-by-step guide for BTCT/DOGE DEX. From connecting your wallet to completing your first atomic swap.">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -192,9 +192,8 @@
     }
     .role-seller { background: rgba(245,197,66,0.2); color: var(--gold); border: 1px solid var(--gold); }
     .role-buyer { background: rgba(78,204,163,0.2); color: var(--accent); border: 1px solid var(--accent); }
-    .role-both { background: rgba(200,200,200,0.1); color: #ccc; border: 1px solid #555; }
 
-    /* Note box */
+    /* Note / Warn / Danger boxes */
     .note {
       background: rgba(78,204,163,0.08);
       border-left: 3px solid var(--accent);
@@ -325,335 +324,340 @@
 <nav>
   <div class="nav-logo">⚡ BTCT/DOGE DEX</div>
   <div class="nav-links">
-    <a href="/">거래소</a>
+    <a href="/">DEX</a>
     <a href="/town">BTCT Town</a>
-    <a href="/about">소개</a>
+    <a href="/about">About</a>
   </div>
 </nav>
 
 <!-- Hero -->
 <div class="hero">
   <div class="hero-badge">User Guide</div>
-  <h1>사용 가이드</h1>
-  <p>처음이세요? 걱정 마세요. 이 가이드를 따라 하시면 누구든 10분 안에 거래할 수 있습니다.</p>
+  <h1>User Guide</h1>
+  <p>New here? Follow this guide and you'll be making your first atomic swap in minutes — no prior crypto experience needed.</p>
 </div>
 
 <!-- TOC -->
 <div class="toc">
   <div class="toc-box">
-    <h2>📋 목차</h2>
+    <h2>📋 Contents</h2>
     <ol>
-      <li><a href="#what-is">이게 뭔가요?</a></li>
-      <li><a href="#wallet">지갑 준비하기</a></li>
-      <li><a href="#sell">BTCT 팔기 (DOGE 받기)</a></li>
-      <li><a href="#buy">BTCT 사기 (DOGE 주기)</a></li>
-      <li><a href="#swap-flow">스왑 5단계 전체 흐름</a></li>
-      <li><a href="#timeout">거래가 취소되면?</a></li>
-      <li><a href="#town">BTCT Town 이용하기</a></li>
-      <li><a href="#faq">자주 묻는 질문</a></li>
-      <li><a href="#glossary">용어 정리</a></li>
+      <li><a href="#what-is">What is this?</a></li>
+      <li><a href="#wallet">Setting up your wallets</a></li>
+      <li><a href="#sell">Selling BTCT (receiving DOGE)</a></li>
+      <li><a href="#buy">Buying BTCT (paying DOGE)</a></li>
+      <li><a href="#swap-flow">The 5-step swap flow</a></li>
+      <li><a href="#timeout">What if a trade fails?</a></li>
+      <li><a href="#town">Using BTCT Town</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#glossary">Glossary</a></li>
     </ol>
   </div>
 </div>
 
-<!-- Section 1: What is this -->
+<!-- Section 1 -->
 <div class="section" id="what-is">
-  <div class="section-title"><span class="section-num">1</span> 이게 뭔가요?</div>
+  <div class="section-title"><span class="section-num">1</span> What is this?</div>
 
   <div class="card">
-    <h3>🤝 중개자 없이 직접 교환</h3>
-    <p>이 거래소는 <strong>BTCT(Bitcoin Time)</strong>와 <strong>DOGE(Dogecoin)</strong>를 서로 교환하는 서비스입니다.</p>
-    <p>일반 거래소와 다르게 <strong>서버가 여러분의 코인을 보관하지 않습니다.</strong> 거래 상대방과 스마트 컨트랙트를 통해 직접 교환되기 때문에, 서버가 해킹당해도 여러분의 코인은 안전합니다.</p>
+    <h3>🤝 Peer-to-peer, no middleman</h3>
+    <p>This is a decentralized exchange (DEX) where you can swap <strong>BTCT (Bitcoin Time)</strong> and <strong>DOGE (Dogecoin)</strong> directly with another person.</p>
+    <p>Unlike centralized exchanges, <strong>the server never holds your coins.</strong> Trades happen directly between wallets through a smart contract, so even if the server were compromised, your funds would remain safe.</p>
   </div>
 
   <div class="card">
-    <h3>🔐 어떻게 안전하게 교환되나요?</h3>
-    <p><strong>"비밀번호 열쇠"</strong> 방식을 사용합니다. 판매자가 비밀 열쇠를 만들고, 그 열쇠로만 풀 수 있는 자물쇠에 코인을 잠급니다. 구매자도 같은 자물쇠에 DOGE를 잠그면, 판매자가 열쇠를 사용해 DOGE를 가져올 때 열쇠가 자동으로 공개되고 구매자도 BTCT를 가져갈 수 있게 됩니다.</p>
-    <p>이 방식을 <strong>아토믹 스왑(Atomic Swap)</strong>이라고 합니다. 양쪽 모두 가져가거나, 아무도 못 가져가거나 — 중간은 없습니다.</p>
+    <h3>🔐 How is it trustless?</h3>
+    <p>It uses a <strong>"secret key"</strong> mechanism. The seller generates a secret and locks their BTCT behind a hash lock. The buyer locks DOGE behind the same hash. When the seller reveals the secret to claim the DOGE, the secret becomes public on-chain — allowing the buyer to claim the BTCT automatically.</p>
+    <p>This is called an <strong>Atomic Swap</strong>. Either both sides succeed, or neither does. There is no in-between.</p>
   </div>
 
   <div class="note">
-    💡 이 거래소는 <strong>오픈소스</strong>입니다. 누구나 코드를 확인하고 직접 실행할 수 있습니다. → <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub 보기</a>
+    💡 This DEX is fully <strong>open-source</strong>. Anyone can read the code or run their own instance. → <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">View on GitHub</a>
   </div>
 </div>
 
-<!-- Section 2: Wallet -->
+<!-- Section 2 -->
 <div class="section" id="wallet">
-  <div class="section-title"><span class="section-num">2</span> 지갑 준비하기</div>
+  <div class="section-title"><span class="section-num">2</span> Setting up your wallets</div>
 
   <div class="card">
-    <h3>🔑 BTCT 지갑</h3>
+    <h3>🔑 BTCT Wallet</h3>
     <ol>
-      <li>상단 메뉴 <strong>Wallet</strong> 탭 클릭</li>
-      <li><strong>"New BTCT Wallet"</strong> 클릭 → 새 지갑 생성</li>
-      <li>화면에 표시된 <strong>개인키(Private Key)</strong>를 안전한 곳에 저장<br><span style="color:var(--muted);font-size:13px;">※ 잃어버리면 복구 불가합니다</span></li>
-      <li>우측 상단에 지갑 주소(0x로 시작)가 표시되면 연결 완료</li>
+      <li>Click the <strong>Wallet</strong> tab in the top menu</li>
+      <li>Click <strong>"New BTCT Wallet"</strong> to generate a new wallet</li>
+      <li>Save the displayed <strong>Private Key</strong> somewhere safe<br><span style="color:var(--muted);font-size:13px;">※ There is no recovery if you lose it</span></li>
+      <li>Once your wallet address (starting with 0x) appears in the top bar, you're connected</li>
     </ol>
-    <div class="warn">⚠️ 개인키는 절대 타인에게 공개하지 마세요. 개인키를 알면 코인을 모두 가져갈 수 있습니다.</div>
+    <div class="warn">⚠️ Never share your private key with anyone. Whoever has the key controls the funds.</div>
   </div>
 
   <div class="card">
-    <h3>🐕 DOGE 지갑</h3>
+    <h3>🐕 DOGE Wallet</h3>
     <ol>
-      <li>Wallet 탭 → DOGE 섹션에서 <strong>"New DOGE Wallet"</strong> 클릭</li>
-      <li>생성된 DOGE 주소(D로 시작)와 WIF 개인키를 저장</li>
-      <li>거래 전에 해당 주소로 DOGE를 충전해 두세요</li>
+      <li>In the Wallet tab → DOGE section, click <strong>"New DOGE Wallet"</strong></li>
+      <li>Save both the DOGE address (starts with D) and the WIF private key</li>
+      <li>Fund the address with DOGE before starting a trade</li>
     </ol>
   </div>
 
   <div class="card">
-    <h3>🔄 기존 지갑 불러오기</h3>
+    <h3>🔄 Importing an existing wallet</h3>
     <ol>
-      <li>Wallet 탭 → <strong>"Import"</strong> 클릭</li>
-      <li>저장해 둔 개인키 / WIF 붙여넣기 → 불러오기 완료</li>
+      <li>Wallet tab → click <strong>"Import"</strong></li>
+      <li>Paste your saved private key or WIF — the wallet loads instantly</li>
     </ol>
-    <div class="note">💡 지갑 정보는 이 브라우저에만 저장됩니다. 다른 기기에서 사용하려면 개인키를 직접 불러와야 합니다.</div>
+    <div class="note">💡 Wallet data is stored only in this browser. To use the same wallet on another device, import the private key there too.</div>
   </div>
 </div>
 
-<!-- Section 3: Sell BTCT -->
+<!-- Section 3 -->
 <div class="section" id="sell">
-  <div class="section-title"><span class="section-num">3</span> BTCT 팔기 (DOGE 받기)</div>
+  <div class="section-title"><span class="section-num">3</span> Selling BTCT (receiving DOGE)</div>
 
   <div class="card">
-    <h3>📋 광고 등록하기</h3>
+    <h3>📋 Posting a listing</h3>
     <ol>
-      <li>상단 메뉴 <strong>Bulletin Board</strong> 클릭</li>
-      <li><strong>"Post Listing"</strong> 클릭</li>
-      <li>타입: <strong>SELL BTCT</strong> 선택</li>
-      <li>가격 입력 (1 BTCT = ? DOGE)</li>
-      <li>최소/최대 BTCT 수량 입력</li>
-      <li><strong>Post</strong> 버튼 클릭 → 게시판에 광고 등록 완료</li>
+      <li>Click <strong>Bulletin Board</strong> in the top menu</li>
+      <li>Click <strong>"Post Listing"</strong></li>
+      <li>Select type: <strong>SELL BTCT</strong></li>
+      <li>Enter your price (1 BTCT = ? DOGE)</li>
+      <li>Enter the min/max BTCT amount</li>
+      <li>Click <strong>Post</strong> — your listing is now live</li>
     </ol>
-    <div class="note">💡 광고가 등록되면 BTCT Town에서 내 캐릭터 머리 위에 말풍선이 표시됩니다.</div>
+    <div class="note">💡 Once posted, a speech bubble will appear above your character in BTCT Town showing your listing.</div>
   </div>
 
   <div class="card">
-    <h3>⏳ 거래 요청이 오면?</h3>
-    <p>구매자가 광고를 보고 거래를 요청하면 알림이 옵니다. <strong>My Listings</strong> 또는 <strong>Swap History</strong>에서 거래 번호를 클릭해 진행하세요.</p>
-    <p>거래가 시작되면 <strong>5단계 스왑 진행</strong>이 필요합니다. → <a href="#swap-flow">5단계 흐름 보기</a></p>
+    <h3>⏳ When a buyer responds</h3>
+    <p>You'll receive a notification when someone initiates a trade from your listing. Open the trade in <strong>My Listings</strong> or <strong>Swap History</strong> and proceed through the 5-step swap.</p>
+    <p>→ <a href="#swap-flow">See the full 5-step flow</a></p>
   </div>
 </div>
 
-<!-- Section 4: Buy BTCT -->
+<!-- Section 4 -->
 <div class="section" id="buy">
-  <div class="section-title"><span class="section-num">4</span> BTCT 사기 (DOGE 주기)</div>
+  <div class="section-title"><span class="section-num">4</span> Buying BTCT (paying DOGE)</div>
 
   <div class="card">
-    <h3>🔍 원하는 광고 찾기</h3>
+    <h3>🔍 Finding a listing</h3>
     <ol>
-      <li><strong>Bulletin Board</strong>에서 SELL 광고 목록 확인</li>
-      <li>원하는 광고의 <strong>"Start Swap"</strong> 클릭</li>
-      <li>구매할 BTCT 수량 입력 후 <strong>확인</strong></li>
+      <li>Browse <strong>Bulletin Board</strong> for SELL listings</li>
+      <li>Click <strong>"Start Swap"</strong> on the listing you want</li>
+      <li>Enter the amount of BTCT to buy and confirm</li>
     </ol>
   </div>
 
   <div class="card">
-    <h3>📤 거래 진행</h3>
-    <p>거래가 생성되면 판매자가 먼저 시작합니다. 알림을 받으면 <strong>Swap History</strong>에서 해당 거래를 열어 각 단계를 진행하세요.</p>
-    <div class="warn">⚠️ DOGE 지갑에 충분한 DOGE가 있어야 합니다. 거래 시작 전에 잔액을 확인하세요.</div>
+    <h3>📤 Proceeding with the trade</h3>
+    <p>After the trade is created, the seller acts first. Once notified, open the trade from <strong>Swap History</strong> and follow each step as it becomes available.</p>
+    <div class="warn">⚠️ Make sure your DOGE wallet has enough funds before starting. Check your balance in the Wallet tab.</div>
   </div>
 </div>
 
-<!-- Section 5: 5-step flow -->
+<!-- Section 5 -->
 <div class="section" id="swap-flow">
-  <div class="section-title"><span class="section-num">5</span> 스왑 5단계 전체 흐름</div>
+  <div class="section-title"><span class="section-num">5</span> The 5-step swap flow</div>
 
   <div class="card" style="margin-bottom:24px;">
-    <p style="color:var(--muted);font-size:14px;">각 단계에서 버튼을 클릭하면 지갑 서명이 이루어집니다. 서버는 서명에 관여하지 않으며, 모든 서명은 이 브라우저에서만 처리됩니다.</p>
+    <p style="color:var(--muted);font-size:14px;">Each step requires a button click that triggers a wallet signature. All signing happens locally in your browser — the server never touches your keys.</p>
   </div>
 
   <div class="steps">
     <div class="step-item">
       <div class="step-circle">1</div>
       <div class="step-body">
-        <span class="role role-seller">판매자</span>
-        <h3>비밀 열쇠 생성 & 공개</h3>
-        <p>판매자가 무작위 비밀번호(secret)를 만들고, 그 해시(잠금 암호)를 거래에 등록합니다. 비밀번호 원본은 판매자만 알고 있습니다.</p>
+        <span class="role role-seller">Seller</span>
+        <h3>Generate &amp; publish the secret hash</h3>
+        <p>The seller generates a random secret and publishes its SHA-256 hash to the trade. Only the seller knows the original secret at this point.</p>
       </div>
     </div>
     <div class="step-item">
       <div class="step-circle">2</div>
       <div class="step-body">
-        <span class="role role-seller">판매자</span>
-        <h3>BTCT를 스마트 컨트랙트에 잠금 (24시간)</h3>
-        <p>판매자가 팔 BTCT를 <strong>"자물쇠 계좌(HTLC)"</strong>에 전송합니다. 비밀번호를 아는 사람만 가져갈 수 있고, 24시간 후에는 판매자가 환불받을 수 있습니다.</p>
+        <span class="role role-seller">Seller</span>
+        <h3>Lock BTCT in an HTLC contract (24-hour timeout)</h3>
+        <p>The seller sends the BTCT to a <strong>hash time-locked contract</strong>. Only someone who knows the secret can claim it. After 24 hours, the seller can refund.</p>
       </div>
     </div>
     <div class="step-item">
       <div class="step-circle">3</div>
       <div class="step-body">
-        <span class="role role-buyer">구매자</span>
-        <h3>DOGE를 스마트 컨트랙트에 잠금 (12시간)</h3>
-        <p>구매자가 지불할 DOGE를 또 다른 자물쇠 계좌에 전송합니다. 판매자가 비밀번호를 공개해야만 가져갈 수 있고, 12시간 후에는 구매자가 환불받을 수 있습니다.</p>
+        <span class="role role-buyer">Buyer</span>
+        <h3>Lock DOGE in a P2SH HTLC contract (12-hour timeout)</h3>
+        <p>The buyer locks DOGE in a second HTLC using the same hash. The seller must reveal the secret to claim it. After 12 hours, the buyer can refund.</p>
       </div>
     </div>
     <div class="step-item">
       <div class="step-circle">4</div>
       <div class="step-body">
-        <span class="role role-seller">판매자</span>
-        <h3>비밀번호 공개 & DOGE 수령</h3>
-        <p>판매자가 비밀번호를 공개하며 DOGE를 가져갑니다. 이 순간 비밀번호가 블록체인에 기록되어 누구나 볼 수 있게 됩니다.</p>
+        <span class="role role-seller">Seller</span>
+        <h3>Reveal the secret &amp; claim DOGE</h3>
+        <p>The seller broadcasts the secret on-chain to withdraw the DOGE. The moment they do, the secret becomes permanently visible on the blockchain.</p>
       </div>
     </div>
     <div class="step-item">
       <div class="step-circle">5</div>
       <div class="step-body">
-        <span class="role role-buyer">구매자</span>
-        <h3>공개된 비밀번호로 BTCT 수령</h3>
-        <p>구매자가 블록체인에서 비밀번호를 확인하고 BTCT 잠금 계좌에서 BTCT를 인출합니다. 거래 완료! 🎉</p>
+        <span class="role role-buyer">Buyer</span>
+        <h3>Use the revealed secret to claim BTCT</h3>
+        <p>The buyer reads the secret from the blockchain and withdraws the BTCT from the HTLC. Trade complete! 🎉</p>
       </div>
     </div>
   </div>
 
   <div class="note" style="margin-top:24px;">
-    💡 <strong>왜 안전한가요?</strong> 4단계에서 판매자가 DOGE를 가져가려면 반드시 비밀번호를 공개해야 합니다. 그 즉시 구매자도 BTCT를 가져갈 수 있습니다. 한쪽만 손해보는 상황은 구조적으로 불가능합니다.
+    💡 <strong>Why is this safe?</strong> In step 4, the seller <em>must</em> publish the secret to claim the DOGE. The instant they do, the buyer can use it to claim the BTCT. It's structurally impossible for one party to walk away with both assets.
   </div>
 </div>
 
-<!-- Section 6: Timeout & Refund -->
+<!-- Section 6 -->
 <div class="section" id="timeout">
-  <div class="section-title"><span class="section-num">6</span> 거래가 취소되면?</div>
+  <div class="section-title"><span class="section-num">6</span> What if a trade fails?</div>
 
   <div class="card">
-    <h3>⏰ 시간이 지나면 어떻게 되나요?</h3>
-    <p>상대방이 응답하지 않거나 중간에 취소된 경우, 설정된 시간이 지나면 자동으로 <strong>"만료(Expired)"</strong> 상태가 됩니다.</p>
+    <h3>⏰ Automatic expiry</h3>
+    <p>If the counterparty goes offline or the trade stalls, the contracts will expire after their respective timeouts:</p>
     <ul style="margin-top:10px;">
-      <li><strong>BTCT 환불</strong>: 24시간 후 판매자가 "Refund BTCT" 버튼 클릭 → 자동 환불</li>
-      <li><strong>DOGE 환불</strong>: 12시간 후 구매자가 "Refund DOGE" 버튼 클릭 → 자동 환불</li>
+      <li><strong>BTCT refund</strong>: After 24 hours the seller can click "Refund BTCT" to recover their coins</li>
+      <li><strong>DOGE refund</strong>: After 12 hours the buyer can click "Refund DOGE" to recover their coins</li>
     </ul>
   </div>
 
   <div class="card">
-    <h3>🔔 만료 알림</h3>
-    <p>서버가 5분마다 자동으로 만료된 거래를 감지하여 알림을 보냅니다. 거래 페이지에 접속하면 환불 버튼이 자동으로 표시됩니다.</p>
+    <h3>🔔 Expiry notifications</h3>
+    <p>The server automatically detects expired trades every 5 minutes and sends a real-time socket notification. When you open the trade page, the appropriate Refund button will appear automatically.</p>
   </div>
 
   <div class="danger">
-    🚨 <strong>만료 전에는 절대 환불되지 않습니다.</strong> 타임아웃 시간 전에는 코인이 스마트 컨트랙트에 안전하게 잠겨 있습니다.
+    🚨 <strong>Refunds are not available before the timeout.</strong> Until then, the coins remain safely locked in their respective smart contracts.
   </div>
 </div>
 
-<!-- Section 7: Town -->
+<!-- Section 7 -->
 <div class="section" id="town">
-  <div class="section-title"><span class="section-num">7</span> BTCT Town 이용하기</div>
+  <div class="section-title"><span class="section-num">7</span> Using BTCT Town</div>
 
   <div class="card">
-    <h3>🎮 BTCT Town이란?</h3>
-    <p>거래소에 연결된 <strong>픽셀아트 RPG 마을</strong>입니다. 실시간으로 다른 사용자들과 같은 공간에서 움직이며 거래할 수 있습니다.</p>
+    <h3>🎮 What is BTCT Town?</h3>
+    <p>BTCT Town is a <strong>real-time pixel-art RPG</strong> connected to the DEX. You can walk around, see other traders, and post or accept listings — all without leaving the game.</p>
   </div>
 
   <div class="card">
-    <h3>🕹️ 기본 조작</h3>
+    <h3>🕹️ Controls</h3>
     <ul>
-      <li><strong>PC</strong>: 방향키 또는 WASD로 이동</li>
-      <li><strong>모바일</strong>: 왼쪽 하단 조이스틱으로 이동</li>
-      <li><strong>NPC(게시판) 접근</strong>: 가까이 가서 스페이스바 또는 ACT 버튼</li>
-      <li><strong>집 접근</strong>: 집 문 앞에서 스페이스바 → 캐릭터 꾸미기</li>
+      <li><strong>Desktop</strong>: Arrow keys or WASD to move</li>
+      <li><strong>Mobile</strong>: Virtual joystick (bottom-left) to move</li>
+      <li><strong>Interact with NPC (bulletin board)</strong>: Walk up and press Space or tap ACT</li>
+      <li><strong>House interaction</strong>: Stand at the door and press Space → character customization</li>
     </ul>
   </div>
 
   <div class="card">
-    <h3>📦 Town에서 거래하기</h3>
+    <h3>📦 Trading in Town</h3>
     <ol>
-      <li>NPC(게시판) 앞에서 스페이스바</li>
-      <li><strong>Post Listing</strong> → 광고 등록</li>
-      <li>다른 플레이어의 말풍선을 보고 관심 있는 상대에게 다가가서 거래 시작</li>
-      <li>거래 진행도 Town 내에서 바로 가능</li>
+      <li>Approach the bulletin board NPC and press Space / ACT</li>
+      <li>Click <strong>Post Listing</strong> to advertise your trade</li>
+      <li>Look for speech bubbles above players — they show active listings</li>
+      <li>All five swap steps can be completed directly in Town</li>
     </ol>
   </div>
 
   <div class="card">
-    <h3>🎨 캐릭터 꾸미기</h3>
+    <h3>🎨 Character customization</h3>
     <ul>
-      <li>집 문 앞 접근 → 스페이스바 또는 우측 상단 🎨 버튼</li>
-      <li>타입 (기본/전사/마법사/도적), 피부색, 옷 색상, 머리색, 모자, 안경 선택 가능</li>
-      <li>변경 사항은 실시간으로 다른 플레이어에게도 보입니다</li>
+      <li>Stand at the house door → press Space or click 🎨 in the top-right</li>
+      <li>Choose your character type (Default / Warrior / Mage / Rogue), skin, outfit, hair, hat, and glasses</li>
+      <li>Changes sync to all other players in real time</li>
     </ul>
   </div>
 </div>
 
 <!-- Section 8: FAQ -->
 <div class="section" id="faq">
-  <div class="section-title"><span class="section-num">8</span> 자주 묻는 질문</div>
+  <div class="section-title"><span class="section-num">8</span> FAQ</div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">가입이나 본인인증이 필요한가요? <span class="arrow">▼</span></div>
-    <div class="faq-a">전혀 필요 없습니다. 지갑 주소가 곧 계정입니다. 이메일, 비밀번호, 개인정보 없이 바로 사용합니다.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">Do I need to sign up or verify my identity? <span class="arrow">▼</span></div>
+    <div class="faq-a">No account required at all. Your wallet address is your identity. No email, no password, no KYC.</div>
   </div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">서버가 코인을 가져갈 수 있나요? <span class="arrow">▼</span></div>
-    <div class="faq-a">불가능합니다. 서버는 개인키를 전혀 가지고 있지 않습니다. 서명은 100% 이 브라우저에서만 이루어지며, 서버는 단순히 정보를 중계하는 역할만 합니다.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">Can the server steal my coins? <span class="arrow">▼</span></div>
+    <div class="faq-a">No. The server never stores or accesses your private keys. All transaction signing happens locally in your browser. The server only relays trade metadata.</div>
   </div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">거래 수수료는 얼마인가요? <span class="arrow">▼</span></div>
-    <div class="faq-a">별도 거래 수수료는 없습니다. 다만 블록체인에 트랜잭션을 보낼 때 소액의 네트워크 수수료(가스비)가 자동으로 차감됩니다. BTCT 수수료는 극히 소액, DOGE는 약 0.02 DOGE 수준입니다.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">What are the fees? <span class="arrow">▼</span></div>
+    <div class="faq-a">There are no platform fees. You only pay the standard blockchain network fee when broadcasting a transaction — a tiny amount for BTCT and roughly 0.02 DOGE for DOGE transactions.</div>
   </div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">거래 상대가 취소하면 코인을 잃게 되나요? <span class="arrow">▼</span></div>
-    <div class="faq-a">아닙니다. 코인은 스마트 컨트랙트(자물쇠 계좌)에 잠겨 있으며, 타임아웃 시간 후 환불 버튼으로 직접 돌려받을 수 있습니다. 상대방이 취소해도 여러분의 코인은 항상 안전합니다.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">What if the other party cancels after I've locked my coins? <span class="arrow">▼</span></div>
+    <div class="faq-a">Your coins are safe. They're locked in a smart contract that only you can refund after the timeout. The counterparty cannot access your locked funds under any circumstances.</div>
   </div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">개인키를 잃어버렸어요. 어떻게 하나요? <span class="arrow">▼</span></div>
-    <div class="faq-a">안타깝게도 복구가 불가능합니다. 개인키는 서버에 저장되지 않으며, 오직 본인만이 보관합니다. 반드시 안전한 곳에 백업해 두세요.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">I lost my private key. Can I recover my wallet? <span class="arrow">▼</span></div>
+    <div class="faq-a">Unfortunately, no. Private keys are never stored on the server — only you hold them. Please back up your keys in a secure location immediately after creating a wallet.</div>
   </div>
 
   <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">BTCT는 어디서 구하나요? <span class="arrow">▼</span></div>
-    <div class="faq-a">이 거래소에서 DOGE로 구입할 수 있습니다. 또는 <a href="https://btc-time.com" target="_blank">btc-time.com</a>에서 직접 BTCT에 대해 알아보세요.</div>
+    <div class="faq-q" onclick="toggleFaq(this)">Where can I get BTCT? <span class="arrow">▼</span></div>
+    <div class="faq-a">You can buy BTCT here on this DEX using DOGE. You can also learn more about Bitcoin Time at <a href="https://btc-time.com" target="_blank">btc-time.com</a>.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">Is the source code available? <span class="arrow">▼</span></div>
+    <div class="faq-a">Yes, fully. The entire codebase is MIT-licensed and publicly available on <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub</a>. You can audit, fork, or self-host it freely.</div>
   </div>
 </div>
 
 <!-- Section 9: Glossary -->
 <div class="section" id="glossary">
-  <div class="section-title"><span class="section-num">9</span> 용어 정리</div>
+  <div class="section-title"><span class="section-num">9</span> Glossary</div>
 
   <div class="glossary-grid">
     <div class="glossary-item">
-      <div class="glossary-term">🔐 아토믹 스왑 (Atomic Swap)</div>
-      <div class="glossary-def">두 코인을 동시에 교환하는 기술. 양쪽이 모두 성공하거나, 아무것도 진행되지 않습니다. "원자"처럼 쪼갤 수 없는 거래입니다.</div>
+      <div class="glossary-term">🔐 Atomic Swap</div>
+      <div class="glossary-def">A technique to exchange two different cryptocurrencies simultaneously. Either both transfers complete or neither does — like an atom, it can't be split.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">🔑 개인키 (Private Key)</div>
-      <div class="glossary-def">지갑의 비밀번호. 이걸 알면 그 지갑의 코인을 마음대로 移动할 수 있습니다. 절대 공개하면 안 됩니다.</div>
+      <div class="glossary-term">🔑 Private Key</div>
+      <div class="glossary-def">The master password for your wallet. Anyone who has it can move your funds. Never share it.</div>
     </div>
     <div class="glossary-item">
       <div class="glossary-term">📦 HTLC</div>
-      <div class="glossary-def">Hash Time-Locked Contract. "자물쇠 계좌"입니다. 비밀번호를 알아야 코인을 꺼낼 수 있고, 시간이 지나면 주인이 환불받을 수 있습니다.</div>
+      <div class="glossary-def">Hash Time-Locked Contract — a "lockbox" on the blockchain. Coins inside can only be claimed with the correct secret, or returned to the sender after a timeout.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">🏦 비수탁형 (Non-custodial)</div>
-      <div class="glossary-def">거래소가 코인을 보관하지 않는 방식. 내 코인은 항상 내 지갑에 있습니다.</div>
+      <div class="glossary-term">🏦 Non-custodial</div>
+      <div class="glossary-def">The exchange never holds your funds. Your coins stay in your own wallet at all times.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">⛓️ 블록체인</div>
-      <div class="glossary-def">거래 기록이 전 세계에 분산 저장된 공개 장부. 누구나 확인할 수 있고, 한 번 기록되면 수정이 불가능합니다.</div>
+      <div class="glossary-term">⛓️ Blockchain</div>
+      <div class="glossary-def">A public, distributed ledger of transactions. Records are permanent and verifiable by anyone.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">🔤 해시 (Hash)</div>
-      <div class="glossary-def">어떤 정보를 고정된 길이의 암호로 변환한 것. 원본에서 해시는 쉽게 만들 수 있지만, 해시에서 원본은 알 수 없습니다.</div>
+      <div class="glossary-term">🔣 Hash</div>
+      <div class="glossary-def">A fixed-length fingerprint of data. Easy to compute from the original, but impossible to reverse. Used here as the "lock" in the HTLC.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">📡 트랜잭션 (Transaction)</div>
-      <div class="glossary-def">블록체인에 기록되는 코인 이동 내역. 한 번 처리되면 변경할 수 없습니다.</div>
+      <div class="glossary-term">📡 Transaction (TX)</div>
+      <div class="glossary-def">A signed message broadcast to the blockchain recording a transfer of funds. Once confirmed, it cannot be altered.</div>
     </div>
     <div class="glossary-item">
-      <div class="glossary-term">⏰ 타임아웃</div>
-      <div class="glossary-def">일정 시간이 지나도 거래가 완료되지 않을 경우 자동으로 종료되는 시간입니다. BTCT 24시간, DOGE 12시간.</div>
+      <div class="glossary-term">⏰ Timeout / Timelock</div>
+      <div class="glossary-def">A deadline built into the HTLC. If the swap isn't completed in time, each party can reclaim their own coins. BTCT: 24 h, DOGE: 12 h.</div>
     </div>
   </div>
 </div>
 
 <!-- CTA -->
 <div class="cta">
-  <h2>이제 시작할 준비가 됐나요?</h2>
-  <p>지갑을 만들고 첫 거래를 시작해 보세요.</p>
+  <h2>Ready to make your first swap?</h2>
+  <p>Set up your wallets and start trading — no sign-up required.</p>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-    <a href="/" class="btn btn-primary">🚀 거래소 바로가기</a>
+    <a href="/" class="btn btn-primary">🚀 Launch DEX</a>
     <a href="/town" class="btn btn-outline">🎮 BTCT Town</a>
   </div>
 </div>
@@ -663,7 +667,7 @@
   <div class="footer-links">
     <a href="/">DEX</a>
     <a href="/town">BTCT Town</a>
-    <a href="/about">소개</a>
+    <a href="/about">About</a>
     <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub</a>
     <a href="/privacy">Privacy Policy</a>
   </div>
