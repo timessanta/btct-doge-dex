@@ -2362,9 +2362,39 @@ function initMarketPanel() {
   }
   // Initial load
   loadMarketPanelData();
+  refreshTopBarBalance();
   // 30초 자동 갱신
   if (_marketPanelInterval) clearInterval(_marketPanelInterval);
-  _marketPanelInterval = setInterval(loadMarketPanelData, 30000);
+  _marketPanelInterval = setInterval(() => {
+    loadMarketPanelData();
+    refreshTopBarBalance();
+  }, 30000);
+}
+
+async function refreshTopBarBalance() {
+  const addr = getActiveBtctAddr();
+  const dogeAddr = getActiveDogeAddr();
+  const btctEl = document.getElementById('town-btct-bal');
+  const dogeEl = document.getElementById('town-doge-bal');
+  const modalOpen = document.getElementById('town-wallet-modal') &&
+    !document.getElementById('town-wallet-modal').classList.contains('hidden');
+  const twBtctEl = modalOpen ? document.getElementById('tw-btct-bal') : null;
+  const twDogeEl = modalOpen ? document.getElementById('tw-doge-bal') : null;
+
+  if (addr) {
+    try {
+      const b = await fetch(`/api/btct/balance/${addr}`).then(r => r.json());
+      if (btctEl) btctEl.textContent = 'BTCT: ' + satToBTCT(b.balance);
+      if (twBtctEl) twBtctEl.textContent = satToBTCT(b.balance) + ' BTCT';
+    } catch {}
+  }
+  if (dogeAddr) {
+    try {
+      const d = await fetch(`/api/doge/balance/${dogeAddr}`).then(r => r.json());
+      if (dogeEl) dogeEl.textContent = 'DOGE: ' + satToDOGE(d.balance);
+      if (twDogeEl) twDogeEl.textContent = satToDOGE(d.balance) + ' DOGE';
+    } catch {}
+  }
 }
 
 // ======================== Town Wallet Modal ========================

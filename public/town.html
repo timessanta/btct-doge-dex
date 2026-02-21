@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260222c">
+  <link rel="stylesheet" href="town-style.css?v=20260222d">
 </head>
 <body>
   <!-- Top Bar -->
@@ -67,12 +67,7 @@
             <div id="tw-btct-msg" class="tw-msg hidden"></div>
             <button class="btn btn-primary tw-send-btn" onclick="townWalletSendBtct()">Send BTCT</button>
           </div>
-          <div id="tw-btct-nokey" class="tw-nokey hidden">
-            <div style="margin-bottom:6px;">⚠ Private key not found. Unlock to send.</div>
-            <input type="password" id="tw-btct-key-input" placeholder="64-char hex private key" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
-            <div id="tw-btct-unlock-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
-            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockBtct()">Unlock BTCT Wallet</button>
-          </div>
+          <div id="tw-btct-nokey" class="tw-nokey hidden">⚠ No private key — view only. <a href="/" style="color:#4ecca3;">Set up in DEX →</a></div>
         </div>
 
         <div class="tw-divider"></div>
@@ -93,19 +88,9 @@
             <button class="btn btn-primary tw-send-btn" onclick="townWalletSendDoge()">Send DOGE</button>
           </div>
           <!-- dogeAddr 있고 WIF 없을 때 -->
-          <div id="tw-doge-nokey" class="tw-nokey hidden">
-            <div style="margin-bottom:6px;">⚠ DOGE private key not found. Enter WIF to unlock.</div>
-            <input type="password" id="tw-doge-wif-input" placeholder="DOGE WIF private key (Q...)" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
-            <div id="tw-doge-unlock-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
-            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockDoge(false)">Unlock DOGE Wallet</button>
-          </div>
+          <div id="tw-doge-nokey" class="tw-nokey hidden">⚠ No DOGE key — view only. <a href="/" style="color:#4ecca3;">Add in DEX →</a></div>
           <!-- dogeAddr 없을 때 -->
-          <div id="tw-doge-none" class="tw-nokey hidden">
-            <div style="margin-bottom:6px;">⚠ No DOGE wallet. Enter WIF to add.</div>
-            <input type="password" id="tw-doge-wif-new-input" placeholder="DOGE WIF private key (Q...)" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
-            <div id="tw-doge-none-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
-            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockDoge(true)">Add DOGE Wallet</button>
-          </div>
+          <div id="tw-doge-none" class="tw-nokey hidden">⚠ No DOGE wallet. <a href="/" style="color:#4ecca3;">Set up in DEX →</a></div>
         </div>
       </div>
     </div>
@@ -191,6 +176,6 @@
   <script src="krypton-offline.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town.js?v=20260222c"></script>
+  <script src="town.js?v=20260222f"></script>
 </body>
 </html>
