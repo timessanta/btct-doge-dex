@@ -38,6 +38,9 @@ app.get('/privacy', (req, res) => {
 app.get('/about', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'about.html'));
 });
+app.get('/guide', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'guide.html'));
+});
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
@@ -242,6 +245,78 @@ io.on('connection', (socket) => {
 
 // ===================== STARTUP =====================
 
+// Auto-expire trades when HTLC timeout passes (runs every 5 min)
+function scheduleExpiredTradeCleanup() {
+  const INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  async function checkExpired() {
+    try {
+      const { pool } = require('./db');
+
+      // 1) BTCT timeout: btct_locked + btct_timeout <= current block
+      let currentBlock = 0;
+      try {
+        const { getBlockNumber } = require('./btctRpc');
+        currentBlock = await getBlockNumber();
+      } catch (e) {
+        // fallback: http module (no external deps)
+        const http = require('http');
+        currentBlock = await new Promise((resolve) => {
+          const data = JSON.stringify({ jsonrpc: '2.0', method: 'blockNumber', params: [], id: 1 });
+          const req = http.request(
+            { hostname: '127.0.0.1', port: 12211, path: '/', method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+            },
+            (res) => {
+              let body = '';
+              res.on('data', d => body += d);
+              res.on('end', () => { try { resolve(JSON.parse(body).result || 0); } catch { resolve(0); } });
+            }
+          );
+          req.on('error', () => resolve(0));
+          req.write(data); req.end();
+        });
+      }
+
+      if (currentBlock > 0) {
+        const { rows: btctExpired } = await pool.query(
+          `UPDATE trades SET status = 'expired'
+           WHERE status = 'btct_locked' AND btct_timeout IS NOT NULL AND btct_timeout <= $1
+           RETURNING id, seller_address, buyer_address`,
+          [currentBlock]
+        );
+        for (const t of btctExpired) {
+          console.log(`[Expire] Trade #${t.id} expired (btct_locked, block ${currentBlock} >= ${t.btct_timeout || '?'})`);
+          io.to(`trade:${t.id}`).emit('tradeStatusUpdate', { tradeId: t.id, status: 'expired' });
+          io.to(`addr:${t.seller_address}`).emit('tradeNotification', { tradeId: t.id, type: 'expired', message: `Trade #${t.id} expired — BTCT refund available` });
+          io.to(`addr:${t.buyer_address}`).emit('tradeNotification', { tradeId: t.id, type: 'expired', message: `Trade #${t.id} expired` });
+        }
+      }
+
+      // 2) DOGE timeout: doge_locked + doge_timeout <= now (unix timestamp)
+      const nowSec = Math.floor(Date.now() / 1000);
+      const { rows: dogeExpired } = await pool.query(
+        `UPDATE trades SET status = 'expired'
+         WHERE status = 'doge_locked' AND doge_timeout IS NOT NULL AND doge_timeout <= $1
+         RETURNING id, seller_address, buyer_address`,
+        [nowSec]
+      );
+      for (const t of dogeExpired) {
+        console.log(`[Expire] Trade #${t.id} expired (doge_locked, now ${nowSec} >= ${t.doge_timeout || '?'})`);
+        io.to(`trade:${t.id}`).emit('tradeStatusUpdate', { tradeId: t.id, status: 'expired' });
+        io.to(`addr:${t.seller_address}`).emit('tradeNotification', { tradeId: t.id, type: 'expired', message: `Trade #${t.id} expired — BTCT refund available` });
+        io.to(`addr:${t.buyer_address}`).emit('tradeNotification', { tradeId: t.id, type: 'expired', message: `Trade #${t.id} expired — DOGE refund available` });
+      }
+
+    } catch (e) {
+      console.error('[Expire Cleanup] Error:', e.message);
+    }
+  }
+
+  checkExpired(); // Run once on startup
+  setInterval(checkExpired, INTERVAL);
+}
+
 // Auto-delete chat messages older than 90 days (runs daily)
 function scheduleMessageCleanup() {
   const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
@@ -264,6 +339,7 @@ function scheduleMessageCleanup() {
 
 async function start() {
   await initDB();
+  scheduleExpiredTradeCleanup();
   scheduleMessageCleanup();
 
   server.listen(PORT, () => {

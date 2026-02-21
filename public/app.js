@@ -1659,7 +1659,21 @@ function getStepStates(status) {
 }
 
 function getActionHTML(trade, isSeller, isBuyer) {
-  if (trade.status === 'completed' || trade.status === 'cancelled' || trade.status === 'expired') return '';
+  if (trade.status === 'completed' || trade.status === 'cancelled') return '';
+
+  // Expired: show refund buttons depending on how far the swap got
+  if (trade.status === 'expired') {
+    const hasDogeLock = !!trade.doge_redeem_script; // doge_locked stage expired
+    if (!isSeller && !isBuyer) return '';
+    return `
+      <div class="action-box" style="border-color:#e74c3c;">
+        <h4 style="color:#e74c3c;">⏰ Trade Expired</h4>
+        <p class="dim small">This trade timed out. Please reclaim your funds.</p>
+        ${isSeller ? `<button class="btn btn-red" onclick="btctRefund(${trade.id})">Refund BTCT (Timeout)</button>` : ''}
+        ${isBuyer && hasDogeLock ? `<button class="btn btn-red" onclick="refundDoge(${trade.id})">Refund DOGE (Timeout)</button>` : ''}
+      </div>
+    `;
+  }
 
   // Step 1: Seller publishes hash
   if (trade.status === 'negotiating' && isSeller) {
@@ -2038,7 +2052,14 @@ async function btctRefund(tradeId) {
     const htlcAddr = trade.btct_htlc_address;
     const htlcAccount = await api(`/btct/account/${htlcAddr}`);
     const htlcBalance = Number(htlcAccount.balance);
-    if (htlcBalance <= 0) return alert('HTLC balance is 0 — already refunded or redeemed.');
+    if (htlcBalance <= 0) {
+      // Already refunded/redeemed on-chain — just mark trade as cancelled in DB
+      await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+      alert('HTLC balance is already 0 — BTCT was refunded previously.\nTrade marked as cancelled.');
+      socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+      navigateTo('trade');
+      return;
+    }
 
     const htlcAddress = Krypton.Address.fromHex(htlcAddr);
     const networkFee = Number(Krypton.Policy.txFee(blockHeight));

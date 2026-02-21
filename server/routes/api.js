@@ -451,7 +451,7 @@ router.post('/trades/:id/cancel', async (req, res) => {
     const { rows: [trade] } = await pool.query(
       `SELECT * FROM trades WHERE id = $1
        AND (seller_address = $2 OR buyer_address = $2)
-       AND status IN ('negotiating', 'hash_published', 'btct_locked', 'doge_locked')`,
+       AND status IN ('negotiating', 'hash_published', 'btct_locked', 'doge_locked', 'expired')`,
       [req.params.id, addr]
     );
     if (!trade) return res.status(404).json({ error: 'Trade not found or cannot cancel' });

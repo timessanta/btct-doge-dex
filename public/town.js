@@ -1925,7 +1925,7 @@ async function townShowTradeDetail(tradeId) {
     const isSeller = currentUser && currentUser.btctAddress.toLowerCase() === trade.seller_address.toLowerCase();
     const isBuyer = currentUser && currentUser.btctAddress.toLowerCase() === trade.buyer_address.toLowerCase();
 
-    const steps = ['Hash Published', 'BTCT Locked', 'DOGE Sent', 'Seller Redeems', 'Buyer Redeems'];
+    const steps = ['Hash Published', 'BTCT Locked', 'DOGE Locked', 'Seller Redeems', 'Buyer Redeems'];
     const stepStates = townGetStepStates(trade.status);
 
     title.textContent = `Trade #${trade.id}`;
@@ -1997,7 +1997,19 @@ function townGetStepStates(status) {
 }
 
 function townGetActionHTML(trade, isSeller, isBuyer) {
-  if (['completed', 'cancelled', 'expired'].includes(trade.status)) return '';
+  if (['completed', 'cancelled'].includes(trade.status)) return '';
+
+  // Expired: show refund buttons
+  if (trade.status === 'expired') {
+    const hasDogeLock = !!trade.doge_redeem_script;
+    if (!isSeller && !isBuyer) return '';
+    return `<div class="action-box" style="border-color:#e74c3c;">
+      <h4 style="color:#e74c3c;">⏰ Trade Expired</h4>
+      <p style="font-size:12px;color:#aaa;">This trade timed out. Please reclaim your funds.</p>
+      ${isSeller ? `<button class="btn btn-primary" style="width:100%;background:#e74c3c;" onclick="townBtctRefund(${trade.id})">Refund BTCT (Timeout)</button>` : ''}
+      ${isBuyer && hasDogeLock ? `<button class="btn btn-primary" style="width:100%;background:#e74c3c;margin-top:6px;" onclick="townRefundDoge(${trade.id})">Refund DOGE (Timeout)</button>` : ''}
+    </div>`;
+  }
 
   // Step 1: Seller publishes hash
   if (trade.status === 'negotiating' && isSeller) {
@@ -2030,6 +2042,13 @@ function townGetActionHTML(trade, isSeller, isBuyer) {
       <button class="btn btn-primary" style="width:100%;background:#27ae60;" onclick="townSendDoge(${trade.id})">Lock ${satToDOGE(trade.doge_amount)} DOGE in HTLC</button></div>`;
   }
   if (trade.status === 'btct_locked' && isSeller) {
+    const currentBlock = window._currentBlock || 0;
+    const timedOut = currentBlock > 0 && trade.btct_timeout && currentBlock >= trade.btct_timeout;
+    if (timedOut) {
+      return `<div class="action-box" style="border-color:#e74c3c;"><h4 style="color:#e74c3c;">⏰ BTCT Timeout Reached</h4>
+        <p style="font-size:12px;color:#aaa;">Buyer did not lock DOGE. Reclaim your BTCT.</p>
+        <button class="btn btn-primary" style="width:100%;background:#e74c3c;" onclick="townBtctRefund(${trade.id})">Refund BTCT (Timeout)</button></div>`;
+    }
     return `<div class="action-box"><h4>Waiting for DOGE HTLC...</h4>
       <p style="font-size:11px;color:#888;">HTLC: 0x${trade.btct_htlc_address}</p></div>`;
   }
@@ -2220,6 +2239,61 @@ async function townSellerRedeem(tradeId) {
 }
 
 // DOGE HTLC Refund (buyer reclaims after timeout)
+async function townBtctRefund(tradeId) {
+  if (!currentUser || !currentUser.btctKey) return alert('BTCT wallet not connected.');
+  try {
+    await ensureKrypton();
+    const trade = await api(`/trades/${tradeId}`);
+    const blockInfo = await api('/btct/block');
+    const blockHeight = blockInfo.height;
+    if (blockHeight < trade.btct_timeout) {
+      return alert(`Timeout not reached yet.\nCurrent: ${blockHeight} / Timeout: ${trade.btct_timeout}`);
+    }
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(currentUser.btctKey));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const senderAddr = keyPair.publicKey.toAddress();
+    if (senderAddr.toHex().toLowerCase() !== trade.seller_address.toLowerCase()) {
+      return alert('Only the seller can refund BTCT after timeout.');
+    }
+    const htlcAddr = trade.btct_htlc_address;
+    const htlcAccount = await api(`/btct/account/${htlcAddr}`);
+    const htlcBalance = Number(htlcAccount.balance);
+    if (htlcBalance <= 0) {
+      // Already refunded on-chain — just mark cancelled
+      await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+      townShowToast('HTLC already empty — trade marked as cancelled.');
+      socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+      closeModal();
+      return;
+    }
+    const htlcAddress = Krypton.Address.fromHex(htlcAddr);
+    const networkFee = Number(Krypton.Policy.txFee(blockHeight));
+    const refundValue = htlcBalance - networkFee;
+    if (refundValue <= 0) return alert('HTLC balance too low to cover fee.');
+    const tx = new Krypton.ExtendedTransaction(
+      htlcAddress, Krypton.Account.Type.HTLC,
+      senderAddr, Krypton.Account.Type.BASIC,
+      refundValue, blockHeight,
+      Krypton.Transaction.Flag.NONE, new Uint8Array(0)
+    );
+    const signature = Krypton.Signature.create(keyPair.privateKey, keyPair.publicKey, tx.serializeContent());
+    const sigProof = Krypton.SignatureProof.singleSig(keyPair.publicKey, signature).serialize();
+    const proof = new Krypton.SerialBuffer(1 + sigProof.byteLength);
+    proof.writeUint8(Krypton.HashedTimeLockedContract.ProofType.TIMEOUT_RESOLVE);
+    proof.write(sigProof);
+    tx.proof = proof;
+    const txHex = Krypton.BufferUtils.toHex(tx.serialize());
+    const result = await api('/btct/broadcast', { body: { txHex } });
+    await api(`/trades/${tradeId}/cancel`, { body: { address: currentUser.btctAddress } });
+    townShowToast('✓ BTCT refunded! TX: ' + result.hash);
+    socket.emit('tradeUpdate', { tradeId, status: 'cancelled' });
+    closeModal();
+  } catch (e) {
+    alert('BTCT refund failed: ' + e.message);
+    console.error(e);
+  }
+}
+
 async function townRefundDoge(tradeId) {
   if (!currentUser || !currentUser.dogeKey) return alert('DOGE wallet required');
 

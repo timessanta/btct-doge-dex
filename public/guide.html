@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사용 가이드 — BTCT/DOGE DEX</title>
+  <meta name="description" content="BTCT/DOGE DEX 사용 방법 안내. 지갑 연결부터 거래 완료까지 단계별 설명.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a1a;
+      --card: #16213e;
+      --border: #0f3460;
+      --accent: #4ecca3;
+      --gold: #f5c542;
+      --red: #e94560;
+      --text: #e0e0e0;
+      --muted: #888;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Nav */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 40px;
+      background: rgba(10,10,26,0.95);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo { font-weight: 800; font-size: 18px; color: var(--accent); }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      background: linear-gradient(180deg, #0f3460 0%, var(--bg) 100%);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(78,204,163,0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 4vw, 40px);
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p { font-size: 17px; color: var(--muted); max-width: 560px; margin: 0 auto; }
+
+    /* TOC */
+    .toc {
+      max-width: 860px;
+      margin: 40px auto 0;
+      padding: 0 20px;
+    }
+    .toc-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 32px;
+    }
+    .toc-box h2 { font-size: 15px; color: var(--muted); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    .toc-box ol { padding-left: 20px; }
+    .toc-box li { margin-bottom: 6px; font-size: 15px; }
+    .toc-box a { color: var(--text); }
+    .toc-box a:hover { color: var(--accent); }
+
+    /* Sections */
+    .section {
+      max-width: 860px;
+      margin: 50px auto 0;
+      padding: 0 20px;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-num {
+      background: var(--accent);
+      color: #0a0a1a;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card p { font-size: 15px; color: var(--text); margin-bottom: 8px; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul, .card ol { padding-left: 20px; font-size: 15px; }
+    .card li { margin-bottom: 6px; }
+
+    /* Step flow */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step-item {
+      display: flex;
+      gap: 20px;
+      position: relative;
+      padding-bottom: 28px;
+    }
+    .step-item:last-child { padding-bottom: 0; }
+    .step-item::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 40px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+    .step-item:last-child::before { display: none; }
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #0a0a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .step-body { flex: 1; }
+    .step-body h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .step-body p { font-size: 14px; color: var(--muted); }
+    .step-body .role {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .role-seller { background: rgba(245,197,66,0.2); color: var(--gold); border: 1px solid var(--gold); }
+    .role-buyer { background: rgba(78,204,163,0.2); color: var(--accent); border: 1px solid var(--accent); }
+    .role-both { background: rgba(200,200,200,0.1); color: #ccc; border: 1px solid #555; }
+
+    /* Note box */
+    .note {
+      background: rgba(78,204,163,0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 12px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .warn {
+      background: rgba(245,197,66,0.08);
+      border-left: 3px solid var(--gold);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 12px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .danger {
+      background: rgba(233,69,96,0.08);
+      border-left: 3px solid var(--red);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 12px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    /* FAQ */
+    .faq-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .faq-q {
+      padding: 16px 20px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      user-select: none;
+    }
+    .faq-q:hover { color: var(--accent); }
+    .faq-q .arrow { transition: transform 0.2s; font-size: 12px; color: var(--muted); }
+    .faq-a {
+      padding: 0 20px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding: 0 20px 16px; }
+    .faq-item.open .arrow { transform: rotate(180deg); }
+
+    /* Glossary */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .glossary-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .glossary-term {
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .glossary-def { font-size: 13px; color: var(--muted); }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 60px 20px;
+      margin-top: 50px;
+    }
+    .cta h2 { font-size: 26px; font-weight: 800; margin-bottom: 12px; }
+    .cta p { color: var(--muted); margin-bottom: 28px; font-size: 15px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #0a0a1a; }
+    .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 20px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .footer-links { display: flex; justify-content: center; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
+    .footer-links a { color: var(--muted); }
+    .footer-links a:hover { color: var(--accent); }
+
+    @media (max-width: 600px) {
+      nav { padding: 14px 20px; }
+      .nav-links { gap: 12px; font-size: 13px; }
+      .toc-box { padding: 18px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">⚡ BTCT/DOGE DEX</div>
+  <div class="nav-links">
+    <a href="/">거래소</a>
+    <a href="/town">BTCT Town</a>
+    <a href="/about">소개</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">User Guide</div>
+  <h1>사용 가이드</h1>
+  <p>처음이세요? 걱정 마세요. 이 가이드를 따라 하시면 누구든 10분 안에 거래할 수 있습니다.</p>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-box">
+    <h2>📋 목차</h2>
+    <ol>
+      <li><a href="#what-is">이게 뭔가요?</a></li>
+      <li><a href="#wallet">지갑 준비하기</a></li>
+      <li><a href="#sell">BTCT 팔기 (DOGE 받기)</a></li>
+      <li><a href="#buy">BTCT 사기 (DOGE 주기)</a></li>
+      <li><a href="#swap-flow">스왑 5단계 전체 흐름</a></li>
+      <li><a href="#timeout">거래가 취소되면?</a></li>
+      <li><a href="#town">BTCT Town 이용하기</a></li>
+      <li><a href="#faq">자주 묻는 질문</a></li>
+      <li><a href="#glossary">용어 정리</a></li>
+    </ol>
+  </div>
+</div>
+
+<!-- Section 1: What is this -->
+<div class="section" id="what-is">
+  <div class="section-title"><span class="section-num">1</span> 이게 뭔가요?</div>
+
+  <div class="card">
+    <h3>🤝 중개자 없이 직접 교환</h3>
+    <p>이 거래소는 <strong>BTCT(Bitcoin Time)</strong>와 <strong>DOGE(Dogecoin)</strong>를 서로 교환하는 서비스입니다.</p>
+    <p>일반 거래소와 다르게 <strong>서버가 여러분의 코인을 보관하지 않습니다.</strong> 거래 상대방과 스마트 컨트랙트를 통해 직접 교환되기 때문에, 서버가 해킹당해도 여러분의 코인은 안전합니다.</p>
+  </div>
+
+  <div class="card">
+    <h3>🔐 어떻게 안전하게 교환되나요?</h3>
+    <p><strong>"비밀번호 열쇠"</strong> 방식을 사용합니다. 판매자가 비밀 열쇠를 만들고, 그 열쇠로만 풀 수 있는 자물쇠에 코인을 잠급니다. 구매자도 같은 자물쇠에 DOGE를 잠그면, 판매자가 열쇠를 사용해 DOGE를 가져올 때 열쇠가 자동으로 공개되고 구매자도 BTCT를 가져갈 수 있게 됩니다.</p>
+    <p>이 방식을 <strong>아토믹 스왑(Atomic Swap)</strong>이라고 합니다. 양쪽 모두 가져가거나, 아무도 못 가져가거나 — 중간은 없습니다.</p>
+  </div>
+
+  <div class="note">
+    💡 이 거래소는 <strong>오픈소스</strong>입니다. 누구나 코드를 확인하고 직접 실행할 수 있습니다. → <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub 보기</a>
+  </div>
+</div>
+
+<!-- Section 2: Wallet -->
+<div class="section" id="wallet">
+  <div class="section-title"><span class="section-num">2</span> 지갑 준비하기</div>
+
+  <div class="card">
+    <h3>🔑 BTCT 지갑</h3>
+    <ol>
+      <li>상단 메뉴 <strong>Wallet</strong> 탭 클릭</li>
+      <li><strong>"New BTCT Wallet"</strong> 클릭 → 새 지갑 생성</li>
+      <li>화면에 표시된 <strong>개인키(Private Key)</strong>를 안전한 곳에 저장<br><span style="color:var(--muted);font-size:13px;">※ 잃어버리면 복구 불가합니다</span></li>
+      <li>우측 상단에 지갑 주소(0x로 시작)가 표시되면 연결 완료</li>
+    </ol>
+    <div class="warn">⚠️ 개인키는 절대 타인에게 공개하지 마세요. 개인키를 알면 코인을 모두 가져갈 수 있습니다.</div>
+  </div>
+
+  <div class="card">
+    <h3>🐕 DOGE 지갑</h3>
+    <ol>
+      <li>Wallet 탭 → DOGE 섹션에서 <strong>"New DOGE Wallet"</strong> 클릭</li>
+      <li>생성된 DOGE 주소(D로 시작)와 WIF 개인키를 저장</li>
+      <li>거래 전에 해당 주소로 DOGE를 충전해 두세요</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>🔄 기존 지갑 불러오기</h3>
+    <ol>
+      <li>Wallet 탭 → <strong>"Import"</strong> 클릭</li>
+      <li>저장해 둔 개인키 / WIF 붙여넣기 → 불러오기 완료</li>
+    </ol>
+    <div class="note">💡 지갑 정보는 이 브라우저에만 저장됩니다. 다른 기기에서 사용하려면 개인키를 직접 불러와야 합니다.</div>
+  </div>
+</div>
+
+<!-- Section 3: Sell BTCT -->
+<div class="section" id="sell">
+  <div class="section-title"><span class="section-num">3</span> BTCT 팔기 (DOGE 받기)</div>
+
+  <div class="card">
+    <h3>📋 광고 등록하기</h3>
+    <ol>
+      <li>상단 메뉴 <strong>Bulletin Board</strong> 클릭</li>
+      <li><strong>"Post Listing"</strong> 클릭</li>
+      <li>타입: <strong>SELL BTCT</strong> 선택</li>
+      <li>가격 입력 (1 BTCT = ? DOGE)</li>
+      <li>최소/최대 BTCT 수량 입력</li>
+      <li><strong>Post</strong> 버튼 클릭 → 게시판에 광고 등록 완료</li>
+    </ol>
+    <div class="note">💡 광고가 등록되면 BTCT Town에서 내 캐릭터 머리 위에 말풍선이 표시됩니다.</div>
+  </div>
+
+  <div class="card">
+    <h3>⏳ 거래 요청이 오면?</h3>
+    <p>구매자가 광고를 보고 거래를 요청하면 알림이 옵니다. <strong>My Listings</strong> 또는 <strong>Swap History</strong>에서 거래 번호를 클릭해 진행하세요.</p>
+    <p>거래가 시작되면 <strong>5단계 스왑 진행</strong>이 필요합니다. → <a href="#swap-flow">5단계 흐름 보기</a></p>
+  </div>
+</div>
+
+<!-- Section 4: Buy BTCT -->
+<div class="section" id="buy">
+  <div class="section-title"><span class="section-num">4</span> BTCT 사기 (DOGE 주기)</div>
+
+  <div class="card">
+    <h3>🔍 원하는 광고 찾기</h3>
+    <ol>
+      <li><strong>Bulletin Board</strong>에서 SELL 광고 목록 확인</li>
+      <li>원하는 광고의 <strong>"Start Swap"</strong> 클릭</li>
+      <li>구매할 BTCT 수량 입력 후 <strong>확인</strong></li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>📤 거래 진행</h3>
+    <p>거래가 생성되면 판매자가 먼저 시작합니다. 알림을 받으면 <strong>Swap History</strong>에서 해당 거래를 열어 각 단계를 진행하세요.</p>
+    <div class="warn">⚠️ DOGE 지갑에 충분한 DOGE가 있어야 합니다. 거래 시작 전에 잔액을 확인하세요.</div>
+  </div>
+</div>
+
+<!-- Section 5: 5-step flow -->
+<div class="section" id="swap-flow">
+  <div class="section-title"><span class="section-num">5</span> 스왑 5단계 전체 흐름</div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <p style="color:var(--muted);font-size:14px;">각 단계에서 버튼을 클릭하면 지갑 서명이 이루어집니다. 서버는 서명에 관여하지 않으며, 모든 서명은 이 브라우저에서만 처리됩니다.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-circle">1</div>
+      <div class="step-body">
+        <span class="role role-seller">판매자</span>
+        <h3>비밀 열쇠 생성 & 공개</h3>
+        <p>판매자가 무작위 비밀번호(secret)를 만들고, 그 해시(잠금 암호)를 거래에 등록합니다. 비밀번호 원본은 판매자만 알고 있습니다.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">2</div>
+      <div class="step-body">
+        <span class="role role-seller">판매자</span>
+        <h3>BTCT를 스마트 컨트랙트에 잠금 (24시간)</h3>
+        <p>판매자가 팔 BTCT를 <strong>"자물쇠 계좌(HTLC)"</strong>에 전송합니다. 비밀번호를 아는 사람만 가져갈 수 있고, 24시간 후에는 판매자가 환불받을 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">3</div>
+      <div class="step-body">
+        <span class="role role-buyer">구매자</span>
+        <h3>DOGE를 스마트 컨트랙트에 잠금 (12시간)</h3>
+        <p>구매자가 지불할 DOGE를 또 다른 자물쇠 계좌에 전송합니다. 판매자가 비밀번호를 공개해야만 가져갈 수 있고, 12시간 후에는 구매자가 환불받을 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">4</div>
+      <div class="step-body">
+        <span class="role role-seller">판매자</span>
+        <h3>비밀번호 공개 & DOGE 수령</h3>
+        <p>판매자가 비밀번호를 공개하며 DOGE를 가져갑니다. 이 순간 비밀번호가 블록체인에 기록되어 누구나 볼 수 있게 됩니다.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">5</div>
+      <div class="step-body">
+        <span class="role role-buyer">구매자</span>
+        <h3>공개된 비밀번호로 BTCT 수령</h3>
+        <p>구매자가 블록체인에서 비밀번호를 확인하고 BTCT 잠금 계좌에서 BTCT를 인출합니다. 거래 완료! 🎉</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:24px;">
+    💡 <strong>왜 안전한가요?</strong> 4단계에서 판매자가 DOGE를 가져가려면 반드시 비밀번호를 공개해야 합니다. 그 즉시 구매자도 BTCT를 가져갈 수 있습니다. 한쪽만 손해보는 상황은 구조적으로 불가능합니다.
+  </div>
+</div>
+
+<!-- Section 6: Timeout & Refund -->
+<div class="section" id="timeout">
+  <div class="section-title"><span class="section-num">6</span> 거래가 취소되면?</div>
+
+  <div class="card">
+    <h3>⏰ 시간이 지나면 어떻게 되나요?</h3>
+    <p>상대방이 응답하지 않거나 중간에 취소된 경우, 설정된 시간이 지나면 자동으로 <strong>"만료(Expired)"</strong> 상태가 됩니다.</p>
+    <ul style="margin-top:10px;">
+      <li><strong>BTCT 환불</strong>: 24시간 후 판매자가 "Refund BTCT" 버튼 클릭 → 자동 환불</li>
+      <li><strong>DOGE 환불</strong>: 12시간 후 구매자가 "Refund DOGE" 버튼 클릭 → 자동 환불</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>🔔 만료 알림</h3>
+    <p>서버가 5분마다 자동으로 만료된 거래를 감지하여 알림을 보냅니다. 거래 페이지에 접속하면 환불 버튼이 자동으로 표시됩니다.</p>
+  </div>
+
+  <div class="danger">
+    🚨 <strong>만료 전에는 절대 환불되지 않습니다.</strong> 타임아웃 시간 전에는 코인이 스마트 컨트랙트에 안전하게 잠겨 있습니다.
+  </div>
+</div>
+
+<!-- Section 7: Town -->
+<div class="section" id="town">
+  <div class="section-title"><span class="section-num">7</span> BTCT Town 이용하기</div>
+
+  <div class="card">
+    <h3>🎮 BTCT Town이란?</h3>
+    <p>거래소에 연결된 <strong>픽셀아트 RPG 마을</strong>입니다. 실시간으로 다른 사용자들과 같은 공간에서 움직이며 거래할 수 있습니다.</p>
+  </div>
+
+  <div class="card">
+    <h3>🕹️ 기본 조작</h3>
+    <ul>
+      <li><strong>PC</strong>: 방향키 또는 WASD로 이동</li>
+      <li><strong>모바일</strong>: 왼쪽 하단 조이스틱으로 이동</li>
+      <li><strong>NPC(게시판) 접근</strong>: 가까이 가서 스페이스바 또는 ACT 버튼</li>
+      <li><strong>집 접근</strong>: 집 문 앞에서 스페이스바 → 캐릭터 꾸미기</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>📦 Town에서 거래하기</h3>
+    <ol>
+      <li>NPC(게시판) 앞에서 스페이스바</li>
+      <li><strong>Post Listing</strong> → 광고 등록</li>
+      <li>다른 플레이어의 말풍선을 보고 관심 있는 상대에게 다가가서 거래 시작</li>
+      <li>거래 진행도 Town 내에서 바로 가능</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>🎨 캐릭터 꾸미기</h3>
+    <ul>
+      <li>집 문 앞 접근 → 스페이스바 또는 우측 상단 🎨 버튼</li>
+      <li>타입 (기본/전사/마법사/도적), 피부색, 옷 색상, 머리색, 모자, 안경 선택 가능</li>
+      <li>변경 사항은 실시간으로 다른 플레이어에게도 보입니다</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Section 8: FAQ -->
+<div class="section" id="faq">
+  <div class="section-title"><span class="section-num">8</span> 자주 묻는 질문</div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">가입이나 본인인증이 필요한가요? <span class="arrow">▼</span></div>
+    <div class="faq-a">전혀 필요 없습니다. 지갑 주소가 곧 계정입니다. 이메일, 비밀번호, 개인정보 없이 바로 사용합니다.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">서버가 코인을 가져갈 수 있나요? <span class="arrow">▼</span></div>
+    <div class="faq-a">불가능합니다. 서버는 개인키를 전혀 가지고 있지 않습니다. 서명은 100% 이 브라우저에서만 이루어지며, 서버는 단순히 정보를 중계하는 역할만 합니다.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">거래 수수료는 얼마인가요? <span class="arrow">▼</span></div>
+    <div class="faq-a">별도 거래 수수료는 없습니다. 다만 블록체인에 트랜잭션을 보낼 때 소액의 네트워크 수수료(가스비)가 자동으로 차감됩니다. BTCT 수수료는 극히 소액, DOGE는 약 0.02 DOGE 수준입니다.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">거래 상대가 취소하면 코인을 잃게 되나요? <span class="arrow">▼</span></div>
+    <div class="faq-a">아닙니다. 코인은 스마트 컨트랙트(자물쇠 계좌)에 잠겨 있으며, 타임아웃 시간 후 환불 버튼으로 직접 돌려받을 수 있습니다. 상대방이 취소해도 여러분의 코인은 항상 안전합니다.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">개인키를 잃어버렸어요. 어떻게 하나요? <span class="arrow">▼</span></div>
+    <div class="faq-a">안타깝게도 복구가 불가능합니다. 개인키는 서버에 저장되지 않으며, 오직 본인만이 보관합니다. 반드시 안전한 곳에 백업해 두세요.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">BTCT는 어디서 구하나요? <span class="arrow">▼</span></div>
+    <div class="faq-a">이 거래소에서 DOGE로 구입할 수 있습니다. 또는 <a href="https://btc-time.com" target="_blank">btc-time.com</a>에서 직접 BTCT에 대해 알아보세요.</div>
+  </div>
+</div>
+
+<!-- Section 9: Glossary -->
+<div class="section" id="glossary">
+  <div class="section-title"><span class="section-num">9</span> 용어 정리</div>
+
+  <div class="glossary-grid">
+    <div class="glossary-item">
+      <div class="glossary-term">🔐 아토믹 스왑 (Atomic Swap)</div>
+      <div class="glossary-def">두 코인을 동시에 교환하는 기술. 양쪽이 모두 성공하거나, 아무것도 진행되지 않습니다. "원자"처럼 쪼갤 수 없는 거래입니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">🔑 개인키 (Private Key)</div>
+      <div class="glossary-def">지갑의 비밀번호. 이걸 알면 그 지갑의 코인을 마음대로 移动할 수 있습니다. 절대 공개하면 안 됩니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">📦 HTLC</div>
+      <div class="glossary-def">Hash Time-Locked Contract. "자물쇠 계좌"입니다. 비밀번호를 알아야 코인을 꺼낼 수 있고, 시간이 지나면 주인이 환불받을 수 있습니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">🏦 비수탁형 (Non-custodial)</div>
+      <div class="glossary-def">거래소가 코인을 보관하지 않는 방식. 내 코인은 항상 내 지갑에 있습니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">⛓️ 블록체인</div>
+      <div class="glossary-def">거래 기록이 전 세계에 분산 저장된 공개 장부. 누구나 확인할 수 있고, 한 번 기록되면 수정이 불가능합니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">🔤 해시 (Hash)</div>
+      <div class="glossary-def">어떤 정보를 고정된 길이의 암호로 변환한 것. 원본에서 해시는 쉽게 만들 수 있지만, 해시에서 원본은 알 수 없습니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">📡 트랜잭션 (Transaction)</div>
+      <div class="glossary-def">블록체인에 기록되는 코인 이동 내역. 한 번 처리되면 변경할 수 없습니다.</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">⏰ 타임아웃</div>
+      <div class="glossary-def">일정 시간이 지나도 거래가 완료되지 않을 경우 자동으로 종료되는 시간입니다. BTCT 24시간, DOGE 12시간.</div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta">
+  <h2>이제 시작할 준비가 됐나요?</h2>
+  <p>지갑을 만들고 첫 거래를 시작해 보세요.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <a href="/" class="btn btn-primary">🚀 거래소 바로가기</a>
+    <a href="/town" class="btn btn-outline">🎮 BTCT Town</a>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-links">
+    <a href="/">DEX</a>
+    <a href="/town">BTCT Town</a>
+    <a href="/about">소개</a>
+    <a href="https://github.com/timessanta/btct-doge-dex" target="_blank">GitHub</a>
+    <a href="/privacy">Privacy Policy</a>
+  </div>
+  <p>BTCT/DOGE DEX — Open source, non-custodial, decentralized.</p>
+</footer>
+
+<script>
+function toggleFaq(el) {
+  const item = el.parentElement;
+  item.classList.toggle('open');
+}
+</script>
+
+</body>
+</html>
