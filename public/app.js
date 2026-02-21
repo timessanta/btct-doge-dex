@@ -417,6 +417,7 @@ function clearTradeBadge() {
 
 let dogePriceInterval = null;
 let walletInterval = null;
+let lastDogeUsdt = 0; // DOGE/USDT 실시간가 (loadDogePrice에서 갱신)
 
 async function loadDogePrice() {
   try {
@@ -427,6 +428,8 @@ async function loadDogePrice() {
     const high = parseFloat(d.highPrice);
     const low = parseFloat(d.lowPrice);
     const vol = parseFloat(d.volume);
+
+    lastDogeUsdt = price; // BTCT USD 환산에 사용
 
     const priceEl = document.getElementById('dogePrice');
     const changeEl = document.getElementById('dogeChange');
@@ -571,6 +574,18 @@ async function loadBtctChart() {
     if (highEl) highEl.textContent = high.toFixed(4) + ' DOGE';
     if (lowEl) lowEl.textContent = low.toFixed(4) + ' DOGE';
 
+    // USD 환산 (DOGE/USDT 최신가 있을 때만)
+    const usdEl = document.getElementById('btctPriceUsd');
+    const highUsdEl = document.getElementById('btctHighUsd');
+    const lowUsdEl = document.getElementById('btctLowUsd');
+    if (lastDogeUsdt > 0) {
+      if (usdEl) usdEl.textContent = '≈ $' + (lastPrice * lastDogeUsdt).toFixed(4);
+      if (highUsdEl) highUsdEl.textContent = '≈ $' + (high * lastDogeUsdt).toFixed(4);
+      if (lowUsdEl) lowUsdEl.textContent = '≈ $' + (low * lastDogeUsdt).toFixed(4);
+    } else {
+      if (usdEl) usdEl.textContent = '≈ $-- (DOGE가 로드되면 표시)';
+    }
+
     // Draw chart
     const canvas = document.getElementById('btctChart');
     if (!canvas || prices.length < 2) return;
@@ -684,11 +699,12 @@ async function loadMarket(el) {
         <div class="chart-divider"></div>
         <h3>⚡ BTCT / DOGE</h3>
         <div class="price-main" id="btctPrice">--</div>
+        <div id="btctPriceUsd" style="color:#888;font-size:12px;margin-top:-6px;margin-bottom:4px;">≈ $--</div>
         <div class="price-change" id="btctChange">--</div>
         <canvas id="btctChart" width="268" height="80" style="width:100%;height:80px;margin:8px 0;border-radius:6px;"></canvas>
         <div class="price-row"><span class="label">Trades</span><span class="value" id="btctTrades">--</span></div>
-        <div class="price-row"><span class="label">24h High</span><span class="value" id="btctHigh">--</span></div>
-        <div class="price-row"><span class="label">24h Low</span><span class="value" id="btctLow">--</span></div>
+        <div class="price-row"><span class="label">24h High</span><span class="value" id="btctHigh">--</span><span id="btctHighUsd" style="color:#666;font-size:10px;margin-left:4px;"></span></div>
+        <div class="price-row"><span class="label">24h Low</span><span class="value" id="btctLow">--</span><span id="btctLowUsd" style="color:#666;font-size:10px;margin-left:4px;"></span></div>
         <div class="source">DEX trades</div>
       </div>
     </div>

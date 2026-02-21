@@ -1071,6 +1071,8 @@ class TownScene extends Phaser.Scene {
 
     // Enter key to activate/send town chat
     this.setupTownChat();
+    // Market price panel
+    initMarketPanel();
   }
 
   addOtherPlayer(id, data) {
@@ -1311,6 +1313,8 @@ class TownScene extends Phaser.Scene {
     const addr = getActiveBtctAddr();
     const dogeAddr = getActiveDogeAddr();
     const el = document.getElementById('wallet-display');
+    if (!el) return;
+    el.onclick = () => openTownWallet();
     if (!addr) {
       el.innerHTML = '<span style="color:#e94560;">No Wallet — Set in DEX first</span>';
       return;
@@ -2275,4 +2279,336 @@ function setupMobileControls() {
 // Auto-init mobile controls
 if (isMobile()) {
   setupMobileControls();
+}
+
+// ======================== Market Price Panel ========================
+let _marketPanelInterval = null;
+let _lastDogeUsdt = 0;
+
+function toggleMarketPanel() {
+  const panel = document.getElementById('market-panel');
+  const icon = document.getElementById('market-panel-toggle-icon');
+  if (!panel) return;
+  const collapsed = panel.classList.toggle('collapsed');
+  if (icon) icon.textContent = collapsed ? '+' : '−';
+  localStorage.setItem('town_market_panel_open', collapsed ? '0' : '1');
+}
+
+async function loadMarketPanelData() {
+  // DOGE/USDT from Binance
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=DOGEUSDT');
+    const d = await r.json();
+    const price = parseFloat(d.lastPrice);
+    const change = parseFloat(d.priceChangePercent);
+    _lastDogeUsdt = price;
+    const priceEl = document.getElementById('mp-doge-price');
+    const changeEl = document.getElementById('mp-doge-change');
+    if (priceEl) priceEl.textContent = '$' + price.toFixed(5);
+    if (changeEl) {
+      changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      changeEl.className = 'mp-change ' + (change >= 0 ? 'up' : 'down');
+    }
+  } catch (e) {
+    const el = document.getElementById('mp-doge-price');
+    if (el) el.textContent = 'N/A';
+  }
+
+  // BTCT/DOGE from DEX trades
+  try {
+    const r = await fetch('/api/btct-chart');
+    const trades = await r.json();
+    const btctPriceEl = document.getElementById('mp-btct-price');
+    const btctUsdEl = document.getElementById('mp-btct-usd');
+    const btctChangeEl = document.getElementById('mp-btct-change');
+    const btctHighEl = document.getElementById('mp-btct-high');
+    const btctLowEl = document.getElementById('mp-btct-low');
+    if (!trades || trades.length === 0) {
+      if (btctPriceEl) btctPriceEl.textContent = 'No trades';
+      if (btctUsdEl) btctUsdEl.textContent = '≈ $--';
+      if (btctChangeEl) btctChangeEl.textContent = '';
+      if (btctHighEl) btctHighEl.textContent = '--';
+      if (btctLowEl) btctLowEl.textContent = '--';
+      return;
+    }
+    const prices = trades.map(t => parseFloat(t.price));
+    const last = prices[prices.length - 1];
+    const first = prices[0];
+    const change = ((last - first) / first) * 100;
+    const high = Math.max(...prices);
+    const low = Math.min(...prices);
+    if (btctPriceEl) btctPriceEl.textContent = last.toFixed(4) + ' DOGE';
+    if (btctUsdEl) btctUsdEl.textContent = _lastDogeUsdt > 0 ? '≈ $' + (last * _lastDogeUsdt).toFixed(4) : '≈ $--';
+    if (btctChangeEl) {
+      btctChangeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      btctChangeEl.className = 'mp-change ' + (change >= 0 ? 'up' : 'down');
+    }
+    if (btctHighEl) btctHighEl.textContent = high.toFixed(4);
+    if (btctLowEl) btctLowEl.textContent = low.toFixed(4);
+  } catch (e) {
+    const el = document.getElementById('mp-btct-price');
+    if (el) el.textContent = 'Error';
+  }
+}
+
+function initMarketPanel() {
+  // Restore open/closed state (기본: 열림)
+  const panel = document.getElementById('market-panel');
+  const icon = document.getElementById('market-panel-toggle-icon');
+  const saved = localStorage.getItem('town_market_panel_open');
+  if (saved === '0') {
+    if (panel) panel.classList.add('collapsed');
+    if (icon) icon.textContent = '+';
+  }
+  // Initial load
+  loadMarketPanelData();
+  // 30초 자동 갱신
+  if (_marketPanelInterval) clearInterval(_marketPanelInterval);
+  _marketPanelInterval = setInterval(loadMarketPanelData, 30000);
+}
+
+// ======================== Town Wallet Modal ========================
+async function signAndSendDoge(wif, toAddress, amountDoge) {
+  if (typeof DogeHTLC === 'undefined') throw new Error('doge-htlc not loaded');
+  const amountSat = Math.round(Number(amountDoge) * 1e8);
+  const fromAddress = DogeHTLC.wifToAddress(wif);
+  const utxos = await api(`/doge/utxos/${fromAddress}`);
+  if (!utxos || utxos.length === 0) throw new Error('No UTXOs (balance is 0)');
+  const rawTx = DogeHTLC.buildSimpleTx(wif, toAddress, amountSat, utxos);
+  const result = await api('/doge/broadcast', { body: { rawTx } });
+  return { txid: result.txid };
+}
+
+function _townWalletMsg(id, text, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'tw-msg ' + (type || '');
+  el.classList.remove('hidden');
+}
+
+// unlock input 필드 초기화 헬퍼
+function _resetTownWalletInputs() {
+  ['tw-btct-key-input','tw-doge-wif-input','tw-doge-wif-new-input'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['tw-btct-unlock-msg','tw-doge-unlock-msg','tw-doge-none-msg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ''; el.classList.add('hidden'); }
+  });
+  // 모든 nokey/none 요소를 먼저 숨김 (이후 로직에서 하나만 표시)
+  ['tw-btct-nokey','tw-btct-send-box','tw-doge-nokey','tw-doge-none','tw-doge-send-box'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.add('hidden');
+  });
+}
+
+async function openTownWallet() {
+  const modal = document.getElementById('town-wallet-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  _resetTownWalletInputs();
+  syncCurrentUser();
+
+  const btctAddr = getActiveBtctAddr();
+  const dogeAddr = getActiveDogeAddr();
+  const hasBtctKey = btctAddr && !!getBtctKeyForAddr(btctAddr);
+  const hasDogeWif = dogeAddr && !!getDogeWifForAddr(dogeAddr);
+
+  // BTCT 주소 표시
+  const btctAddrEl = document.getElementById('tw-btct-addr');
+  if (btctAddrEl) btctAddrEl.textContent = btctAddr ? '0x' + btctAddr : 'No wallet';
+
+  // DOGE 주소 표시
+  const dogeAddrEl = document.getElementById('tw-doge-addr');
+  if (dogeAddrEl) dogeAddrEl.textContent = dogeAddr || 'No DOGE wallet';
+
+  // 송금 박스 / nokey 표시
+  const btctSendBox = document.getElementById('tw-btct-send-box');
+  const btctNoKey = document.getElementById('tw-btct-nokey');
+  if (btctAddr) {
+    if (hasBtctKey) {
+      if (btctSendBox) btctSendBox.classList.remove('hidden');
+      if (btctNoKey) btctNoKey.classList.add('hidden');
+    } else {
+      if (btctSendBox) btctSendBox.classList.add('hidden');
+      if (btctNoKey) btctNoKey.classList.remove('hidden');
+    }
+  } else {
+    if (btctSendBox) btctSendBox.classList.add('hidden');
+    if (btctNoKey) btctNoKey.classList.remove('hidden');
+  }
+
+  const dogeSendBox = document.getElementById('tw-doge-send-box');
+  const dogeNoKey = document.getElementById('tw-doge-nokey');
+  const dogeNone = document.getElementById('tw-doge-none');
+  if (!dogeAddr) {
+    if (dogeSendBox) dogeSendBox.classList.add('hidden');
+    if (dogeNoKey) dogeNoKey.classList.add('hidden');
+    if (dogeNone) dogeNone.classList.remove('hidden');
+  } else if (!hasDogeWif) {
+    if (dogeSendBox) dogeSendBox.classList.add('hidden');
+    if (dogeNone) dogeNone.classList.add('hidden');
+    if (dogeNoKey) dogeNoKey.classList.remove('hidden');
+  } else {
+    if (dogeSendBox) dogeSendBox.classList.remove('hidden');
+    if (dogeNoKey) dogeNoKey.classList.add('hidden');
+    if (dogeNone) dogeNone.classList.add('hidden');
+  }
+
+  // 잔액 조회
+  const btctBalEl = document.getElementById('tw-btct-bal');
+  const dogeBalEl = document.getElementById('tw-doge-bal');
+  if (btctBalEl) btctBalEl.textContent = 'Loading…';
+  if (dogeBalEl) dogeBalEl.textContent = dogeAddr ? 'Loading…' : '--';
+
+  if (btctAddr) {
+    try {
+      const b = await api(`/btct/balance/${btctAddr}`);
+      if (btctBalEl) btctBalEl.textContent = satToBTCT(b.balance) + ' BTCT';
+    } catch { if (btctBalEl) btctBalEl.textContent = '? BTCT'; }
+  } else {
+    if (btctBalEl) btctBalEl.textContent = '--';
+  }
+
+  if (dogeAddr) {
+    try {
+      const d = await api(`/doge/balance/${dogeAddr}`);
+      if (dogeBalEl) dogeBalEl.textContent = satToDOGE(d.balance) + ' DOGE';
+    } catch { if (dogeBalEl) dogeBalEl.textContent = '? DOGE'; }
+  }
+}
+
+function closeTownWallet() {
+  const modal = document.getElementById('town-wallet-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function townUnlockBtct() {
+  const keyInput = (document.getElementById('tw-btct-key-input')?.value || '').trim();
+  if (!keyInput || keyInput.length !== 64) {
+    return _townWalletMsg('tw-btct-unlock-msg', 'Enter valid 64-character hex private key', 'error');
+  }
+  _townWalletMsg('tw-btct-unlock-msg', 'Verifying…', '');
+  try {
+    await ensureKrypton();
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(keyInput));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const addr = keyPair.publicKey.toAddress().toHex().toLowerCase();
+    saveBtctWallet(addr, keyInput);
+    setActiveBtctAddr(addr);
+    syncCurrentUser();
+    _townWalletMsg('tw-btct-unlock-msg', '✓ Unlocked!', 'success');
+    setTimeout(() => openTownWallet(), 800);
+  } catch (e) {
+    _townWalletMsg('tw-btct-unlock-msg', 'Invalid key: ' + e.message, 'error');
+  }
+}
+
+async function townUnlockDoge(isNew) {
+  const inputId = isNew ? 'tw-doge-wif-new-input' : 'tw-doge-wif-input';
+  const msgId   = isNew ? 'tw-doge-none-msg' : 'tw-doge-unlock-msg';
+  const wif = (document.getElementById(inputId)?.value || '').trim();
+  if (!wif) return _townWalletMsg(msgId, 'Enter WIF private key', 'error');
+  _townWalletMsg(msgId, 'Verifying…', '');
+  try {
+    if (typeof DogeHTLC === 'undefined') throw new Error('DogeHTLC library not loaded');
+    const addr = DogeHTLC.wifToAddress(wif);
+    if (!addr) throw new Error('Failed to derive address');
+    saveDogeWallet(addr, wif);
+    setActiveDogeAddr(addr);
+    syncCurrentUser();
+    _townWalletMsg(msgId, '✓ DOGE wallet added!', 'success');
+    setTimeout(() => openTownWallet(), 800);
+  } catch (e) {
+    _townWalletMsg(msgId, 'Invalid WIF: ' + e.message, 'error');
+  }
+}
+
+function saveBtctWallet(address, key) {
+  const addr = (address || '').replace(/^0x/, '').toLowerCase();
+  try {
+    const wallets = JSON.parse(localStorage.getItem('dex_btct_wallets') || '{}');
+    wallets[addr] = key;
+    localStorage.setItem('dex_btct_wallets', JSON.stringify(wallets));
+  } catch {}
+}
+
+function saveDogeWallet(address, wif) {
+  try {
+    const wallets = JSON.parse(localStorage.getItem('dex_doge_wallets') || '{}');
+    wallets[address] = wif;
+    localStorage.setItem('dex_doge_wallets', JSON.stringify(wallets));
+  } catch {}
+}
+
+function setActiveBtctAddr(addr) {
+  localStorage.setItem('dex_active_btct', (addr || '').replace(/^0x/, '').toLowerCase());
+}
+
+function setActiveDogeAddr(addr) {
+  localStorage.setItem('dex_active_doge', addr || '');
+}
+
+async function townWalletSendBtct() {
+  const activeBtct = getActiveBtctAddr();
+  const key = getBtctKeyForAddr(activeBtct);
+  if (!key) return _townWalletMsg('tw-btct-msg', 'No private key', 'error');
+
+  const toAddr = (document.getElementById('tw-btct-to')?.value || '').trim();
+  const amount = (document.getElementById('tw-btct-amount')?.value || '').trim();
+  if (!toAddr) return _townWalletMsg('tw-btct-msg', 'Enter recipient address', 'error');
+  if (!amount || Number(amount) <= 0) return _townWalletMsg('tw-btct-msg', 'Enter valid amount', 'error');
+  if (!confirm(`Send ${amount} BTCT to ${toAddr}?\nFee: 0.00001 BTCT`)) return;
+
+  _townWalletMsg('tw-btct-msg', 'Sending…', '');
+  try {
+    const { height: blockNumber } = await api('/btct/block');
+    await ensureKrypton();
+    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(key));
+    const keyPair = Krypton.KeyPair.derive(privKey);
+    const senderAddr = keyPair.publicKey.toAddress();
+    const recipientAddr = Krypton.Address.fromHex(toAddr.replace(/^0x/, ''));
+    const valueSat = btctToSat(amount);
+    const tx = new Krypton.ExtendedTransaction(
+      senderAddr, Krypton.Account.Type.BASIC,
+      recipientAddr, Krypton.Account.Type.BASIC,
+      Number(valueSat), blockNumber + 1,
+      Krypton.Transaction.Flag.NONE, new Uint8Array(0)
+    );
+    const signature = Krypton.Signature.create(keyPair.privateKey, keyPair.publicKey, tx.serializeContent());
+    tx.proof = Krypton.SignatureProof.singleSig(keyPair.publicKey, signature).serialize();
+    const txHex = Krypton.BufferUtils.toHex(tx.serialize());
+    const result = await api('/btct/broadcast', { body: { txHex } });
+
+    _townWalletMsg('tw-btct-msg', `✓ Sent! Tx: ${result.hash}`, 'success');
+    if (document.getElementById('tw-btct-to')) document.getElementById('tw-btct-to').value = '';
+    if (document.getElementById('tw-btct-amount')) document.getElementById('tw-btct-amount').value = '';
+    // 잔액 갱신
+    setTimeout(() => openTownWallet(), 2000);
+  } catch (err) {
+    _townWalletMsg('tw-btct-msg', err.message, 'error');
+  }
+}
+
+async function townWalletSendDoge() {
+  const dogeAddr = getActiveDogeAddr();
+  const wif = getDogeWifForAddr(dogeAddr);
+  if (!wif) return _townWalletMsg('tw-doge-msg', 'No private key', 'error');
+
+  const toAddr = (document.getElementById('tw-doge-to')?.value || '').trim();
+  const amount = (document.getElementById('tw-doge-amount')?.value || '').trim();
+  if (!toAddr) return _townWalletMsg('tw-doge-msg', 'Enter recipient address', 'error');
+  if (!amount || Number(amount) <= 0) return _townWalletMsg('tw-doge-msg', 'Enter valid amount', 'error');
+  if (!confirm(`Send ${amount} DOGE to ${toAddr}?\nFee: ~0.02 DOGE`)) return;
+
+  _townWalletMsg('tw-doge-msg', 'Sending…', '');
+  try {
+    const result = await signAndSendDoge(wif, toAddr, Number(amount));
+    _townWalletMsg('tw-doge-msg', `✓ Sent! Tx: ${result.txid}`, 'success');
+    if (document.getElementById('tw-doge-to')) document.getElementById('tw-doge-to').value = '';
+    if (document.getElementById('tw-doge-amount')) document.getElementById('tw-doge-amount').value = '';
+    setTimeout(() => openTownWallet(), 2000);
+  } catch (err) {
+    _townWalletMsg('tw-doge-msg', err.message, 'error');
+  }
 }

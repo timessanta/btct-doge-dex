@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260221b">
+  <link rel="stylesheet" href="town-style.css?v=20260222c">
 </head>
 <body>
   <!-- Top Bar -->
@@ -44,6 +44,73 @@
     </div>
   </div>
 
+  <!-- Town Wallet Modal -->
+  <div id="town-wallet-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:480px;width:96%;">
+      <div class="modal-header">
+        <span>👛 Wallet</span>
+        <button onclick="closeTownWallet()">✕</button>
+      </div>
+      <div id="town-wallet-content">
+        <!-- BTCT Section -->
+        <div class="tw-section">
+          <div class="tw-coin-header">
+            <span class="tw-coin-name">⚡ BTCT</span>
+            <span class="tw-balance" id="tw-btct-bal">Loading…</span>
+          </div>
+          <div class="tw-addr" id="tw-btct-addr">--</div>
+          <div class="tw-send" id="tw-btct-send-box">
+            <div class="tw-send-title">Send BTCT</div>
+            <input type="text" id="tw-btct-to" placeholder="Recipient 0x..." autocomplete="off">
+            <input type="number" id="tw-btct-amount" placeholder="Amount (BTCT)" step="0.00001" min="0">
+            <div class="tw-fee">Network fee: 0.00001 BTCT</div>
+            <div id="tw-btct-msg" class="tw-msg hidden"></div>
+            <button class="btn btn-primary tw-send-btn" onclick="townWalletSendBtct()">Send BTCT</button>
+          </div>
+          <div id="tw-btct-nokey" class="tw-nokey hidden">
+            <div style="margin-bottom:6px;">⚠ Private key not found. Unlock to send.</div>
+            <input type="password" id="tw-btct-key-input" placeholder="64-char hex private key" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
+            <div id="tw-btct-unlock-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
+            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockBtct()">Unlock BTCT Wallet</button>
+          </div>
+        </div>
+
+        <div class="tw-divider"></div>
+
+        <!-- DOGE Section -->
+        <div class="tw-section">
+          <div class="tw-coin-header">
+            <span class="tw-coin-name">🐕 DOGE</span>
+            <span class="tw-balance" id="tw-doge-bal">Loading…</span>
+          </div>
+          <div class="tw-addr" id="tw-doge-addr">--</div>
+          <div class="tw-send" id="tw-doge-send-box">
+            <div class="tw-send-title">Send DOGE</div>
+            <input type="text" id="tw-doge-to" placeholder="Recipient D..." autocomplete="off">
+            <input type="number" id="tw-doge-amount" placeholder="Amount (DOGE)" step="0.01" min="0">
+            <div class="tw-fee">Network fee: ~0.02 DOGE</div>
+            <div id="tw-doge-msg" class="tw-msg hidden"></div>
+            <button class="btn btn-primary tw-send-btn" onclick="townWalletSendDoge()">Send DOGE</button>
+          </div>
+          <!-- dogeAddr 있고 WIF 없을 때 -->
+          <div id="tw-doge-nokey" class="tw-nokey hidden">
+            <div style="margin-bottom:6px;">⚠ DOGE private key not found. Enter WIF to unlock.</div>
+            <input type="password" id="tw-doge-wif-input" placeholder="DOGE WIF private key (Q...)" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
+            <div id="tw-doge-unlock-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
+            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockDoge(false)">Unlock DOGE Wallet</button>
+          </div>
+          <!-- dogeAddr 없을 때 -->
+          <div id="tw-doge-none" class="tw-nokey hidden">
+            <div style="margin-bottom:6px;">⚠ No DOGE wallet. Enter WIF to add.</div>
+            <input type="password" id="tw-doge-wif-new-input" placeholder="DOGE WIF private key (Q...)" autocomplete="off" style="width:100%;padding:6px 8px;background:#0d1b2a;border:1px solid #2a3f5f;border-radius:4px;color:#e8eaf0;font-size:12px;box-sizing:border-box;">
+            <div id="tw-doge-none-msg" class="tw-msg hidden" style="margin-top:4px;"></div>
+            <button class="btn btn-primary tw-send-btn" style="margin-top:6px;" onclick="townUnlockDoge(true)">Add DOGE Wallet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Town Disclaimer Modal -->
   <div class="disclaimer-modal" id="townDisclaimerModal">
     <div class="disclaimer-modal-content">
@@ -67,6 +134,31 @@
         <span>I have read and understood the above. I use BTCT Town at my own risk.</span>
       </label>
       <button class="btn btn-primary disclaimer-enter-btn" id="townDisclaimerEnterBtn" disabled onclick="acceptTownDisclaimer()">Enter BTCT Town</button>
+    </div>
+  </div>
+
+  <!-- Market Price Panel (top-right overlay) -->
+  <div id="market-panel">
+    <div class="market-panel-header" onclick="toggleMarketPanel()">
+      <span>⚡ Market</span>
+      <span id="market-panel-toggle-icon">−</span>
+    </div>
+    <div class="market-panel-body" id="market-panel-body">
+      <div class="mp-section">
+        <div class="mp-coin">🐕 DOGE / USDT</div>
+        <div class="mp-price" id="mp-doge-price">--</div>
+        <div class="mp-change" id="mp-doge-change">--</div>
+      </div>
+      <div class="mp-divider"></div>
+      <div class="mp-section">
+        <div class="mp-coin">⚡ BTCT / DOGE</div>
+        <div class="mp-price" id="mp-btct-price">--</div>
+        <div class="mp-usd" id="mp-btct-usd">≈ $--</div>
+        <div class="mp-change" id="mp-btct-change">--</div>
+        <div class="mp-row"><span class="mp-label">24h High</span><span id="mp-btct-high">--</span></div>
+        <div class="mp-row"><span class="mp-label">24h Low</span><span id="mp-btct-low">--</span></div>
+      </div>
+      <div class="mp-footer">30s auto-refresh</div>
     </div>
   </div>
 
@@ -99,6 +191,6 @@
   <script src="krypton-offline.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town.js?v=20260221w"></script>
+  <script src="town.js?v=20260222c"></script>
 </body>
 </html>
