@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260222d">
+  <link rel="stylesheet" href="town-style.css?v=20260222j">
 </head>
 <body>
   <!-- Top Bar -->
@@ -17,6 +17,7 @@
       <span id="wallet-display">No Wallet</span>
     </div>
     <div class="top-right">
+      <button id="char-open-btn" onclick="openCharModal()" title="Customize Character">🎨</button>
       <span id="player-count">0 online</span>
     </div>
   </div>
@@ -46,7 +47,7 @@
 
   <!-- Town Wallet Modal -->
   <div id="town-wallet-modal" class="modal-overlay hidden">
-    <div class="modal-box" style="max-width:480px;width:96%;">
+    <div class="modal-box" style="max-width:480px;width:96%;max-height:88vh;overflow-y:auto;">
       <div class="modal-header">
         <span>👛 Wallet</span>
         <button onclick="closeTownWallet()">✕</button>
@@ -58,6 +59,7 @@
             <span class="tw-coin-name">⚡ BTCT</span>
             <span class="tw-balance" id="tw-btct-bal">Loading…</span>
           </div>
+          <div id="tw-btct-switch" class="tw-switch hidden"></div>
           <div class="tw-addr" id="tw-btct-addr">--</div>
           <div class="tw-send" id="tw-btct-send-box">
             <div class="tw-send-title">Send BTCT</div>
@@ -67,7 +69,18 @@
             <div id="tw-btct-msg" class="tw-msg hidden"></div>
             <button class="btn btn-primary tw-send-btn" onclick="townWalletSendBtct()">Send BTCT</button>
           </div>
-          <div id="tw-btct-nokey" class="tw-nokey hidden">⚠ No private key — view only. <a href="/" style="color:#4ecca3;">Set up in DEX →</a></div>
+          <div id="tw-btct-nokey" class="tw-nokey hidden">⚠ No private key — view only.</div>
+          <div class="tw-actions">
+            <button class="btn btn-sm tw-act-btn" onclick="townGenBtct()">+ New</button>
+            <button class="btn btn-sm tw-act-btn" onclick="townToggleImportBtct()">Import</button>
+            <button class="btn btn-sm tw-act-btn" id="tw-btct-export-btn" onclick="townExportBtct()">Export Key</button>
+          </div>
+          <div id="tw-btct-import" class="tw-import-box hidden">
+            <input type="password" id="tw-btct-import-key" placeholder="64-char hex private key" autocomplete="off">
+            <button class="btn btn-primary btn-sm" onclick="townImportBtct()">Import</button>
+          </div>
+          <div id="tw-btct-backup" class="tw-backup hidden"></div>
+          <div id="tw-btct-gen-msg" class="tw-msg hidden"></div>
         </div>
 
         <div class="tw-divider"></div>
@@ -78,6 +91,7 @@
             <span class="tw-coin-name">🐕 DOGE</span>
             <span class="tw-balance" id="tw-doge-bal">Loading…</span>
           </div>
+          <div id="tw-doge-switch" class="tw-switch hidden"></div>
           <div class="tw-addr" id="tw-doge-addr">--</div>
           <div class="tw-send" id="tw-doge-send-box">
             <div class="tw-send-title">Send DOGE</div>
@@ -87,10 +101,103 @@
             <div id="tw-doge-msg" class="tw-msg hidden"></div>
             <button class="btn btn-primary tw-send-btn" onclick="townWalletSendDoge()">Send DOGE</button>
           </div>
-          <!-- dogeAddr 있고 WIF 없을 때 -->
-          <div id="tw-doge-nokey" class="tw-nokey hidden">⚠ No DOGE key — view only. <a href="/" style="color:#4ecca3;">Add in DEX →</a></div>
-          <!-- dogeAddr 없을 때 -->
-          <div id="tw-doge-none" class="tw-nokey hidden">⚠ No DOGE wallet. <a href="/" style="color:#4ecca3;">Set up in DEX →</a></div>
+          <div id="tw-doge-nokey" class="tw-nokey hidden">⚠ No DOGE key — view only.</div>
+          <div id="tw-doge-none" class="tw-nokey hidden">⚠ No DOGE wallet.</div>
+          <div class="tw-actions">
+            <button class="btn btn-sm tw-act-btn" onclick="townGenDoge()">+ New</button>
+            <button class="btn btn-sm tw-act-btn" onclick="townToggleImportDoge()">Import WIF</button>
+            <button class="btn btn-sm tw-act-btn" id="tw-doge-export-btn" onclick="townExportDoge()">Export Key</button>
+          </div>
+          <div id="tw-doge-import" class="tw-import-box hidden">
+            <input type="password" id="tw-doge-import-wif" placeholder="DOGE WIF private key (Q...)" autocomplete="off">
+            <button class="btn btn-primary btn-sm" onclick="townImportDoge()">Import</button>
+          </div>
+          <div id="tw-doge-backup" class="tw-backup hidden"></div>
+          <div id="tw-doge-gen-msg" class="tw-msg hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character Customizer Modal -->
+  <div id="char-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:420px;width:96%;">
+      <div class="modal-header">
+        <span>🎨 Character</span>
+        <button onclick="closeCharModal()">✕</button>
+      </div>
+      <div id="char-modal-content">
+        <!-- Preview -->
+        <div class="char-preview-wrap">
+          <canvas id="char-preview-canvas" width="24" height="32"></canvas>
+        </div>
+        <!-- Type -->
+        <div class="char-section">
+          <div class="char-label">Type</div>
+          <div class="char-opts" id="char-type-opts">
+            <button class="char-opt" data-prop="type" data-val="0" onclick="setCharOpt('type',0)">🧑 Default</button>
+            <button class="char-opt" data-prop="type" data-val="1" onclick="setCharOpt('type',1)">⚔️ Warrior</button>
+            <button class="char-opt" data-prop="type" data-val="2" onclick="setCharOpt('type',2)">🔮 Mage</button>
+            <button class="char-opt" data-prop="type" data-val="3" onclick="setCharOpt('type',3)">🗡️ Rogue</button>
+          </div>
+        </div>
+        <!-- Skin -->
+        <div class="char-section">
+          <div class="char-label">Skin</div>
+          <div class="char-colors" id="char-skin-opts">
+            <button class="char-color" data-prop="skin" data-val="0" style="background:#f0c987" onclick="setCharOpt('skin',0)" title="Light Warm"></button>
+            <button class="char-color" data-prop="skin" data-val="1" style="background:#fad5c0" onclick="setCharOpt('skin',1)" title="Pale"></button>
+            <button class="char-color" data-prop="skin" data-val="2" style="background:#c4885a" onclick="setCharOpt('skin',2)" title="Medium Brown"></button>
+            <button class="char-color" data-prop="skin" data-val="3" style="background:#8b5e3c" onclick="setCharOpt('skin',3)" title="Brown"></button>
+            <button class="char-color" data-prop="skin" data-val="4" style="background:#5c3d1e" onclick="setCharOpt('skin',4)" title="Dark"></button>
+            <button class="char-color" data-prop="skin" data-val="5" style="background:#e8b89a" onclick="setCharOpt('skin',5)" title="Peach"></button>
+          </div>
+        </div>
+        <!-- Cloth -->
+        <div class="char-section">
+          <div class="char-label">Outfit</div>
+          <div class="char-colors" id="char-cloth-opts">
+            <button class="char-color" data-prop="cloth" data-val="0" style="background:#3498db" onclick="setCharOpt('cloth',0)" title="Blue"></button>
+            <button class="char-color" data-prop="cloth" data-val="1" style="background:#c0392b" onclick="setCharOpt('cloth',1)" title="Red"></button>
+            <button class="char-color" data-prop="cloth" data-val="2" style="background:#27ae60" onclick="setCharOpt('cloth',2)" title="Green"></button>
+            <button class="char-color" data-prop="cloth" data-val="3" style="background:#8e44ad" onclick="setCharOpt('cloth',3)" title="Purple"></button>
+            <button class="char-color" data-prop="cloth" data-val="4" style="background:#e67e22" onclick="setCharOpt('cloth',4)" title="Orange"></button>
+            <button class="char-color" data-prop="cloth" data-val="5" style="background:#7f8c8d" onclick="setCharOpt('cloth',5)" title="Gray"></button>
+          </div>
+        </div>
+        <!-- Hair -->
+        <div class="char-section">
+          <div class="char-label">Hair</div>
+          <div class="char-colors" id="char-hair-opts">
+            <button class="char-color" data-prop="hair" data-val="0" style="background:#5a3620" onclick="setCharOpt('hair',0)" title="Brown"></button>
+            <button class="char-color" data-prop="hair" data-val="1" style="background:#1a1a1a" onclick="setCharOpt('hair',1)" title="Black"></button>
+            <button class="char-color" data-prop="hair" data-val="2" style="background:#f6c90e" onclick="setCharOpt('hair',2)" title="Blonde"></button>
+            <button class="char-color" data-prop="hair" data-val="3" style="background:#c0392b" onclick="setCharOpt('hair',3)" title="Red"></button>
+            <button class="char-color" data-prop="hair" data-val="4" style="background:#bdc3c7" onclick="setCharOpt('hair',4)" title="Silver"></button>
+          </div>
+        </div>
+        <!-- Hat -->
+        <div class="char-section">
+          <div class="char-label">Hat</div>
+          <div class="char-opts" id="char-hat-opts">
+            <button class="char-opt" data-prop="hat" data-val="0" onclick="setCharOpt('hat',0)">— None</button>
+            <button class="char-opt" data-prop="hat" data-val="1" onclick="setCharOpt('hat',1)">🧢 Cap</button>
+            <button class="char-opt" data-prop="hat" data-val="2" onclick="setCharOpt('hat',2)">🎩 Wizard</button>
+            <button class="char-opt" data-prop="hat" data-val="3" onclick="setCharOpt('hat',3)">🔴 Bandana</button>
+            <button class="char-opt" data-prop="hat" data-val="4" onclick="setCharOpt('hat',4)">👑 Crown</button>
+          </div>
+        </div>
+        <!-- Glasses -->
+        <div class="char-section">
+          <div class="char-label">Glasses</div>
+          <div class="char-opts" id="char-glasses-opts">
+            <button class="char-opt" data-prop="glasses" data-val="0" onclick="setCharOpt('glasses',0)">— None</button>
+            <button class="char-opt" data-prop="glasses" data-val="1" onclick="setCharOpt('glasses',1)">👓 Glasses</button>
+            <button class="char-opt" data-prop="glasses" data-val="2" onclick="setCharOpt('glasses',2)">🕶️ Shades</button>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:14px;">
+          <button class="btn btn-primary" onclick="saveCharacter()">💾 Apply &amp; Save</button>
         </div>
       </div>
     </div>
@@ -152,6 +259,39 @@
     <div id="town-chat-messages"></div>
     <div id="town-chat-input-row">
       <input type="text" id="town-chat-input" placeholder="Press Enter to chat..." maxlength="200" autocomplete="off">
+      <button id="emoji-toggle-btn" onclick="toggleEmojiBar()" title="Emojis">😀</button>
+    </div>
+    <div id="emoji-bar" class="hidden">
+      <button onclick="sendTownEmoji('😀')">😀</button>
+      <button onclick="sendTownEmoji('😂')">😂</button>
+      <button onclick="sendTownEmoji('😍')">😍</button>
+      <button onclick="sendTownEmoji('😎')">😎</button>
+      <button onclick="sendTownEmoji('🤔')">🤔</button>
+      <button onclick="sendTownEmoji('😱')">😱</button>
+      <button onclick="sendTownEmoji('😭')">😭</button>
+      <button onclick="sendTownEmoji('🤩')">🤩</button>
+      <button onclick="sendTownEmoji('🥳')">🥳</button>
+      <button onclick="sendTownEmoji('😤')">😤</button>
+      <button onclick="sendTownEmoji('👍')">👍</button>
+      <button onclick="sendTownEmoji('👎')">👎</button>
+      <button onclick="sendTownEmoji('👋')">👋</button>
+      <button onclick="sendTownEmoji('🙏')">🙏</button>
+      <button onclick="sendTownEmoji('💪')">💪</button>
+      <button onclick="sendTownEmoji('🤝')">🤝</button>
+      <button onclick="sendTownEmoji('🎉')">🎉</button>
+      <button onclick="sendTownEmoji('🔥')">🔥</button>
+      <button onclick="sendTownEmoji('💰')">💰</button>
+      <button onclick="sendTownEmoji('💎')">💎</button>
+      <button onclick="sendTownEmoji('🚀')">🚀</button>
+      <button onclick="sendTownEmoji('⚡')">⚡</button>
+      <button onclick="sendTownEmoji('🐕')">🐕</button>
+      <button onclick="sendTownEmoji('📈')">📈</button>
+      <button onclick="sendTownEmoji('📉')">📉</button>
+      <button onclick="sendTownEmoji('₿')" style="color:#f5c542;font-size:16px;vertical-align:middle;">₿</button>
+      <button onclick="sendTownEmoji('⏳')">⏳</button>
+      <button onclick="sendTownEmoji('✅')">✅</button>
+      <button onclick="sendTownEmoji('❌')">❌</button>
+      <button onclick="sendTownEmoji('❤️')">❤️</button>
     </div>
   </div>
 
@@ -176,6 +316,6 @@
   <script src="krypton-offline.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town.js?v=20260222f"></script>
+  <script src="town.js?v=20260222k"></script>
 </body>
 </html>

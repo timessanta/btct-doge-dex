@@ -85,6 +85,7 @@ io.on('connection', (socket) => {
       x: data.x || 480,
       y: data.y || 480,
       adText: adText || null,
+      character: data.character || {},
     };
 
     // Send all current players to new player
@@ -110,6 +111,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('townCharUpdate', (data) => {
+    if (!townPlayers[socket.id]) return;
+    const char = data.character || {};
+    // Basic validation — only allow small plain objects
+    if (typeof char === 'object' && !Array.isArray(char)) {
+      townPlayers[socket.id].character = char;
+      socket.broadcast.emit('townCharUpdate', {
+        id: socket.id,
+        character: char,
+      });
+    }
+  });
+
   // ---- Town Global Chat ----
   socket.on('townChat', (data) => {
     if (!townPlayers[socket.id]) return;
@@ -124,6 +138,19 @@ io.on('connection', (socket) => {
       address: player.address,
       content,
       time: Date.now()
+    });
+  });
+
+  // ---- Town Emoji ----
+  socket.on('townEmoji', (data) => {
+    if (!townPlayers[socket.id]) return;
+    const emoji = (data.emoji || '').substring(0, 4);
+    if (!emoji) return;
+    const player = townPlayers[socket.id];
+    socket.broadcast.emit('townEmojiMsg', {
+      id: socket.id,
+      address: player.address,
+      emoji,
     });
   });
 

@@ -140,6 +140,10 @@ const BLOCKED = [3, 2, 4, 5, 9]; // tree, water, wall, roof, fence
 // NPC location (board_npc = tile 7)
 const NPC_POS = { x: 13, y: 11 };
 
+// House door locations (tile 6)
+// Bottom-right house door → Character Customizer
+const HOUSE_CHAR_POS = { x: 25, y: 19 };
+
 // ---- Socket ----
 let socket = null;
 const otherPlayers = {};
@@ -277,6 +281,194 @@ const TownSounds = {
   }
 };
 
+// ======================== CHARACTER TEXTURE (Global Helpers) ========================
+// config: { type:0-3, skin:0-5, cloth:0-5, hair:0-4, hat:0-4, glasses:0-2 }
+function charTextureKey(config) {
+  if (!config) return 'char';
+  return `char_${config.type||0}_${config.skin||0}_${config.cloth||0}_${config.hair||0}_${config.hat||0}_${config.glasses||0}`;
+}
+
+function generateCharTexture(scene, config, textureKey) {
+  config = config || {};
+  textureKey = textureKey || 'char';
+
+  // Palettes
+  const SKIN_C = ['#f0c987','#fad5c0','#c4885a','#8b5e3c','#5c3d1e','#e8b89a'];
+  const SKIN_D = ['#d4a96a','#e4c090','#a96e40','#6e4424','#3d2410','#c8956f'];
+  const CLTH_C = ['#3498db','#c0392b','#27ae60','#8e44ad','#e67e22','#7f8c8d'];
+  const CLTH_D = ['#2175a9','#962d22','#1e8449','#6e3585','#c05c1a','#626d6d'];
+  const HAIR_C = ['#5a3620','#1a1a1a','#f6c90e','#c0392b','#bdc3c7'];
+
+  const skin  = SKIN_C[config.skin  ?? 0] || SKIN_C[0];
+  const skinD = SKIN_D[config.skin  ?? 0] || SKIN_D[0];
+  const clth  = CLTH_C[config.cloth ?? 0] || CLTH_C[0];
+  const clthD = CLTH_D[config.cloth ?? 0] || CLTH_D[0];
+  const hair  = HAIR_C[config.hair  ?? 0] || HAIR_C[0];
+  const type  = config.type || 0;
+
+  const canvas = document.createElement('canvas');
+  const W = 24, H = 32;
+  canvas.width = W * 3;
+  canvas.height = H * 4;
+  const ctx = canvas.getContext('2d');
+
+  for (let dir = 0; dir < 4; dir++) {
+    for (let frame = 0; frame < 3; frame++) {
+      const ox = frame * W;
+      const oy = dir * H;
+      ctx.save();
+      ctx.translate(ox, oy);
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+      // --- Legs ---
+      const legC = type===1 ? '#7f8c8d' : type===2 ? '#6c3483' : type===3 ? '#2c3e50' : '#34495e';
+      const legD = type===1 ? '#626d6d' : type===2 ? '#4a235a' : type===3 ? '#1a252f' : '#2c3e50';
+      ctx.fillStyle = legC;
+      if (frame === 0) {
+        ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
+        ctx.fillStyle = legD;
+        ctx.fillRect(7, 29, 5, 2); ctx.fillRect(12, 29, 5, 2);
+      } else if (frame === 1) {
+        ctx.fillRect(6, 24, 4, 6); ctx.fillRect(14, 22, 4, 5);
+        ctx.fillStyle = legD;
+        ctx.fillRect(5, 29, 5, 2); ctx.fillRect(14, 26, 5, 2);
+      } else {
+        ctx.fillRect(6, 22, 4, 5); ctx.fillRect(14, 24, 4, 6);
+        ctx.fillStyle = legD;
+        ctx.fillRect(5, 26, 5, 2); ctx.fillRect(14, 29, 5, 2);
+      }
+
+      // --- Body/Torso ---
+      if (type === 1) {
+        ctx.fillStyle = '#7f8c8d'; ctx.fillRect(7, 14, 10, 11);
+        ctx.fillStyle = '#bdc3c7'; ctx.fillRect(8, 15, 8, 2); ctx.fillRect(10, 17, 4, 7);
+        ctx.fillStyle = '#626d6d'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+      } else if (type === 2) {
+        ctx.fillStyle = clth; ctx.fillRect(6, 14, 12, 11);
+        ctx.fillStyle = clthD; ctx.fillRect(6, 14, 12, 1); ctx.fillRect(11, 15, 2, 9);
+        ctx.fillStyle = 'rgba(255,255,200,0.7)';
+        ctx.fillRect(8, 17, 1, 1); ctx.fillRect(15, 19, 1, 1); ctx.fillRect(10, 21, 1, 1);
+      } else if (type === 3) {
+        ctx.fillStyle = '#7d6544'; ctx.fillRect(7, 14, 10, 11);
+        ctx.fillStyle = '#5d4a2e'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 14, 2, 11);
+        ctx.fillStyle = '#c0a060'; ctx.fillRect(7, 22, 10, 2);
+      } else {
+        ctx.fillStyle = clth; ctx.fillRect(7, 14, 10, 11);
+        ctx.fillStyle = clthD; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+      }
+
+      // --- Arms ---
+      const armC = type===1 ? '#7f8c8d' : type===3 ? '#7d6544' : clth;
+      ctx.fillStyle = armC;
+      if (frame === 0) {
+        ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
+        ctx.fillStyle = skin; ctx.fillRect(4, 22, 3, 2); ctx.fillRect(17, 22, 3, 2);
+      } else if (frame === 1) {
+        ctx.fillRect(4, 14, 3, 8); ctx.fillRect(17, 16, 3, 8);
+        ctx.fillStyle = skin; ctx.fillRect(4, 21, 3, 2); ctx.fillRect(17, 23, 3, 2);
+      } else {
+        ctx.fillRect(4, 16, 3, 8); ctx.fillRect(17, 14, 3, 8);
+        ctx.fillStyle = skin; ctx.fillRect(4, 23, 3, 2); ctx.fillRect(17, 21, 3, 2);
+      }
+      if (type === 1) {
+        ctx.fillStyle = '#bdc3c7';
+        ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+      }
+
+      // --- Head ---
+      ctx.fillStyle = skin;
+      ctx.beginPath(); ctx.arc(12, 9, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = skinD;
+      if (dir === 1) ctx.fillRect(5, 8, 2, 3);
+      if (dir === 2) ctx.fillRect(17, 8, 2, 3);
+
+      // --- Hair ---
+      ctx.fillStyle = hair;
+      ctx.beginPath(); ctx.arc(12, 7, 7, Math.PI, 2 * Math.PI); ctx.fill();
+      ctx.fillRect(5, 5, 14, 3);
+      if (dir === 0) ctx.fillRect(7, 4, 4, 3);
+
+      // --- Eyes ---
+      if (dir === 0) {
+        ctx.fillStyle = '#fff'; ctx.fillRect(8, 8, 3, 3); ctx.fillRect(13, 8, 3, 3);
+        ctx.fillStyle = '#2c3e50'; ctx.fillRect(9, 9, 2, 2); ctx.fillRect(14, 9, 2, 2);
+      } else if (dir === 1) {
+        ctx.fillStyle = '#fff'; ctx.fillRect(6, 8, 3, 3);
+        ctx.fillStyle = '#2c3e50'; ctx.fillRect(6, 9, 2, 2);
+      } else if (dir === 2) {
+        ctx.fillStyle = '#fff'; ctx.fillRect(15, 8, 3, 3);
+        ctx.fillStyle = '#2c3e50'; ctx.fillRect(16, 9, 2, 2);
+      }
+      if (dir === 3) {
+        ctx.fillStyle = hair; ctx.fillRect(5, 4, 14, 8);
+      }
+
+      // --- Hat ---
+      const hatH = config.hat || 0;
+      if (hatH === 1) {
+        ctx.fillStyle = clth; ctx.fillRect(5, 3, 14, 3); ctx.fillRect(7, 1, 10, 3);
+        ctx.fillStyle = clthD; ctx.fillRect(5, 5, 14, 1);
+        if (dir !== 3) { ctx.fillStyle = clth; ctx.fillRect(17, 4, 4, 2); }
+      } else if (hatH === 2) {
+        ctx.fillStyle = clth;
+        ctx.beginPath(); ctx.moveTo(12, -5); ctx.lineTo(7, 4); ctx.lineTo(17, 4); ctx.closePath(); ctx.fill();
+        ctx.fillRect(5, 3, 14, 3);
+        ctx.fillStyle = '#f6c90e'; ctx.fillRect(6, 5, 12, 1);
+      } else if (hatH === 3) {
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(5, 3, 14, 4);
+        ctx.fillStyle = '#922b21'; ctx.fillRect(5, 6, 14, 1);
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(5, 3, 3, 2);
+      } else if (hatH === 4) {
+        ctx.fillStyle = '#f6c90e'; ctx.fillRect(5, 3, 14, 3);
+        ctx.fillRect(6, 1, 2, 3); ctx.fillRect(11, 0, 2, 3); ctx.fillRect(16, 1, 2, 3);
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(7, 3, 2, 2); ctx.fillRect(12, 3, 2, 2); ctx.fillRect(17, 3, 2, 2);
+      }
+
+      // --- Glasses ---
+      const glassT = config.glasses || 0;
+      if (glassT === 1 && dir !== 3) {
+        ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
+        if (dir === 0) {
+          ctx.strokeRect(8, 8, 3, 3); ctx.strokeRect(13, 8, 3, 3);
+          ctx.beginPath(); ctx.moveTo(11, 9); ctx.lineTo(13, 9); ctx.stroke();
+        } else if (dir === 1) { ctx.strokeRect(6, 8, 3, 3); }
+        else if (dir === 2) { ctx.strokeRect(15, 8, 3, 3); }
+      } else if (glassT === 2 && dir !== 3) {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        if (dir === 0) {
+          ctx.fillRect(8, 8, 3, 2); ctx.fillRect(13, 8, 3, 2);
+          ctx.fillStyle = '#1a1a1a'; ctx.fillRect(11, 8, 2, 1);
+        } else if (dir === 1) { ctx.fillRect(6, 8, 3, 2); }
+        else if (dir === 2) { ctx.fillRect(15, 8, 3, 2); }
+      }
+
+      ctx.restore();
+    }
+  }
+
+  scene.textures.addSpriteSheet(textureKey, canvas, { frameWidth: W, frameHeight: H });
+  return textureKey;
+}
+
+function getOrCreateCharTexture(scene, config) {
+  const key = charTextureKey(config);
+  if (!scene.textures.exists(key)) {
+    generateCharTexture(scene, config, key);
+    // Create matching animation set
+    if (!scene.anims.exists('walk-down-' + key)) {
+      scene.anims.create({ key: 'walk-down-' + key,  frames: scene.anims.generateFrameNumbers(key, { start: 0, end: 2 }),  frameRate: 8, repeat: -1 });
+      scene.anims.create({ key: 'walk-left-' + key,  frames: scene.anims.generateFrameNumbers(key, { start: 3, end: 5 }),  frameRate: 8, repeat: -1 });
+      scene.anims.create({ key: 'walk-right-' + key, frames: scene.anims.generateFrameNumbers(key, { start: 6, end: 8 }),  frameRate: 8, repeat: -1 });
+      scene.anims.create({ key: 'walk-up-' + key,    frames: scene.anims.generateFrameNumbers(key, { start: 9, end: 11 }), frameRate: 8, repeat: -1 });
+    }
+  }
+  return key;
+}
+
 // ======================== BOOT SCENE ========================
 class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -285,7 +477,8 @@ class BootScene extends Phaser.Scene {
     TownSounds.init();
     this.generateTileset();
     this.generateWaterFrames();
-    this.generateCharacter();
+    // Generate base 'char' texture with player's own config (default for others)
+    generateCharTexture(this, loadCharConfig(), 'char');
     this.generateNPC();
     this.scene.start('Town');
   }
@@ -558,101 +751,6 @@ class BootScene extends Phaser.Scene {
     }
   }
 
-  generateCharacter() {
-    // 4 directions × 3 frames: idle(0), walk-left-foot(1), walk-right-foot(2)
-    const canvas = document.createElement('canvas');
-    const W = 24, H = 32;
-    canvas.width = W * 3;
-    canvas.height = H * 4;
-    const ctx = canvas.getContext('2d');
-
-    for (let dir = 0; dir < 4; dir++) {
-      for (let frame = 0; frame < 3; frame++) {
-        const ox = frame * W;
-        const oy = dir * H;
-        ctx.save();
-        ctx.translate(ox, oy);
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
-
-        // --- Legs ---
-        ctx.fillStyle = '#34495e';
-        if (frame === 0) {
-          ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
-          ctx.fillStyle = '#2c3e50';
-          ctx.fillRect(7, 29, 5, 2); ctx.fillRect(12, 29, 5, 2);
-        } else if (frame === 1) {
-          ctx.fillRect(6, 24, 4, 6); ctx.fillRect(14, 22, 4, 5);
-          ctx.fillStyle = '#2c3e50';
-          ctx.fillRect(5, 29, 5, 2); ctx.fillRect(14, 26, 5, 2);
-        } else {
-          ctx.fillRect(6, 22, 4, 5); ctx.fillRect(14, 24, 4, 6);
-          ctx.fillStyle = '#2c3e50';
-          ctx.fillRect(5, 26, 5, 2); ctx.fillRect(14, 29, 5, 2);
-        }
-
-        // --- Body/Torso ---
-        ctx.fillStyle = '#3498db';
-        ctx.fillRect(7, 14, 10, 11);
-        ctx.fillStyle = '#2e86c1';
-        ctx.fillRect(7, 14, 10, 1);
-        ctx.fillRect(11, 15, 2, 9);
-
-        // --- Arms ---
-        ctx.fillStyle = '#3498db';
-        if (frame === 0) {
-          ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
-          ctx.fillStyle = '#f0c987';
-          ctx.fillRect(4, 22, 3, 2); ctx.fillRect(17, 22, 3, 2);
-        } else if (frame === 1) {
-          ctx.fillRect(4, 14, 3, 8); ctx.fillRect(17, 16, 3, 8);
-          ctx.fillStyle = '#f0c987';
-          ctx.fillRect(4, 21, 3, 2); ctx.fillRect(17, 23, 3, 2);
-        } else {
-          ctx.fillRect(4, 16, 3, 8); ctx.fillRect(17, 14, 3, 8);
-          ctx.fillStyle = '#f0c987';
-          ctx.fillRect(4, 23, 3, 2); ctx.fillRect(17, 21, 3, 2);
-        }
-
-        // --- Head ---
-        ctx.fillStyle = '#f0c987';
-        ctx.beginPath(); ctx.arc(12, 9, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#e0b878';
-        if (dir === 1) ctx.fillRect(5, 8, 2, 3);
-        if (dir === 2) ctx.fillRect(17, 8, 2, 3);
-
-        // --- Hair ---
-        ctx.fillStyle = '#5a3620';
-        ctx.beginPath(); ctx.arc(12, 7, 7, Math.PI, 2 * Math.PI); ctx.fill();
-        ctx.fillRect(5, 5, 14, 3);
-        if (dir === 0) ctx.fillRect(7, 4, 4, 3);
-
-        // --- Eyes ---
-        if (dir === 0) {
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(8, 8, 3, 3); ctx.fillRect(13, 8, 3, 3);
-          ctx.fillStyle = '#2c3e50';
-          ctx.fillRect(9, 9, 2, 2); ctx.fillRect(14, 9, 2, 2);
-        } else if (dir === 1) {
-          ctx.fillStyle = '#fff'; ctx.fillRect(6, 8, 3, 3);
-          ctx.fillStyle = '#2c3e50'; ctx.fillRect(6, 9, 2, 2);
-        } else if (dir === 2) {
-          ctx.fillStyle = '#fff'; ctx.fillRect(15, 8, 3, 3);
-          ctx.fillStyle = '#2c3e50'; ctx.fillRect(16, 9, 2, 2);
-        }
-        if (dir === 3) {
-          ctx.fillStyle = '#5a3620'; ctx.fillRect(5, 4, 14, 8);
-        }
-
-        ctx.restore();
-      }
-    }
-
-    this.textures.addSpriteSheet('char', canvas, { frameWidth: W, frameHeight: H });
-  }
-
   generateNPC() {
     const canvas = document.createElement('canvas');
     const W = 24, H = 32;
@@ -762,11 +860,26 @@ class TownScene extends Phaser.Scene {
       padding: { x: 5, y: 2 }
     }).setOrigin(0.5).setDepth(9999).setVisible(false);
 
-    // Player character
+    // House (bottom-right) interaction hint
+    this.houseCharHint = this.add.text(
+      HOUSE_CHAR_POS.x * TILE + TILE / 2,
+      HOUSE_CHAR_POS.y * TILE + TILE + 12,
+      (isMobile() ? '[ACT]' : '[SPACE]') + ' Customize',
+      {
+        fontSize: '10px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        padding: { x: 5, y: 2 }
+      }
+    ).setOrigin(0.5).setDepth(9999).setVisible(false);
+
+    // Player character — load customization config from localStorage
+    this.myCharConfig = loadCharConfig();
     this.createAnimations();
     const startX = 15 * TILE + TILE / 2;
     const startY = 15 * TILE + TILE / 2;
-    this.player = this.physics.add.sprite(startX, startY, 'char', 0);
+    const myCharKey = getOrCreateCharTexture(this, this.myCharConfig);
+    this.player = this.physics.add.sprite(startX, startY, myCharKey, 0);
     this.player.setSize(16, 10);
     this.player.setOffset(4, 22);
     this.player.setDepth(startY);
@@ -841,6 +954,16 @@ class TownScene extends Phaser.Scene {
     });
   }
 
+  // Play walk animation using texture-specific anim key (fallback to base key)
+  playCharAnim(sprite, dir) {
+    if (!sprite) return;
+    const texKey = sprite.texture ? sprite.texture.key : 'char';
+    const txAnim = 'walk-' + dir + '-' + texKey;
+    const baseAnim = 'walk-' + dir;
+    if (this.anims.exists(txAnim)) sprite.anims.play(txAnim, true);
+    else if (this.anims.exists(baseAnim)) sprite.anims.play(baseAnim, true);
+  }
+
   createAnimations() {
     // down (3 frames)
     this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('char', { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
@@ -868,18 +991,18 @@ class TownScene extends Phaser.Scene {
 
     if (left) {
       this.player.setVelocityX(-SPEED);
-      this.player.anims.play('walk-left', true);
+      this.playCharAnim(this.player, 'left');
     } else if (right) {
       this.player.setVelocityX(SPEED);
-      this.player.anims.play('walk-right', true);
+      this.playCharAnim(this.player, 'right');
     }
 
     if (up) {
       this.player.setVelocityY(-SPEED);
-      if (!left && !right) this.player.anims.play('walk-up', true);
+      if (!left && !right) this.playCharAnim(this.player, 'up');
     } else if (down) {
       this.player.setVelocityY(SPEED);
-      if (!left && !right) this.player.anims.play('walk-down', true);
+      if (!left && !right) this.playCharAnim(this.player, 'down');
     }
 
     if (!up && !down && !left && !right) {
@@ -920,6 +1043,11 @@ class TownScene extends Phaser.Scene {
       NPC_POS.x * TILE + TILE / 2, NPC_POS.y * TILE + TILE / 2);
     this.npcHint.setVisible(dist < TILE * 2);
 
+    // Check house (bottom-right) proximity
+    const houseDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_CHAR_POS.x * TILE + TILE / 2, HOUSE_CHAR_POS.y * TILE + TILE / 2);
+    this.houseCharHint.setVisible(houseDist < TILE * 2);
+
     // Send position to server (throttled)
     this.sendPosition();
   }
@@ -935,6 +1063,7 @@ class TownScene extends Phaser.Scene {
         address: addr,
         x: scene.player ? Math.round(scene.player.x) : 480,
         y: scene.player ? Math.round(scene.player.y) : 480,
+        character: scene.myCharConfig || {},
       });
     };
 
@@ -998,7 +1127,7 @@ class TownScene extends Phaser.Scene {
 
         // Animation direction
         if (data.dir) {
-          p.sprite.anims.play('walk-' + data.dir, true);
+          this.playCharAnim(p.sprite, data.dir);
         } else {
           p.sprite.anims.stop();
         }
@@ -1036,6 +1165,12 @@ class TownScene extends Phaser.Scene {
       if (currentTradeId && data.tradeId === currentTradeId) {
         townShowTradeDetail(currentTradeId);
       }
+      // Celebration particles on trade completion
+      if (data.status === 'completed') {
+        this.showCompletionParticles();
+        TownSounds.playTrade();
+        townShowToast('🎉 Atomic swap completed!', 5000);
+      }
     });
 
     socket.on('newMessage', (msg) => {
@@ -1069,6 +1204,20 @@ class TownScene extends Phaser.Scene {
       this.showTradeNotif(data);
     });
 
+    // Emoji expression from other players
+    socket.on('townEmojiMsg', (data) => {
+      this.showEmojiBubble(data.id, data.address, data.emoji);
+    });
+
+    // Character update from another player
+    socket.on('townCharUpdate', (data) => {
+      if (!data.id || !otherPlayers[data.id]) return;
+      const p = otherPlayers[data.id];
+      const newKey = getOrCreateCharTexture(this, data.character || {});
+      p.sprite.setTexture(newKey, 0);
+      p.character = data.character || {};
+    });
+
     // Enter key to activate/send town chat
     this.setupTownChat();
     // Market price panel
@@ -1078,12 +1227,11 @@ class TownScene extends Phaser.Scene {
   addOtherPlayer(id, data) {
     if (otherPlayers[id]) return;
 
-    // Generate color from address
-    const color = this.addrToColor(data.address || '');
-    const sprite = this.physics.add.sprite(data.x || 15 * TILE, data.y || 15 * TILE, 'char', 0);
+    // Generate character texture from config (or default)
+    const otherKey = getOrCreateCharTexture(this, data.character || {});
+    const sprite = this.physics.add.sprite(data.x || 15 * TILE, data.y || 15 * TILE, otherKey, 0);
     sprite.setSize(16, 10);
     sprite.setOffset(4, 22);
-    sprite.setTint(color);
     sprite.setDepth(data.y || 0);
 
     const label = this.add.text(sprite.x, sprite.y - 22, shortAddr(data.address), {
@@ -1093,7 +1241,7 @@ class TownScene extends Phaser.Scene {
       padding: { x: 5, y: 2 }
     }).setOrigin(0.5).setDepth(99999);
 
-    otherPlayers[id] = { sprite, label, address: data.address, bubble: null };
+    otherPlayers[id] = { sprite, label, address: data.address, bubble: null, character: data.character || {} };
 
     // Show ad bubble if player has active ad
     if (data.adText) {
@@ -1168,6 +1316,48 @@ class TownScene extends Phaser.Scene {
     }
   }
 
+  // Confetti/firework celebration on trade completion
+  showCompletionParticles() {
+    if (!this.player) return;
+    const x = this.player.x;
+    const y = this.player.y - 20;
+    const colors = [0xf5c542, 0x4ecca3, 0xe94560, 0x3fa7ff, 0xff9f43, 0xf368e0];
+    const particles = [];
+    for (let i = 0; i < 24; i++) {
+      const color = colors[i % colors.length];
+      const px = this.add.rectangle(x, y, 6, 6, color).setDepth(100003);
+      const angle = (Math.PI * 2 / 24) * i + (Math.random() * 0.3 - 0.15);
+      const speed = 80 + Math.random() * 100;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 60; // upward bias
+      particles.push(px);
+      this.tweens.add({
+        targets: px,
+        x: x + vx,
+        y: y + vy + 80, // gravity pull
+        alpha: 0,
+        scaleX: 0.2,
+        scaleY: 0.2,
+        duration: 1200 + Math.random() * 600,
+        ease: 'Power2',
+        onComplete: () => px.destroy()
+      });
+    }
+    // Big center text
+    const txt = this.add.text(x, y - 30, '🎉 SWAP COMPLETE!', {
+      fontSize: '16px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+      color: '#f5c542', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(100004);
+    this.tweens.add({
+      targets: txt,
+      y: y - 90,
+      alpha: 0,
+      duration: 2500,
+      ease: 'Power2',
+      onComplete: () => txt.destroy()
+    });
+  }
+
   showChatBubble(address, content) {
     const myAddr = getActiveBtctAddr();
     const isMe = address && address === myAddr;
@@ -1217,6 +1407,43 @@ class TownScene extends Phaser.Scene {
         break;
       }
     }
+  }
+
+  // Emoji float-up bubble (big emoji above character, floats up + fades)
+  showEmojiBubble(socketId, address, emoji) {
+    const myAddr = getActiveBtctAddr();
+    const isMe = address && address === myAddr;
+    const style = {
+      fontSize: '28px', fontFamily: 'Arial,sans-serif',
+    };
+    let targetX, targetY;
+    if (isMe && this.player) {
+      targetX = this.player.x;
+      targetY = this.player.y - 50;
+    } else if (otherPlayers[socketId]) {
+      targetX = otherPlayers[socketId].sprite.x;
+      targetY = otherPlayers[socketId].sprite.y - 50;
+    } else {
+      // fallback: find by address
+      for (const id in otherPlayers) {
+        if (otherPlayers[id].address === address) {
+          targetX = otherPlayers[id].sprite.x;
+          targetY = otherPlayers[id].sprite.y - 50;
+          break;
+        }
+      }
+    }
+    if (targetX === undefined) return;
+    const emojiText = this.add.text(targetX, targetY, emoji, style)
+      .setOrigin(0.5).setDepth(100002);
+    this.tweens.add({
+      targets: emojiText,
+      y: targetY - 50,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => emojiText.destroy()
+    });
   }
 
   setSelfBubble(text) {
@@ -1316,7 +1543,7 @@ class TownScene extends Phaser.Scene {
     if (!el) return;
     el.onclick = () => openTownWallet();
     if (!addr) {
-      el.innerHTML = '<span style="color:#e94560;">No Wallet — Set in DEX first</span>';
+      el.innerHTML = '<span style="color:#e94560;">No Wallet — Click to create one</span>';
       return;
     }
     el.innerHTML = `<span style="color:#4ecca3;">${shortAddr(addr)}</span>`
@@ -1352,6 +1579,15 @@ class TownScene extends Phaser.Scene {
     if (dist < TILE * 4) {  // TILE*4 = 128px (울타리 바깥에서도 도달 가능)
       TownSounds.playInteract();
       this.openBulletinBoard();
+      return;
+    }
+
+    // Check house (bottom-right): open character customizer
+    const houseDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_CHAR_POS.x * TILE + TILE / 2, HOUSE_CHAR_POS.y * TILE + TILE / 2);
+    if (houseDist < TILE * 2) {
+      TownSounds.playInteract();
+      openCharModal();
       return;
     }
 
@@ -1392,19 +1628,47 @@ class TownScene extends Phaser.Scene {
     const modal = document.getElementById('trade-modal');
     const title = document.getElementById('modal-title');
     const content = document.getElementById('modal-content');
+    const cleanAddr = address.replace(/^0x/, '');
 
-    title.textContent = 'Player ' + shortAddr(address);
+    title.textContent = '👤 Player ' + shortAddr(address);
     content.innerHTML = `
-      <div style="margin-bottom:12px;">
-        <div style="color:#aaa;font-size:12px;">BTCT Address</div>
-        <div style="color:#4ecca3;font-size:13px;word-break:break-all;">0x${address.replace(/^0x/,'')}</div>
+      <div style="margin-bottom:10px;">
+        <div style="color:#aaa;font-size:11px;">BTCT Address</div>
+        <div style="color:#4ecca3;font-size:12px;word-break:break-all;user-select:all;">0x${cleanAddr}</div>
+      </div>
+      <div id="player-profile-stats" style="display:flex;gap:12px;margin-bottom:12px;">
+        <div style="text-align:center;flex:1;background:rgba(255,255,255,0.04);padding:8px;border-radius:6px;">
+          <div style="font-size:18px;color:#f5c542;" id="pp-listings">…</div>
+          <div style="font-size:10px;color:#888;">Active Listings</div>
+        </div>
+        <div style="text-align:center;flex:1;background:rgba(255,255,255,0.04);padding:8px;border-radius:6px;">
+          <div style="font-size:18px;color:#4ecca3;" id="pp-trades">…</div>
+          <div style="font-size:10px;color:#888;">Completed</div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="townShowPlayerAds('${address}')">View Listings</button>
+        <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="townShowPlayerAds('${cleanAddr}')">View Listings</button>
+        <button class="btn" style="flex:1;min-width:80px;background:#0f3460;color:#e0e0e0;border:1px solid #1a4a80;" onclick="townSendEmoji('${cleanAddr}')">👋 Wave</button>
         <button class="btn btn-danger" onclick="closeModal()">Close</button>
       </div>
     `;
     modal.classList.remove('hidden');
+
+    // Async fetch profile stats
+    (async () => {
+      try {
+        const ads = await api('/ads');
+        const playerAds = (ads || []).filter(a => a.btct_address === cleanAddr && a.status === 'open');
+        const el = document.getElementById('pp-listings');
+        if (el) el.textContent = playerAds.length;
+      } catch { const el = document.getElementById('pp-listings'); if (el) el.textContent = '?'; }
+      try {
+        const trades = await api(`/trades?address=${cleanAddr}`);
+        const completed = (trades || []).filter(t => t.status === 'completed');
+        const el = document.getElementById('pp-trades');
+        if (el) el.textContent = completed.length;
+      } catch { const el = document.getElementById('pp-trades'); if (el) el.textContent = '?'; }
+    })();
   }
 }
 
@@ -2417,17 +2681,15 @@ function _townWalletMsg(id, text, type) {
   el.classList.remove('hidden');
 }
 
-// unlock input 필드 초기화 헬퍼
+// town wallet 입력 필드 초기화 헬퍼
 function _resetTownWalletInputs() {
-  ['tw-btct-key-input','tw-doge-wif-input','tw-doge-wif-new-input'].forEach(id => {
+  ['tw-btct-import-key','tw-doge-import-wif'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  ['tw-btct-unlock-msg','tw-doge-unlock-msg','tw-doge-none-msg'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.textContent = ''; el.classList.add('hidden'); }
-  });
-  // 모든 nokey/none 요소를 먼저 숨김 (이후 로직에서 하나만 표시)
-  ['tw-btct-nokey','tw-btct-send-box','tw-doge-nokey','tw-doge-none','tw-doge-send-box'].forEach(id => {
+  // 숨김 초기화
+  ['tw-btct-nokey','tw-btct-send-box','tw-doge-nokey','tw-doge-none','tw-doge-send-box',
+   'tw-btct-import','tw-doge-import','tw-btct-backup','tw-doge-backup',
+   'tw-btct-gen-msg','tw-doge-gen-msg'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.add('hidden');
   });
 }
@@ -2444,6 +2706,12 @@ async function openTownWallet() {
   const hasBtctKey = btctAddr && !!getBtctKeyForAddr(btctAddr);
   const hasDogeWif = dogeAddr && !!getDogeWifForAddr(dogeAddr);
 
+  // === BTCT switch dropdown ===
+  _populateSwitchDropdown('tw-btct-switch', 'dex_btct_wallets', btctAddr, townSwitchBtct, true);
+
+  // === DOGE switch dropdown ===
+  _populateSwitchDropdown('tw-doge-switch', 'dex_doge_wallets', dogeAddr, townSwitchDoge, false);
+
   // BTCT 주소 표시
   const btctAddrEl = document.getElementById('tw-btct-addr');
   if (btctAddrEl) btctAddrEl.textContent = btctAddr ? '0x' + btctAddr : 'No wallet';
@@ -2451,6 +2719,12 @@ async function openTownWallet() {
   // DOGE 주소 표시
   const dogeAddrEl = document.getElementById('tw-doge-addr');
   if (dogeAddrEl) dogeAddrEl.textContent = dogeAddr || 'No DOGE wallet';
+
+  // Export 버튼 표시/숨김
+  const btctExportBtn = document.getElementById('tw-btct-export-btn');
+  if (btctExportBtn) btctExportBtn.style.display = hasBtctKey ? '' : 'none';
+  const dogeExportBtn = document.getElementById('tw-doge-export-btn');
+  if (dogeExportBtn) dogeExportBtn.style.display = hasDogeWif ? '' : 'none';
 
   // 송금 박스 / nokey 표시
   const btctSendBox = document.getElementById('tw-btct-send-box');
@@ -2508,49 +2782,173 @@ async function openTownWallet() {
   }
 }
 
+// === Switch dropdown helper ===
+function _populateSwitchDropdown(containerId, storageKey, activeAddr, switchFn, isBtct) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  let wallets;
+  try { wallets = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { wallets = {}; }
+  const addrs = Object.keys(wallets);
+  if (addrs.length <= 1) {
+    container.classList.add('hidden');
+    return;
+  }
+  container.classList.remove('hidden');
+  container.innerHTML = '';
+  const sel = document.createElement('select');
+  addrs.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = isBtct ? `0x${a.substring(0,6)}…${a.slice(-4)}` : `${a.substring(0,6)}…${a.slice(-4)}`;
+    if (a === activeAddr) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => switchFn(sel.value);
+  container.appendChild(sel);
+}
+
 function closeTownWallet() {
   const modal = document.getElementById('town-wallet-modal');
   if (modal) modal.classList.add('hidden');
 }
 
-async function townUnlockBtct() {
-  const keyInput = (document.getElementById('tw-btct-key-input')?.value || '').trim();
-  if (!keyInput || keyInput.length !== 64) {
-    return _townWalletMsg('tw-btct-unlock-msg', 'Enter valid 64-character hex private key', 'error');
-  }
-  _townWalletMsg('tw-btct-unlock-msg', 'Verifying…', '');
+// === BTCT wallet generate / import / export / switch ===
+async function townGenBtct() {
+  _townWalletMsg('tw-btct-gen-msg', 'Generating…', '');
   try {
     await ensureKrypton();
-    const privKey = Krypton.PrivateKey.unserialize(Krypton.BufferUtils.fromHex(keyInput));
-    const keyPair = Krypton.KeyPair.derive(privKey);
-    const addr = keyPair.publicKey.toAddress().toHex().toLowerCase();
-    saveBtctWallet(addr, keyInput);
-    setActiveBtctAddr(addr);
+    const wallet = Krypton.Wallet.generate();
+    const address = wallet.address.toHex().toLowerCase();
+    const privateKeyHex = wallet.keyPair.privateKey.toHex();
+    saveBtctWallet(address, privateKeyHex);
+    setActiveBtctAddr(address);
     syncCurrentUser();
-    _townWalletMsg('tw-btct-unlock-msg', '✓ Unlocked!', 'success');
-    setTimeout(() => openTownWallet(), 800);
-  } catch (e) {
-    _townWalletMsg('tw-btct-unlock-msg', 'Invalid key: ' + e.message, 'error');
+    _townWalletMsg('tw-btct-gen-msg', `✓ New wallet: 0x${address.substring(0,8)}…`, 'success');
+    // Show backup key
+    const backupEl = document.getElementById('tw-btct-backup');
+    if (backupEl) {
+      backupEl.innerHTML = `<strong style="color:#e94560;">⚠ BACKUP YOUR KEY NOW</strong><br>
+        <span style="font-size:11px;word-break:break-all;user-select:all;">${privateKeyHex}</span>`;
+      backupEl.classList.remove('hidden');
+    }
+    setTimeout(() => { openTownWallet(); updateWalletDisplayGlobal(); }, 1500);
+  } catch (err) {
+    _townWalletMsg('tw-btct-gen-msg', 'Failed: ' + err.message, 'error');
   }
 }
 
-async function townUnlockDoge(isNew) {
-  const inputId = isNew ? 'tw-doge-wif-new-input' : 'tw-doge-wif-input';
-  const msgId   = isNew ? 'tw-doge-none-msg' : 'tw-doge-unlock-msg';
-  const wif = (document.getElementById(inputId)?.value || '').trim();
-  if (!wif) return _townWalletMsg(msgId, 'Enter WIF private key', 'error');
-  _townWalletMsg(msgId, 'Verifying…', '');
+function townToggleImportBtct() {
+  const el = document.getElementById('tw-btct-import');
+  if (el) el.classList.toggle('hidden');
+}
+
+async function townImportBtct() {
+  let keyInput = (document.getElementById('tw-btct-import-key')?.value || '').trim();
+  if (keyInput.startsWith('0x') || keyInput.startsWith('0X')) keyInput = keyInput.slice(2);
+  if (!keyInput || keyInput.length !== 64 || !/^[0-9a-fA-F]+$/.test(keyInput)) {
+    return _townWalletMsg('tw-btct-gen-msg', 'Invalid: must be 64 hex characters', 'error');
+  }
+  _townWalletMsg('tw-btct-gen-msg', 'Importing…', '');
   try {
-    if (typeof DogeHTLC === 'undefined') throw new Error('DogeHTLC library not loaded');
-    const addr = DogeHTLC.wifToAddress(wif);
-    if (!addr) throw new Error('Failed to derive address');
-    saveDogeWallet(addr, wif);
-    setActiveDogeAddr(addr);
+    await ensureKrypton();
+    const wallet = Krypton.Wallet.importPrivateKey(keyInput);
+    if (!wallet) throw new Error('Failed to import');
+    const address = wallet.address.toHex().toLowerCase();
+    saveBtctWallet(address, keyInput);
+    setActiveBtctAddr(address);
     syncCurrentUser();
-    _townWalletMsg(msgId, '✓ DOGE wallet added!', 'success');
-    setTimeout(() => openTownWallet(), 800);
-  } catch (e) {
-    _townWalletMsg(msgId, 'Invalid WIF: ' + e.message, 'error');
+    _townWalletMsg('tw-btct-gen-msg', `✓ Imported: 0x${address.substring(0,8)}…`, 'success');
+    setTimeout(() => { openTownWallet(); updateWalletDisplayGlobal(); }, 1200);
+  } catch (err) {
+    _townWalletMsg('tw-btct-gen-msg', 'Import failed: ' + err.message, 'error');
+  }
+}
+
+function townExportBtct() {
+  const addr = getActiveBtctAddr();
+  const key = addr ? getBtctKeyForAddr(addr) : null;
+  if (!key) return _townWalletMsg('tw-btct-gen-msg', 'No private key for active wallet', 'error');
+  const backupEl = document.getElementById('tw-btct-backup');
+  if (!backupEl) return;
+  if (!backupEl.classList.contains('hidden')) { backupEl.classList.add('hidden'); return; }
+  backupEl.innerHTML = `<strong>Private Key:</strong><br>
+    <span style="font-size:11px;word-break:break-all;user-select:all;">${key}</span>`;
+  backupEl.classList.remove('hidden');
+}
+
+function townSwitchBtct(addr) {
+  setActiveBtctAddr(addr);
+  syncCurrentUser();
+  openTownWallet();
+  updateWalletDisplayGlobal();
+}
+
+// === DOGE wallet generate / import / export / switch ===
+async function townGenDoge() {
+  _townWalletMsg('tw-doge-gen-msg', 'Generating…', '');
+  try {
+    const result = await api('/doge/generate', { method: 'POST' });
+    saveDogeWallet(result.address, result.wif);
+    setActiveDogeAddr(result.address);
+    syncCurrentUser();
+    _townWalletMsg('tw-doge-gen-msg', `✓ New wallet: ${result.address.substring(0,8)}…`, 'success');
+    const backupEl = document.getElementById('tw-doge-backup');
+    if (backupEl) {
+      backupEl.innerHTML = `<strong style="color:#e94560;">⚠ BACKUP YOUR WIF NOW</strong><br>
+        <span style="font-size:11px;word-break:break-all;user-select:all;">${result.wif}</span>`;
+      backupEl.classList.remove('hidden');
+    }
+    setTimeout(() => { openTownWallet(); updateWalletDisplayGlobal(); }, 1500);
+  } catch (err) {
+    _townWalletMsg('tw-doge-gen-msg', 'Failed: ' + err.message, 'error');
+  }
+}
+
+function townToggleImportDoge() {
+  const el = document.getElementById('tw-doge-import');
+  if (el) el.classList.toggle('hidden');
+}
+
+async function townImportDoge() {
+  const wif = (document.getElementById('tw-doge-import-wif')?.value || '').trim();
+  if (!wif) return _townWalletMsg('tw-doge-gen-msg', 'Enter WIF private key', 'error');
+  _townWalletMsg('tw-doge-gen-msg', 'Importing…', '');
+  try {
+    const result = await api('/doge/import', { body: { wif } });
+    saveDogeWallet(result.address, wif);
+    setActiveDogeAddr(result.address);
+    syncCurrentUser();
+    _townWalletMsg('tw-doge-gen-msg', `✓ Imported: ${result.address.substring(0,8)}…`, 'success');
+    setTimeout(() => { openTownWallet(); updateWalletDisplayGlobal(); }, 1200);
+  } catch (err) {
+    _townWalletMsg('tw-doge-gen-msg', 'Import failed: ' + err.message, 'error');
+  }
+}
+
+function townExportDoge() {
+  const addr = getActiveDogeAddr();
+  const wif = addr ? getDogeWifForAddr(addr) : null;
+  if (!wif) return _townWalletMsg('tw-doge-gen-msg', 'No WIF for active wallet', 'error');
+  const backupEl = document.getElementById('tw-doge-backup');
+  if (!backupEl) return;
+  if (!backupEl.classList.contains('hidden')) { backupEl.classList.add('hidden'); return; }
+  backupEl.innerHTML = `<strong>WIF Private Key:</strong><br>
+    <span style="font-size:11px;word-break:break-all;user-select:all;">${wif}</span>`;
+  backupEl.classList.remove('hidden');
+}
+
+function townSwitchDoge(addr) {
+  setActiveDogeAddr(addr);
+  syncCurrentUser();
+  openTownWallet();
+  updateWalletDisplayGlobal();
+}
+
+// Helper: update top bar wallet display from anywhere
+function updateWalletDisplayGlobal() {
+  if (game && game.scene && game.scene.scenes) {
+    const mainScene = game.scene.scenes.find(s => s.updateWalletDisplay);
+    if (mainScene) mainScene.updateWalletDisplay();
   }
 }
 
@@ -2641,4 +3039,240 @@ async function townWalletSendDoge() {
   } catch (err) {
     _townWalletMsg('tw-doge-msg', err.message, 'error');
   }
+}
+
+// ======================== Emoji System ========================
+function toggleEmojiBar() {
+  const bar = document.getElementById('emoji-bar');
+  if (bar) bar.classList.toggle('hidden');
+}
+
+function sendTownEmoji(emoji) {
+  if (socket) socket.emit('townEmoji', { emoji });
+  // Show locally on self immediately
+  if (game && game.scene && game.scene.scenes) {
+    const scene = game.scene.scenes.find(s => s.showEmojiBubble);
+    if (scene) scene.showEmojiBubble(null, getActiveBtctAddr(), emoji);
+  }
+  // Auto-hide emoji bar after picking
+  const bar = document.getElementById('emoji-bar');
+  if (bar) bar.classList.add('hidden');
+}
+
+// Wave at a player from profile modal
+function townSendEmoji(targetAddr) {
+  sendTownEmoji('👋');
+  closeModal();
+}
+
+// ======================== Character Customizer ========================
+
+const CHAR_CONFIG_KEY = 'town_character';
+
+// Default config
+const DEFAULT_CHAR_CONFIG = { type: 0, skin: 0, cloth: 0, hair: 0, hat: 0, glasses: 0 };
+
+function loadCharConfig() {
+  try {
+    const raw = localStorage.getItem(CHAR_CONFIG_KEY);
+    if (raw) {
+      const cfg = JSON.parse(raw);
+      return Object.assign({}, DEFAULT_CHAR_CONFIG, cfg);
+    }
+  } catch (e) {}
+  return Object.assign({}, DEFAULT_CHAR_CONFIG);
+}
+
+function saveCharConfigToStorage(config) {
+  try { localStorage.setItem(CHAR_CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+}
+
+// Pending config (edited in modal, not yet applied)
+let pendingCharConfig = null;
+
+function openCharModal() {
+  pendingCharConfig = Object.assign({}, loadCharConfig());
+  _syncCharModalUI(pendingCharConfig);
+  updateCharPreview(pendingCharConfig);
+  const m = document.getElementById('char-modal');
+  if (m) m.classList.remove('hidden');
+}
+
+function closeCharModal() {
+  const m = document.getElementById('char-modal');
+  if (m) m.classList.add('hidden');
+  pendingCharConfig = null;
+}
+
+function _syncCharModalUI(config) {
+  // Sync active classes for all groups
+  const groups = {
+    type: 'char-type-opts',
+    skin: 'char-skin-opts',
+    cloth: 'char-cloth-opts',
+    hair: 'char-hair-opts',
+    hat: 'char-hat-opts',
+    glasses: 'char-glasses-opts',
+  };
+  for (const [prop, containerId] of Object.entries(groups)) {
+    const container = document.getElementById(containerId);
+    if (!container) continue;
+    container.querySelectorAll('[data-val]').forEach(btn => {
+      const val = parseInt(btn.getAttribute('data-val'), 10);
+      btn.classList.toggle('active', val === (config[prop] || 0));
+    });
+  }
+}
+
+function setCharOpt(prop, val) {
+  if (!pendingCharConfig) pendingCharConfig = loadCharConfig();
+  pendingCharConfig[prop] = val;
+  _syncCharModalUI(pendingCharConfig);
+  updateCharPreview(pendingCharConfig);
+}
+
+// Draw front-facing idle frame onto a canvas for preview
+function _drawCharFrame(ctx, config, ox, oy) {
+  const SKIN_C = ['#f0c987','#fad5c0','#c4885a','#8b5e3c','#5c3d1e','#e8b89a'];
+  const SKIN_D = ['#d4a96a','#e4c090','#a96e40','#6e4424','#3d2410','#c8956f'];
+  const CLTH_C = ['#3498db','#c0392b','#27ae60','#8e44ad','#e67e22','#7f8c8d'];
+  const CLTH_D = ['#2175a9','#962d22','#1e8449','#6e3585','#c05c1a','#626d6d'];
+  const HAIR_C = ['#5a3620','#1a1a1a','#f6c90e','#c0392b','#bdc3c7'];
+
+  const skin  = SKIN_C[config.skin  ?? 0] || SKIN_C[0];
+  const skinD = SKIN_D[config.skin  ?? 0] || SKIN_D[0];
+  const clth  = CLTH_C[config.cloth ?? 0] || CLTH_C[0];
+  const clthD = CLTH_D[config.cloth ?? 0] || CLTH_D[0];
+  const hair  = HAIR_C[config.hair  ?? 0] || HAIR_C[0];
+  const type  = config.type || 0;
+  const dir   = 0; // front
+  const frame = 0; // idle
+
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Legs
+  const legC = type===1?'#7f8c8d':type===2?'#6c3483':type===3?'#2c3e50':'#34495e';
+  const legD = type===1?'#626d6d':type===2?'#4a235a':type===3?'#1a252f':'#2c3e50';
+  ctx.fillStyle = legC;
+  ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
+  ctx.fillStyle = legD;
+  ctx.fillRect(7, 29, 5, 2); ctx.fillRect(12, 29, 5, 2);
+
+  // Body
+  if (type === 1) {
+    ctx.fillStyle = '#7f8c8d'; ctx.fillRect(7, 14, 10, 11);
+    ctx.fillStyle = '#bdc3c7'; ctx.fillRect(8, 15, 8, 2); ctx.fillRect(10, 17, 4, 7);
+    ctx.fillStyle = '#626d6d'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+  } else if (type === 2) {
+    ctx.fillStyle = clth; ctx.fillRect(6, 14, 12, 11);
+    ctx.fillStyle = clthD; ctx.fillRect(6, 14, 12, 1); ctx.fillRect(11, 15, 2, 9);
+    ctx.fillStyle = 'rgba(255,255,200,0.7)';
+    ctx.fillRect(8,17,1,1); ctx.fillRect(15,19,1,1); ctx.fillRect(10,21,1,1);
+  } else if (type === 3) {
+    ctx.fillStyle = '#7d6544'; ctx.fillRect(7, 14, 10, 11);
+    ctx.fillStyle = '#5d4a2e'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 14, 2, 11);
+    ctx.fillStyle = '#c0a060'; ctx.fillRect(7, 22, 10, 2);
+  } else {
+    ctx.fillStyle = clth; ctx.fillRect(7, 14, 10, 11);
+    ctx.fillStyle = clthD; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+  }
+
+  // Arms
+  const armC = type===1?'#7f8c8d':type===3?'#7d6544':clth;
+  ctx.fillStyle = armC;
+  ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
+  ctx.fillStyle = skin;
+  ctx.fillRect(4, 22, 3, 2); ctx.fillRect(17, 22, 3, 2);
+  if (type === 1) {
+    ctx.fillStyle = '#bdc3c7';
+    ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+  }
+
+  // Head
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(12, 9, 7, 0, Math.PI * 2); ctx.fill();
+
+  // Hair
+  ctx.fillStyle = hair;
+  ctx.beginPath(); ctx.arc(12, 7, 7, Math.PI, 2 * Math.PI); ctx.fill();
+  ctx.fillRect(5, 5, 14, 3);
+  ctx.fillRect(7, 4, 4, 3);
+
+  // Eyes (front)
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(8, 8, 3, 3); ctx.fillRect(13, 8, 3, 3);
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(9, 9, 2, 2); ctx.fillRect(14, 9, 2, 2);
+
+  // Hat
+  const hatH = config.hat || 0;
+  if (hatH === 1) {
+    ctx.fillStyle = clth; ctx.fillRect(5, 3, 14, 3); ctx.fillRect(7, 1, 10, 3);
+    ctx.fillStyle = clthD; ctx.fillRect(5, 5, 14, 1);
+    ctx.fillStyle = clth; ctx.fillRect(17, 4, 4, 2);
+  } else if (hatH === 2) {
+    ctx.fillStyle = clth;
+    ctx.beginPath(); ctx.moveTo(12, -5); ctx.lineTo(7, 4); ctx.lineTo(17, 4); ctx.closePath(); ctx.fill();
+    ctx.fillRect(5, 3, 14, 3);
+    ctx.fillStyle = '#f6c90e'; ctx.fillRect(6, 5, 12, 1);
+  } else if (hatH === 3) {
+    ctx.fillStyle = '#c0392b'; ctx.fillRect(5, 3, 14, 4);
+    ctx.fillStyle = '#922b21'; ctx.fillRect(5, 6, 14, 1);
+    ctx.fillStyle = '#c0392b'; ctx.fillRect(5, 3, 3, 2);
+  } else if (hatH === 4) {
+    ctx.fillStyle = '#f6c90e'; ctx.fillRect(5, 3, 14, 3);
+    ctx.fillRect(6, 1, 2, 3); ctx.fillRect(11, 0, 2, 3); ctx.fillRect(16, 1, 2, 3);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(7, 3, 2, 2); ctx.fillRect(12, 3, 2, 2); ctx.fillRect(17, 3, 2, 2);
+  }
+
+  // Glasses
+  const glassT = config.glasses || 0;
+  if (glassT === 1) {
+    ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
+    ctx.strokeRect(8, 8, 3, 3); ctx.strokeRect(13, 8, 3, 3);
+    ctx.beginPath(); ctx.moveTo(11, 9); ctx.lineTo(13, 9); ctx.stroke();
+  } else if (glassT === 2) {
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(8, 8, 3, 2); ctx.fillRect(13, 8, 3, 2);
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(11, 8, 2, 1);
+  }
+
+  ctx.restore();
+}
+
+function updateCharPreview(config) {
+  const canvas = document.getElementById('char-preview-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 24, 32);
+  _drawCharFrame(ctx, config || loadCharConfig(), 0, 0);
+}
+
+function saveCharacter() {
+  if (!pendingCharConfig) return;
+  const config = Object.assign({}, pendingCharConfig);
+  saveCharConfigToStorage(config);
+
+  // Apply to live player sprite
+  if (townScene && townScene.player) {
+    try {
+      const newKey = getOrCreateCharTexture(townScene, config);
+      townScene.player.setTexture(newKey, 0);
+      townScene.myCharConfig = config;
+    } catch (e) { console.warn('[Char] apply texture error:', e); }
+  }
+
+  // Broadcast to other players
+  if (socket) {
+    socket.emit('townCharUpdate', { character: config });
+  }
+
+  closeCharModal();
+  townShowToast('🎨 Character saved!', 2500);
 }
