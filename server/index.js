@@ -38,6 +38,9 @@ app.get('/privacy', (req, res) => {
 app.get('/about', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'about.html'));
 });
+app.get('/about-ko', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'about-ko.html'));
+});
 app.get('/guide', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'guide.html'));
 });
