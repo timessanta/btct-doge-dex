@@ -739,7 +739,7 @@ router.get('/stats', async (req, res) => {
       pool.query("SELECT COUNT(*) FROM trades WHERE status = 'completed' AND completed_at >= $1", [todayStart]),
       pool.query("SELECT COALESCE(SUM(btct_amount),0) as total FROM trades WHERE status = 'completed'"),
       pool.query("SELECT COALESCE(SUM(btct_amount),0) as total FROM trades WHERE status = 'completed' AND completed_at >= $1", [todayStart]),
-      pool.query("SELECT seller_address, buyer_address, btct_amount, doge_amount, price, status, created_at FROM trades ORDER BY created_at DESC LIMIT 10"),
+      pool.query(`SELECT t.seller_address, t.buyer_address, t.btct_amount, t.doge_amount, t.price, t.status, t.created_at, t.initiator_ip, a.creator_ip, (t.initiator_ip IS NOT NULL AND a.creator_ip IS NOT NULL AND t.initiator_ip = a.creator_ip) as self_trade FROM trades t LEFT JOIN trade_ads a ON t.ad_id = a.id ORDER BY t.created_at DESC LIMIT 10`),
     ]);
 
     const toFloat = (satoshi) => (Number(satoshi || 0) / 1e11).toFixed(8);
@@ -763,6 +763,9 @@ router.get('/stats', async (req, res) => {
         ...r,
         btct_amount: toFloat(r.btct_amount),
         doge_amount: (Number(r.doge_amount || 0) / 1e8).toFixed(8),
+        initiator_ip: r.initiator_ip || null,
+        creator_ip: r.creator_ip || null,
+        self_trade: r.self_trade || false,
       })),
     });
   } catch (e) {
