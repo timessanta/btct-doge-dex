@@ -2466,17 +2466,19 @@ async function loadAdminTrades() {
       <table class="admin-table">
         <thead><tr>
           <th>ID</th><th>Type</th><th>Seller</th><th>Buyer</th>
-          <th>BTCT</th><th>DOGE</th><th>Status</th><th>Created</th>
+          <th>BTCT</th><th>DOGE</th><th>Status</th><th>Ad IP</th><th>Trade IP</th><th>Created</th>
         </tr></thead>
         <tbody>
-          ${trades.map(t => `<tr>
+          ${trades.map(t => `<tr${t.self_trade ? ' style="background:rgba(255,80,80,0.12)"' : ''}>
             <td>${t.id}</td>
-            <td><span class="badge badge-${t.ad_type || 'unknown'}">${(t.ad_type || '?').toUpperCase()}</span></td>
+            <td><span class="badge badge-${t.ad_type || 'unknown'}">${(t.ad_type || '?').toUpperCase()}</span>${t.self_trade ? ' <span style="color:#ff5050;font-size:0.75em">⚠️SELF</span>' : ''}</td>
             <td class="mono">${shortAddr(t.seller_address || '-')}</td>
             <td class="mono">${shortAddr(t.buyer_address || '-')}</td>
             <td>${Number(t.btct_amount || 0).toFixed(5)}</td>
             <td>${Number(t.doge_amount || 0).toFixed(4)}</td>
             <td><span class="badge badge-${t.status}">${t.status}</span></td>
+            <td class="small mono">${t.creator_ip || '-'}</td>
+            <td class="small mono">${t.initiator_ip || '-'}</td>
             <td class="small">${new Date(t.created_at).toLocaleDateString()}</td>
           </tr>`).join('')}
         </tbody>

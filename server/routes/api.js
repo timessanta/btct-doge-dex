@@ -92,10 +92,11 @@ router.post('/ads', async (req, res) => {
     if (rateCheck.limited) {
       return res.status(429).json({ error: rateCheck.reason });
     }
+    const creatorIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
     const { rows: [ad] } = await pool.query(
-      `INSERT INTO trade_ads (btct_address, type, price, min_btct, max_btct, remaining)
-       VALUES ($1, $2, $3, $4, $5, $5) RETURNING *`,
-      [addr, type, price, minBtct, maxBtct]
+      `INSERT INTO trade_ads (btct_address, type, price, min_btct, max_btct, remaining, creator_ip)
+       VALUES ($1, $2, $3, $4, $5, $5, $6) RETURNING *`,
+      [addr, type, price, minBtct, maxBtct, creatorIp]
     );
     res.json(ad);
 
@@ -231,10 +232,11 @@ router.post('/trades', async (req, res) => {
     const dogeAmount = Math.round(btctSat * Number(ad.price) / 1000);
 
     // Create trade
+    const initiatorIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
     const { rows: [trade] } = await pool.query(
-      `INSERT INTO trades (ad_id, seller_address, buyer_address, btct_amount, doge_amount, price)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [adId, seller, finalBuyer, btctAmount, dogeAmount, ad.price]
+      `INSERT INTO trades (ad_id, seller_address, buyer_address, btct_amount, doge_amount, price, initiator_ip)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [adId, seller, finalBuyer, btctAmount, dogeAmount, ad.price, initiatorIp]
     );
 
     // Reduce ad remaining
@@ -699,7 +701,9 @@ router.post('/admin/ads/:id/delete', requireAdmin, async (req, res) => {
 router.get('/admin/trades', requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT t.*, a.type as ad_type FROM trades t
+      `SELECT t.*, a.type as ad_type, a.creator_ip,
+              (t.initiator_ip IS NOT NULL AND a.creator_ip IS NOT NULL AND t.initiator_ip = a.creator_ip) as self_trade
+       FROM trades t
        LEFT JOIN trade_ads a ON t.ad_id = a.id
        ORDER BY t.created_at DESC LIMIT 100`
     );
@@ -709,4 +713,62 @@ router.get('/admin/trades', requireAdmin, async (req, res) => {
   }
 });
 
+// Public stats API (for master dashboard)
+router.get('/stats', async (req, res) => {
+  try {
+    const now = new Date();
+    // 서버가 KST이므로 로컬 자정 = KST 자정
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [
+      totalAds,
+      activeAds,
+      totalTrades,
+      todayTrades,
+      completedTrades,
+      todayCompleted,
+      totalVolumeBtct,
+      todayVolumeBtct,
+      recentTrades,
+    ] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM trade_ads'),
+      pool.query("SELECT COUNT(*) FROM trade_ads WHERE status = 'active'"),
+      pool.query('SELECT COUNT(*) FROM trades'),
+      pool.query('SELECT COUNT(*) FROM trades WHERE created_at >= $1', [todayStart]),
+      pool.query("SELECT COUNT(*) FROM trades WHERE status = 'completed'"),
+      pool.query("SELECT COUNT(*) FROM trades WHERE status = 'completed' AND completed_at >= $1", [todayStart]),
+      pool.query("SELECT COALESCE(SUM(btct_amount),0) as total FROM trades WHERE status = 'completed'"),
+      pool.query("SELECT COALESCE(SUM(btct_amount),0) as total FROM trades WHERE status = 'completed' AND completed_at >= $1", [todayStart]),
+      pool.query("SELECT seller_address, buyer_address, btct_amount, doge_amount, price, status, created_at FROM trades ORDER BY created_at DESC LIMIT 10"),
+    ]);
+
+    const toFloat = (satoshi) => (Number(satoshi || 0) / 1e11).toFixed(8);
+
+    res.json({
+      ads: {
+        total: parseInt(totalAds.rows[0].count),
+        active: parseInt(activeAds.rows[0].count),
+      },
+      trades: {
+        total: parseInt(totalTrades.rows[0].count),
+        today: parseInt(todayTrades.rows[0].count),
+        completed: parseInt(completedTrades.rows[0].count),
+        todayCompleted: parseInt(todayCompleted.rows[0].count),
+      },
+      volume: {
+        totalBtct: toFloat(totalVolumeBtct.rows[0].total),
+        todayBtct: toFloat(todayVolumeBtct.rows[0].total),
+      },
+      recent: recentTrades.rows.map(r => ({
+        ...r,
+        btct_amount: toFloat(r.btct_amount),
+        doge_amount: (Number(r.doge_amount || 0) / 1e8).toFixed(8),
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
+

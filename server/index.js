@@ -13,6 +13,9 @@ const server = http.createServer(app);
 const io = new Server(server);
 const PORT = process.env.PORT || 3020;
 
+// Trust reverse proxy (time VM) to get real client IP via X-Forwarded-For
+app.set('trust proxy', true);
+
 // Middleware
 app.use(express.json());
 app.use((req, res, next) => {
