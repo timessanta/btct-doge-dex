@@ -3319,9 +3319,7 @@ function sendTownEmoji(emoji) {
     const scene = game.scene.scenes.find(s => s.showEmojiBubble);
     if (scene) scene.showEmojiBubble(null, getActiveBtctAddr(), emoji);
   }
-  // Auto-hide emoji bar after picking
-  const bar = document.getElementById('emoji-bar');
-  if (bar) bar.classList.add('hidden');
+  // Do NOT auto-hide — close via toggle button only
 }
 
 // Wave at a player from profile modal
