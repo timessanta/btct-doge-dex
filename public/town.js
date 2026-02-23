@@ -1228,6 +1228,8 @@ class TownScene extends Phaser.Scene {
       // Keep max 50 messages
       while (container.children.length > 50) container.removeChild(container.firstChild);
       container.scrollTop = container.scrollHeight;
+      // Activate chat backing + reset idle timer
+      activateChat();
       // Show chat bubble above character
       this.showChatBubble(addr, data.content);
     });
@@ -1515,6 +1517,9 @@ class TownScene extends Phaser.Scene {
   setupTownChat() {
     const input = document.getElementById('town-chat-input');
     if (!input) return;
+
+    // Activate chat background when user focuses input
+    input.addEventListener('focus', () => activateChat());
 
     // Global Enter key to focus chat
     document.addEventListener('keydown', (e) => {
@@ -3310,6 +3315,18 @@ async function townWalletSendDoge() {
 function toggleEmojiBar() {
   const bar = document.getElementById('emoji-bar');
   if (bar) bar.classList.toggle('hidden');
+}
+
+// Chat background auto-fade: active for 3s after last message, then fade to transparent
+let chatIdleTimer = null;
+function activateChat() {
+  const msgs = document.getElementById('town-chat-messages');
+  if (msgs) msgs.classList.add('chat-active');
+  clearTimeout(chatIdleTimer);
+  chatIdleTimer = setTimeout(() => {
+    const msgs = document.getElementById('town-chat-messages');
+    if (msgs) msgs.classList.remove('chat-active');
+  }, 3000);
 }
 
 function sendTownEmoji(emoji) {
