@@ -813,10 +813,3 @@ body {
 .mine-btn-start.mining:hover {
   background: linear-gradient(135deg, #ff7b7b 0%, #dd5555 100%);
 }
-.mine-btn-payout {
-  background: linear-gradient(135deg, #4ecca3 0%, #38b090 100%);
-  color: #fff;
-}
-.mine-btn-payout:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5eddb3 0%, #48c0a0 100%);
-}

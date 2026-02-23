@@ -2587,10 +2587,6 @@ async function toggleMining() {
   }
 }
 
-function requestMiningPayout() {
-  if (typeof TownMiner !== 'undefined') TownMiner.requestPayout();
-}
-
 function showMineError(msg) {
   const el = document.getElementById('mine-error');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
@@ -2655,12 +2651,6 @@ function updateMineUI(state) {
       btn.textContent = '▶ Start Mining';
       btn.classList.remove('mining');
     }
-  }
-
-  // Payout button
-  const payBtn = document.getElementById('mine-payout-btn');
-  if (payBtn) {
-    payBtn.disabled = !s.mining || s.connectionState !== 'connected' || !s.confirmedBalance;
   }
 
   // Top bar mining icon

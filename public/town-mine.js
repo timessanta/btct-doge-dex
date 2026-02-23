@@ -13,7 +13,6 @@ const TownMiner = (() => {
   let _hashrate = 0;
   let _balance = 0;
   let _confirmedBalance = 0;
-  let _payoutRequestActive = false;
   let _connectionState = 'closed'; // closed, connecting, connected
   let _consensusState = 'connecting'; // connecting, syncing, established
   let _threads = 1;
@@ -203,15 +202,6 @@ const TownMiner = (() => {
     _fireUpdate();
   }
 
-  // Request payout from pool
-  function requestPayout() {
-    if (_miner && _miner.isConnected()) {
-      _miner.requestPayout();
-      _payoutRequestActive = true;
-      _fireUpdate();
-    }
-  }
-
   // Get current state
   function getState() {
     return {
@@ -222,7 +212,6 @@ const TownMiner = (() => {
       balanceFormatted: formatBalance(_balance),
       confirmedBalance: _confirmedBalance,
       confirmedBalanceFormatted: formatBalance(_confirmedBalance),
-      payoutRequestActive: _payoutRequestActive,
       connectionState: _connectionState,
       consensusState: _consensusState,
       threads: _threads,
@@ -250,7 +239,6 @@ const TownMiner = (() => {
     startMining,
     stopMining,
     setThreads,
-    requestPayout,
     getState,
     onUpdate,
     formatHashrate,
