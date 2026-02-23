@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260224k">
+  <link rel="stylesheet" href="town-style.css?v=20260224l">
 </head>
 <body>
   <!-- Top Bar -->
@@ -211,16 +211,16 @@
       <div class="disclaimer-text">
         <p><strong>BTCT Town is a visual interface for the BTCT/DOGE DEX.</strong></p>
         <ul>
-          <li>BTCT Town is a UI layer only. All trades are executed via HTLC atomic swaps on their respective blockchains.</li>
-          <li>The server acts as a bulletin board and message relay. It never holds, accesses, or stores private keys.</li>
-          <li>All transaction signing happens in your browser. Your private keys never leave your device.</li>
-          <li>Chat messages between trade participants are stored on the server for dispute reference and automatically deleted after 90 days.</li>
-          <li>The only data collected is: BTCT addresses (public keys) and chat messages. No personal information is collected.</li>
-          <li>Platform operators are not parties to any trade and bear no responsibility for trade outcomes.</li>
-          <li>Users are solely responsible for complying with applicable laws in their jurisdiction.</li>
+          <li>UI layer only. All trades execute via HTLC atomic swaps on-chain.</li>
+          <li>Server never holds, accesses, or stores private keys.</li>
+          <li>All transaction signing happens in your browser only.</li>
+          <li>Chat messages are stored for dispute reference, auto-deleted after 90 days.</li>
+          <li>Only BTCT addresses and chat messages are collected. No personal info.</li>
+          <li>Platform operators bear no responsibility for trade outcomes.</li>
+          <li>Users are solely responsible for complying with applicable laws.</li>
         </ul>
-        <p class="warning-text">⚠ If a swap fails due to timeout, both BTCT and DOGE locked in HTLC contracts are refundable after their timeout periods. Ensure you understand how HTLC atomic swaps work.</p>
-        <p style="font-size:12px;margin-top:12px;"><a href="/privacy" target="_blank" style="color:#4ecca3;">Privacy Policy</a></p>
+        <p class="warning-text">⚠ If a swap times out, both BTCT and DOGE in HTLC contracts are refundable. Understand how atomic swaps work before trading.</p>
+        <p style="font-size:12px;margin-top:8px;"><a href="/privacy" target="_blank" style="color:#4ecca3;">Privacy Policy</a></p>
       </div>
       <label class="disclaimer-checkbox">
         <input type="checkbox" id="townDisclaimerCheck" onchange="toggleTownDisclaimer()">

@@ -649,6 +649,16 @@ body {
   #town-chat { width: calc(100% - 24px); bottom: calc(120px + env(safe-area-inset-bottom, 0px)); left: 12px; }
   #town-chat-messages { max-height: 120px; }
   #emoji-bar { position: fixed !important; left: 50% !important; bottom: calc(300px + env(safe-area-inset-bottom, 0px)) !important; transform: translateX(-50%) !important; width: 300px !important; grid-template-columns: repeat(10, 1fr) !important; border-radius: 10px !important; box-shadow: 0 -4px 20px rgba(0,0,0,0.6) !important; background: rgba(10,20,40,0.88) !important; padding: 8px !important; }
+  /* Disclaimer modal compact for mobile */
+  .disclaimer-modal-content { padding: 14px 14px 12px; max-height: 96dvh; max-height: 96vh; }
+  .disclaimer-modal-content h2 { font-size: 14px; margin-bottom: 8px; }
+  .disclaimer-text { font-size: 11px; line-height: 1.35; }
+  .disclaimer-text ul { padding-left: 14px; margin: 5px 0; }
+  .disclaimer-text li { margin-bottom: 3px; }
+  .disclaimer-text .warning-text { font-size: 11px; margin-top: 6px; }
+  .disclaimer-text p { margin: 4px 0; }
+  .disclaimer-checkbox { font-size: 11px; margin: 8px 0; }
+  .disclaimer-enter-btn { padding: 9px; font-size: 13px; }
 }
 
 /* ======================== Town Wallet Modal ======================== */
