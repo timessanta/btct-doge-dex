@@ -564,11 +564,12 @@ body {
   left: 12px;
   bottom: 40px;
   width: 380px;
-  max-height: 200px;
+  max-height: 260px;
   display: flex;
   flex-direction: column;
   pointer-events: none;
   z-index: 100;
+  overflow: visible;
 }
 
 #town-chat-messages {
@@ -607,6 +608,7 @@ body {
   display: flex;
   gap: 4px;
   align-items: center;
+  position: relative;
 }
 
 #town-chat-input {
@@ -662,7 +664,7 @@ body {
 .tw-switch select { width: 100%; padding: 5px 8px; background: #0d1b2a; border: 1px solid #2a3f5f; border-radius: 4px; color: #e8eaf0; font-size: 12px; cursor: pointer; }
 .tw-switch select:focus { outline: none; border-color: #4ecca3; }
 /* Emoji bar */
-#emoji-bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; background: rgba(10,20,40,0.95); padding: 6px 14px 6px 8px; border-top: 1px solid #0f3460; pointer-events: auto; align-items: center; }
+#emoji-bar { position: absolute; bottom: calc(100% + 4px); left: 0; width: 380px; display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; background: rgba(10,20,40,0.97); border: 1px solid #0f3460; border-radius: 6px; padding: 6px 8px; pointer-events: auto; align-items: center; box-shadow: 0 -4px 16px rgba(0,0,0,0.6); z-index: 101; }
 #emoji-bar button { font-size: 18px; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.15s; }
 #emoji-bar button:hover { background: rgba(255,255,255,0.15); }
 #emoji-toggle-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 2px 6px; flex-shrink: 0; }
