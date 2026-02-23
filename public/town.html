@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260224c">
+  <link rel="stylesheet" href="town-style.css?v=20260224d">
 </head>
 <body>
   <!-- Top Bar -->
@@ -259,40 +259,40 @@
   <div id="town-chat">
     <div id="town-chat-messages"></div>
     <div id="town-chat-input-row">
+      <div id="emoji-bar" class="hidden">
+        <button onclick="sendTownEmoji('😀')">😀</button>
+        <button onclick="sendTownEmoji('😂')">😂</button>
+        <button onclick="sendTownEmoji('😍')">😍</button>
+        <button onclick="sendTownEmoji('😎')">😎</button>
+        <button onclick="sendTownEmoji('🤔')">🤔</button>
+        <button onclick="sendTownEmoji('😱')">😱</button>
+        <button onclick="sendTownEmoji('😭')">😭</button>
+        <button onclick="sendTownEmoji('🤩')">🤩</button>
+        <button onclick="sendTownEmoji('🥳')">🥳</button>
+        <button onclick="sendTownEmoji('😤')">😤</button>
+        <button onclick="sendTownEmoji('👍')">👍</button>
+        <button onclick="sendTownEmoji('👎')">👎</button>
+        <button onclick="sendTownEmoji('👋')">👋</button>
+        <button onclick="sendTownEmoji('🙏')">🙏</button>
+        <button onclick="sendTownEmoji('💪')">💪</button>
+        <button onclick="sendTownEmoji('🤝')">🤝</button>
+        <button onclick="sendTownEmoji('🎉')">🎉</button>
+        <button onclick="sendTownEmoji('🔥')">🔥</button>
+        <button onclick="sendTownEmoji('💰')">💰</button>
+        <button onclick="sendTownEmoji('💎')">💎</button>
+        <button onclick="sendTownEmoji('🚀')">🚀</button>
+        <button onclick="sendTownEmoji('⚡')">⚡</button>
+        <button onclick="sendTownEmoji('🐕')">🐕</button>
+        <button onclick="sendTownEmoji('📈')">📈</button>
+        <button onclick="sendTownEmoji('📉')">📉</button>
+        <button onclick="sendTownEmoji('₿')">₿</button>
+        <button onclick="sendTownEmoji('✅')">✅</button>
+        <button onclick="sendTownEmoji('❌')">❌</button>
+        <button onclick="sendTownEmoji('⏳')">⏳</button>
+        <button onclick="sendTownEmoji('❤️')">❤️</button>
+      </div>
       <input type="text" id="town-chat-input" placeholder="Press Enter to chat..." maxlength="200" autocomplete="off">
       <button id="emoji-toggle-btn" onclick="toggleEmojiBar()" title="Emojis">😀</button>
-    </div>
-    <div id="emoji-bar" class="hidden">
-      <button onclick="sendTownEmoji('😀')">😀</button>
-      <button onclick="sendTownEmoji('😂')">😂</button>
-      <button onclick="sendTownEmoji('😍')">😍</button>
-      <button onclick="sendTownEmoji('😎')">😎</button>
-      <button onclick="sendTownEmoji('🤔')">🤔</button>
-      <button onclick="sendTownEmoji('😱')">😱</button>
-      <button onclick="sendTownEmoji('😭')">😭</button>
-      <button onclick="sendTownEmoji('🤩')">🤩</button>
-      <button onclick="sendTownEmoji('🥳')">🥳</button>
-      <button onclick="sendTownEmoji('😤')">😤</button>
-      <button onclick="sendTownEmoji('👍')">👍</button>
-      <button onclick="sendTownEmoji('👎')">👎</button>
-      <button onclick="sendTownEmoji('👋')">👋</button>
-      <button onclick="sendTownEmoji('🙏')">🙏</button>
-      <button onclick="sendTownEmoji('💪')">💪</button>
-      <button onclick="sendTownEmoji('🤝')">🤝</button>
-      <button onclick="sendTownEmoji('🎉')">🎉</button>
-      <button onclick="sendTownEmoji('🔥')">🔥</button>
-      <button onclick="sendTownEmoji('💰')">💰</button>
-      <button onclick="sendTownEmoji('💎')">💎</button>
-      <button onclick="sendTownEmoji('🚀')">🚀</button>
-      <button onclick="sendTownEmoji('⚡')">⚡</button>
-      <button onclick="sendTownEmoji('🐕')">🐕</button>
-      <button onclick="sendTownEmoji('📈')">📈</button>
-      <button onclick="sendTownEmoji('📉')">📉</button>
-      <button onclick="sendTownEmoji('₿')" style="color:#f5c542;font-size:16px;vertical-align:middle;">₿</button>
-      <button onclick="sendTownEmoji('⏳')">⏳</button>
-      <button onclick="sendTownEmoji('✅')">✅</button>
-      <button onclick="sendTownEmoji('❌')">❌</button>
-      <button onclick="sendTownEmoji('❤️')">❤️</button>
     </div>
   </div>
 
