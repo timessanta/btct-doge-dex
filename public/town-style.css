@@ -748,3 +748,75 @@ body {
   border-color: #4ecca3;
   box-shadow: 0 0 0 2px rgba(78,204,163,0.4);
 }
+
+/* ============ Mining Panel ============ */
+#mine-open-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #f0f0f0;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: border-color 0.2s, background 0.2s;
+}
+#mine-open-btn:hover { border-color: #00d4ff; }
+#mine-open-btn.mining-active {
+  border-color: #4ecca3;
+  background: rgba(78,204,163,0.15);
+  animation: mine-pulse 2s infinite;
+}
+@keyframes mine-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(78,204,163,0.3); }
+  50% { box-shadow: 0 0 8px 2px rgba(78,204,163,0.5); }
+}
+.mine-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+.mine-label {
+  color: #8899aa;
+  font-size: 12px;
+  min-width: 80px;
+}
+.mine-val {
+  color: #f0f0f0;
+  font-size: 12px;
+  text-align: right;
+}
+.mine-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  transition: background 0.2s, opacity 0.2s;
+}
+.mine-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.mine-btn-start {
+  background: linear-gradient(135deg, #00d4ff 0%, #0099dd 100%);
+  color: #fff;
+}
+.mine-btn-start:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00e4ff 0%, #00aaee 100%);
+}
+.mine-btn-start.mining {
+  background: linear-gradient(135deg, #ff6b6b 0%, #cc4444 100%);
+}
+.mine-btn-start.mining:hover {
+  background: linear-gradient(135deg, #ff7b7b 0%, #dd5555 100%);
+}
+.mine-btn-payout {
+  background: linear-gradient(135deg, #4ecca3 0%, #38b090 100%);
+  color: #fff;
+}
+.mine-btn-payout:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5eddb3 0%, #48c0a0 100%);
+}

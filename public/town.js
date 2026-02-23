@@ -39,7 +39,7 @@ let kryptonReady = false;
 let currentTradeId = null;
 let pendingAd = null;
 
-// Krypton WASM init
+// Krypton WASM init (web.js full SDK)
 (async function initWasm() {
   try {
     if (typeof Krypton !== 'undefined') {
@@ -143,6 +143,8 @@ const NPC_POS = { x: 13, y: 11 };
 // House door locations (tile 6)
 // Bottom-right house door → Character Customizer
 const HOUSE_CHAR_POS = { x: 25, y: 19 };
+// Top-right house door → Mining House
+const HOUSE_MINE_POS = { x: 25, y: 4 };
 
 // ---- Socket ----
 let socket = null;
@@ -873,6 +875,32 @@ class TownScene extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(9999).setVisible(false);
 
+    // House (top-right) interaction hint — Mining House
+    this.houseMineHint = this.add.text(
+      HOUSE_MINE_POS.x * TILE + TILE / 2,
+      HOUSE_MINE_POS.y * TILE + TILE + 12,
+      (isMobile() ? '[ACT]' : '[SPACE]') + ' Mining',
+      {
+        fontSize: '10px', color: '#00d4ff', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        padding: { x: 5, y: 2 }
+      }
+    ).setOrigin(0.5).setDepth(9999).setVisible(false);
+
+    // Mining house label (always visible)
+    this.add.text(
+      HOUSE_MINE_POS.x * TILE + TILE / 2,
+      (HOUSE_MINE_POS.y - 3) * TILE + TILE / 2,
+      '⛏️ Mine',
+      {
+        fontSize: '9px', color: '#00d4ff', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3,
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        padding: { x: 4, y: 2 }
+      }
+    ).setOrigin(0.5).setDepth(200);
+
     // Player character — load customization config from localStorage
     this.myCharConfig = loadCharConfig();
     this.createAnimations();
@@ -1047,6 +1075,11 @@ class TownScene extends Phaser.Scene {
     const houseDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
       HOUSE_CHAR_POS.x * TILE + TILE / 2, HOUSE_CHAR_POS.y * TILE + TILE / 2);
     this.houseCharHint.setVisible(houseDist < TILE * 2);
+
+    // Check house (top-right) proximity — Mining House
+    const mineDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_MINE_POS.x * TILE + TILE / 2, HOUSE_MINE_POS.y * TILE + TILE / 2);
+    this.houseMineHint.setVisible(mineDist < TILE * 2);
 
     // Send position to server (throttled)
     this.sendPosition();
@@ -1588,6 +1621,15 @@ class TownScene extends Phaser.Scene {
     if (houseDist < TILE * 2) {
       TownSounds.playInteract();
       openCharModal();
+      return;
+    }
+
+    // Check house (top-right): open mining panel
+    const mineDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_MINE_POS.x * TILE + TILE / 2, HOUSE_MINE_POS.y * TILE + TILE / 2);
+    if (mineDist < TILE * 2) {
+      TownSounds.playInteract();
+      openMinePanel();
       return;
     }
 
@@ -2478,6 +2520,165 @@ function acceptTownDisclaimer() {
 // Check on page load
 if (!localStorage.getItem('btct_town_disclaimer_accepted')) {
   // Show disclaimer — game still loads behind it
+}
+
+// ======================== MINING PANEL ========================
+
+let mineInitializing = false;
+
+function openMinePanel() {
+  const modal = document.getElementById('mine-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    // Set address from active wallet
+    const addr = getActiveBtctAddr();
+    const addrEl = document.getElementById('mine-address');
+    if (addrEl) addrEl.textContent = addr ? '0x' + addr.replace(/^0x/, '') : 'No wallet connected';
+    // Set thread slider max
+    const slider = document.getElementById('mine-threads');
+    if (slider && typeof TownMiner !== 'undefined') {
+      slider.max = TownMiner.maxThreads;
+      const st = TownMiner.getState();
+      slider.value = st.threads;
+      const tval = document.getElementById('mine-thread-val');
+      if (tval) tval.textContent = st.threads + '/' + TownMiner.maxThreads;
+    }
+    updateMineUI();
+  }
+}
+
+function closeMinePanel() {
+  const modal = document.getElementById('mine-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function onMineThreadChange(val) {
+  const n = parseInt(val) || 1;
+  const tval = document.getElementById('mine-thread-val');
+  if (tval && typeof TownMiner !== 'undefined') tval.textContent = n + '/' + TownMiner.maxThreads;
+  if (typeof TownMiner !== 'undefined') TownMiner.setThreads(n);
+}
+
+async function toggleMining() {
+  if (typeof TownMiner === 'undefined') { showMineError('Mining module not loaded'); return; }
+
+  if (TownMiner.mining) {
+    TownMiner.stopMining();
+    return;
+  }
+
+  const addr = getActiveBtctAddr();
+  if (!addr) { showMineError('Connect a BTCT wallet first'); return; }
+
+  const btn = document.getElementById('mine-start-btn');
+  if (btn) { btn.textContent = '⏳ Initializing...'; btn.disabled = true; }
+  hideMineError();
+
+  try {
+    mineInitializing = true;
+    await TownMiner.startMining(addr);
+  } catch (e) {
+    console.error('[Mining]', e);
+    showMineError(e.message || 'Failed to start mining');
+  } finally {
+    mineInitializing = false;
+    if (btn) btn.disabled = false;
+    updateMineUI();
+  }
+}
+
+function requestMiningPayout() {
+  if (typeof TownMiner !== 'undefined') TownMiner.requestPayout();
+}
+
+function showMineError(msg) {
+  const el = document.getElementById('mine-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+function hideMineError() {
+  const el = document.getElementById('mine-error');
+  if (el) el.style.display = 'none';
+}
+
+function updateMineUI(state) {
+  if (typeof TownMiner === 'undefined') return;
+  const s = state || TownMiner.getState();
+
+  // Status
+  const statusEl = document.getElementById('mine-status');
+  if (statusEl) {
+    if (s.mining) {
+      if (s.connectionState === 'connected') {
+        statusEl.textContent = 'Mining ⛏️';
+        statusEl.style.color = '#4ecca3';
+      } else if (s.connectionState === 'connecting') {
+        statusEl.textContent = 'Connecting to pool...';
+        statusEl.style.color = '#f5c542';
+      } else {
+        statusEl.textContent = 'Reconnecting...';
+        statusEl.style.color = '#f5c542';
+      }
+    } else {
+      statusEl.textContent = 'Stopped';
+      statusEl.style.color = '#888';
+    }
+  }
+
+  // Consensus
+  const consEl = document.getElementById('mine-consensus');
+  if (consEl) {
+    const cmap = { connecting: '🔴 Connecting', syncing: '🟡 Syncing', established: '🟢 Synced' };
+    consEl.textContent = cmap[s.consensusState] || s.consensusState;
+  }
+
+  // Block height
+  const blockEl = document.getElementById('mine-block');
+  if (blockEl) blockEl.textContent = s.headHeight ? '#' + s.headHeight.toLocaleString() : '—';
+
+  // Hashrate
+  const hrEl = document.getElementById('mine-hashrate');
+  if (hrEl) hrEl.textContent = s.hashrateFormatted;
+
+  // Balance
+  const balEl = document.getElementById('mine-balance');
+  if (balEl) balEl.textContent = s.balanceFormatted + ' BTCT';
+  const confEl = document.getElementById('mine-confirmed');
+  if (confEl) confEl.textContent = s.confirmedBalanceFormatted + ' BTCT';
+
+  // Start/stop button
+  const btn = document.getElementById('mine-start-btn');
+  if (btn && !mineInitializing) {
+    if (s.mining) {
+      btn.textContent = '■ Stop Mining';
+      btn.classList.add('mining');
+    } else {
+      btn.textContent = '▶ Start Mining';
+      btn.classList.remove('mining');
+    }
+  }
+
+  // Payout button
+  const payBtn = document.getElementById('mine-payout-btn');
+  if (payBtn) {
+    payBtn.disabled = !s.mining || s.connectionState !== 'connected' || !s.confirmedBalance;
+  }
+
+  // Top bar mining icon
+  const mineBtn = document.getElementById('mine-open-btn');
+  if (mineBtn) {
+    if (s.mining) {
+      mineBtn.classList.add('mining-active');
+      mineBtn.title = 'Mining: ' + s.hashrateFormatted;
+    } else {
+      mineBtn.classList.remove('mining-active');
+      mineBtn.title = 'Mining';
+    }
+  }
+}
+
+// Register TownMiner update callback
+if (typeof TownMiner !== 'undefined') {
+  TownMiner.onUpdate(updateMineUI);
 }
 
 // ======================== PHASER CONFIG ========================
