@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260224d">
+  <link rel="stylesheet" href="town-style.css?v=20260224e">
 </head>
 <body>
   <!-- Top Bar -->
@@ -258,39 +258,39 @@
   <!-- Town Global Chat -->
   <div id="town-chat">
     <div id="town-chat-messages"></div>
+    <div id="emoji-bar" class="hidden">
+      <button onclick="sendTownEmoji('😀')">😀</button>
+      <button onclick="sendTownEmoji('😂')">😂</button>
+      <button onclick="sendTownEmoji('😍')">😍</button>
+      <button onclick="sendTownEmoji('😎')">😎</button>
+      <button onclick="sendTownEmoji('🤔')">🤔</button>
+      <button onclick="sendTownEmoji('😱')">😱</button>
+      <button onclick="sendTownEmoji('😭')">😭</button>
+      <button onclick="sendTownEmoji('🤩')">🤩</button>
+      <button onclick="sendTownEmoji('🥳')">🥳</button>
+      <button onclick="sendTownEmoji('😤')">😤</button>
+      <button onclick="sendTownEmoji('👍')">👍</button>
+      <button onclick="sendTownEmoji('👎')">👎</button>
+      <button onclick="sendTownEmoji('👋')">👋</button>
+      <button onclick="sendTownEmoji('🙏')">🙏</button>
+      <button onclick="sendTownEmoji('💪')">💪</button>
+      <button onclick="sendTownEmoji('🤝')">🤝</button>
+      <button onclick="sendTownEmoji('🎉')">🎉</button>
+      <button onclick="sendTownEmoji('🔥')">🔥</button>
+      <button onclick="sendTownEmoji('💰')">💰</button>
+      <button onclick="sendTownEmoji('💎')">💎</button>
+      <button onclick="sendTownEmoji('🚀')">🚀</button>
+      <button onclick="sendTownEmoji('⚡')">⚡</button>
+      <button onclick="sendTownEmoji('🐕')">🐕</button>
+      <button onclick="sendTownEmoji('📈')">📈</button>
+      <button onclick="sendTownEmoji('📉')">📉</button>
+      <button onclick="sendTownEmoji('₿')">₿</button>
+      <button onclick="sendTownEmoji('✅')">✅</button>
+      <button onclick="sendTownEmoji('❌')">❌</button>
+      <button onclick="sendTownEmoji('⏳')">⏳</button>
+      <button onclick="sendTownEmoji('❤️')">❤️</button>
+    </div>
     <div id="town-chat-input-row">
-      <div id="emoji-bar" class="hidden">
-        <button onclick="sendTownEmoji('😀')">😀</button>
-        <button onclick="sendTownEmoji('😂')">😂</button>
-        <button onclick="sendTownEmoji('😍')">😍</button>
-        <button onclick="sendTownEmoji('😎')">😎</button>
-        <button onclick="sendTownEmoji('🤔')">🤔</button>
-        <button onclick="sendTownEmoji('😱')">😱</button>
-        <button onclick="sendTownEmoji('😭')">😭</button>
-        <button onclick="sendTownEmoji('🤩')">🤩</button>
-        <button onclick="sendTownEmoji('🥳')">🥳</button>
-        <button onclick="sendTownEmoji('😤')">😤</button>
-        <button onclick="sendTownEmoji('👍')">👍</button>
-        <button onclick="sendTownEmoji('👎')">👎</button>
-        <button onclick="sendTownEmoji('👋')">👋</button>
-        <button onclick="sendTownEmoji('🙏')">🙏</button>
-        <button onclick="sendTownEmoji('💪')">💪</button>
-        <button onclick="sendTownEmoji('🤝')">🤝</button>
-        <button onclick="sendTownEmoji('🎉')">🎉</button>
-        <button onclick="sendTownEmoji('🔥')">🔥</button>
-        <button onclick="sendTownEmoji('💰')">💰</button>
-        <button onclick="sendTownEmoji('💎')">💎</button>
-        <button onclick="sendTownEmoji('🚀')">🚀</button>
-        <button onclick="sendTownEmoji('⚡')">⚡</button>
-        <button onclick="sendTownEmoji('🐕')">🐕</button>
-        <button onclick="sendTownEmoji('📈')">📈</button>
-        <button onclick="sendTownEmoji('📉')">📉</button>
-        <button onclick="sendTownEmoji('₿')">₿</button>
-        <button onclick="sendTownEmoji('✅')">✅</button>
-        <button onclick="sendTownEmoji('❌')">❌</button>
-        <button onclick="sendTownEmoji('⏳')">⏳</button>
-        <button onclick="sendTownEmoji('❤️')">❤️</button>
-      </div>
       <input type="text" id="town-chat-input" placeholder="Press Enter to chat..." maxlength="200" autocomplete="off">
       <button id="emoji-toggle-btn" onclick="toggleEmojiBar()" title="Emojis">😀</button>
     </div>
@@ -379,6 +379,6 @@
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260224a"></script>
+  <script src="town.js?v=20260224b"></script>
 </body>
 </html>

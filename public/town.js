@@ -1576,12 +1576,12 @@ class TownScene extends Phaser.Scene {
     if (!el) return;
     el.onclick = () => openTownWallet();
     if (!addr) {
-      el.innerHTML = '<span style="color:#e94560;">No Wallet — Click to create one</span>';
+      el.innerHTML = '<span class="wallet-addr" style="color:#e94560;">No Wallet — Click to create</span>';
       return;
     }
-    el.innerHTML = `<span style="color:#4ecca3;">${shortAddr(addr)}</span>`
-      + ` <span id="town-btct-bal" style="color:#f5c542;font-size:11px;">BTCT: …</span>`
-      + ` <span id="town-doge-bal" style="color:#b8d4ff;font-size:11px;">DOGE: ${dogeAddr ? '…' : '--'}</span>`;
+    el.innerHTML = `<span class="wallet-addr" style="color:#4ecca3;">${shortAddr(addr)}</span>`
+      + `<span class="wallet-bals"><span id="town-btct-bal" style="color:#f5c542;">BTCT: …</span>`
+      + ` <span id="town-doge-bal" style="color:#b8d4ff;">DOGE: ${dogeAddr ? '…' : '--'}</span></span>`;
     // 잔액 비동기 조회
     try {
       const b = await fetch(`/api/btct/balance/${addr}`).then(r => r.json());
