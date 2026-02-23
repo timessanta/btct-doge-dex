@@ -444,8 +444,8 @@ body {
   position: absolute;
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   left: 20px;
-  width: 120px;
-  height: 120px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -458,8 +458,8 @@ body {
 
 #joystick-stick {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.45);
@@ -641,7 +641,9 @@ body {
   #player-count { display: none; }
   .wallet-addr { font-size: 11px; }
   .wallet-bals { font-size: 9px; }
-  #town-chat { width: calc(100% - 24px); bottom: calc(190px + env(safe-area-inset-bottom, 0px)); left: 12px; }
+  #town-chat { width: calc(100% - 24px); bottom: calc(120px + env(safe-area-inset-bottom, 0px)); left: 12px; }
+  #town-chat-messages { max-height: 120px; }
+  #emoji-bar { position: fixed !important; left: 50% !important; bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important; transform: translateX(-50%) !important; width: 280px !important; grid-template-columns: repeat(10, 1fr) !important; border-radius: 10px !important; box-shadow: 0 -4px 20px rgba(0,0,0,0.6) !important; background: rgba(10,20,40,0.88) !important; }
 }
 
 /* ======================== Town Wallet Modal ======================== */
