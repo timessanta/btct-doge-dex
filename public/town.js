@@ -1223,8 +1223,11 @@ class TownScene extends Phaser.Scene {
       const color = this.addrToCssColor(addr);
       const line = document.createElement('div');
       line.className = 'town-chat-line';
-      const msgId = 'cm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" onclick="translateChat(this,'${escapeHtml(data.content).replace(/'/g,"\\'")}'" title="Translate">🌐</button><div class="chat-tl-result" id="${msgId}"></div>`;
+      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" title="Translate">🌐</button><div class="chat-tl-result"></div>`;
+      // Store original text safely via dataset
+      const btn = line.querySelector('.chat-tl-btn');
+      btn.dataset.text = data.content;
+      btn.addEventListener('click', function() { translateChat(this); });
       container.appendChild(line);
       // Keep max 50 messages
       while (container.children.length > 50) container.removeChild(container.firstChild);
@@ -3319,7 +3322,9 @@ function toggleEmojiBar() {
 }
 
 // ===================== Chat Translation (MyMemory API) =====================
-async function translateChat(btn, text) {
+async function translateChat(btn) {
+  const text = btn.dataset.text || '';
+  if (!text) return;
   const resultEl = btn.nextElementSibling;
   if (!resultEl) return;
   // Toggle off if already showing
@@ -3338,7 +3343,7 @@ async function translateChat(btn, text) {
     const res = await fetch(url);
     const data = await res.json();
     const translated = data?.responseData?.translatedText;
-    if (translated && translated !== text) {
+    if (translated && translated.toLowerCase() !== text.toLowerCase()) {
       resultEl.textContent = '↳ ' + translated;
       btn.style.opacity = '1';
     } else {

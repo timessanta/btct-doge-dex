@@ -606,7 +606,7 @@ body {
 .chat-tl-btn {
   background: none; border: none; cursor: pointer; font-size: 11px;
   opacity: 0.45; padding: 0 2px; vertical-align: middle; line-height: 1;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s; pointer-events: auto;
 }
 .chat-tl-btn:hover { opacity: 1; }
 .chat-tl-result {
