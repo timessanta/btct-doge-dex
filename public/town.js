@@ -1223,7 +1223,8 @@ class TownScene extends Phaser.Scene {
       const color = this.addrToCssColor(addr);
       const line = document.createElement('div');
       line.className = 'town-chat-line';
-      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span>`;
+      const msgId = 'cm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" onclick="translateChat(this,'${escapeHtml(data.content).replace(/'/g,"\\'")}'" title="Translate">🌐</button><div class="chat-tl-result" id="${msgId}"></div>`;
       container.appendChild(line);
       // Keep max 50 messages
       while (container.children.length > 50) container.removeChild(container.firstChild);
@@ -3315,6 +3316,40 @@ async function townWalletSendDoge() {
 function toggleEmojiBar() {
   const bar = document.getElementById('emoji-bar');
   if (bar) bar.classList.toggle('hidden');
+}
+
+// ===================== Chat Translation (MyMemory API) =====================
+async function translateChat(btn, text) {
+  const resultEl = btn.nextElementSibling;
+  if (!resultEl) return;
+  // Toggle off if already showing
+  if (resultEl.style.display === 'block') {
+    resultEl.style.display = 'none';
+    btn.style.opacity = '0.45';
+    return;
+  }
+  btn.style.opacity = '0.45';
+  btn.disabled = true;
+  resultEl.style.display = 'block';
+  resultEl.textContent = '...';
+  try {
+    const targetLang = (navigator.language || 'en').split('-')[0];
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const translated = data?.responseData?.translatedText;
+    if (translated && translated !== text) {
+      resultEl.textContent = '↳ ' + translated;
+      btn.style.opacity = '1';
+    } else {
+      resultEl.textContent = '↳ (no translation needed)';
+      btn.style.opacity = '0.3';
+    }
+  } catch (e) {
+    resultEl.textContent = '↳ translation failed';
+    btn.style.opacity = '0.3';
+  }
+  btn.disabled = false;
 }
 
 // Chat background auto-fade: active for 3s after last message, then fade to transparent
