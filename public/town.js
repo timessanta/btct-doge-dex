@@ -1346,6 +1346,23 @@ class TownScene extends Phaser.Scene {
       p.character = data.character || {};
     });
 
+    // ---- PvP Duel socket events ----
+    socket.on('townDuelChallenge', (data) => {
+      showDuelChallengePopup(data);
+    });
+    socket.on('townDuelResult', (data) => {
+      showDuelResultModal(data);
+    });
+    socket.on('townDuelRejected', (data) => {
+      townShowToast(`⚔️ ${shortAddr(data.defenderAddr)} rejected your duel.`, 3000);
+    });
+    socket.on('townDuelTimeout', (data) => {
+      townShowToast(`⏱️ ${data.msg}`, 3000);
+    });
+    socket.on('townDuelError', (data) => {
+      townShowToast(`❌ ${data.msg}`, 3500);
+    });
+
     // Enter key to activate/send town chat
     this.setupTownChat();
     // Market price panel
@@ -1798,7 +1815,14 @@ class TownScene extends Phaser.Scene {
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="townShowPlayerAds('${cleanAddr}')">View Listings</button>
         <button class="btn" style="flex:1;min-width:80px;background:#0f3460;color:#e0e0e0;border:1px solid #1a4a80;" onclick="townSendEmoji('${cleanAddr}')">👋 Wave</button>
+        <button class="btn duel-btn" id="pp-duel-btn" style="flex:1;min-width:80px;background:rgba(229,69,96,0.2);border:1px solid rgba(229,69,96,0.6);color:#e94560;" onclick="townRequestDuel('${cleanAddr}')">⚔️ Duel</button>
         <button class="btn btn-danger" onclick="closeModal()">Close</button>
+      </div>
+      <div id="pp-duel-bet" style="display:flex;align-items:center;gap:8px;margin-top:8px;background:rgba(245,197,66,0.07);border-radius:6px;padding:7px 10px;">
+        <span style="font-size:11px;color:#aaa;white-space:nowrap;">BIT Bet (0=Honor):</span>
+        <input id="pp-bet-input" type="number" min="0" max="1000" value="0"
+          style="width:72px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.15);color:#f5c542;border-radius:4px;padding:3px 6px;font-size:13px;text-align:center;">
+        <span style="font-size:10px;color:rgba(255,255,255,0.35);">max 1000</span>
       </div>
     `;
     modal.classList.remove('hidden');
@@ -3709,6 +3733,99 @@ function saveCharacter() {
 
   closeCharModal();
   townShowToast('🎨 Character saved!', 2500);
+}
+
+// ======================== PvP DUEL ========================
+
+function townRequestDuel(defenderAddr) {
+  if (!socket) { townShowToast('❌ Not connected.', 2500); return; }
+  // Check if defender is in town
+  const inTown = Object.values(otherPlayers).some(p => p.address === defenderAddr);
+  if (!inTown) { townShowToast('⚠️ That player is not in town right now.', 2500); return; }
+  const betAmount = parseInt(document.getElementById('pp-bet-input')?.value || '0') || 0;
+  socket.emit('townDuelRequest', { defenderAddr, betAmount });
+  townShowToast(`⚔️ Duel request sent! Waiting for response...`, 3000);
+  closeModal();
+}
+
+function showDuelChallengePopup({ requestId, challengerAddr, betAmount }) {
+  const modal = document.getElementById('duel-challenge-modal');
+  if (!modal) return;
+  const betLine = betAmount > 0
+    ? `<div style="margin-top:6px;color:#f5c542;font-size:13px;">💰 BIT Bet: <b>${betAmount}</b> (winner takes all)</div>`
+    : `<div style="margin-top:6px;color:#888;font-size:12px;">🏆 Honor duel (no bet)</div>`;
+  document.getElementById('duel-challenge-body').innerHTML = `
+    <div style="font-size:14px;margin-bottom:6px;">
+      <b style="color:#4ecca3">${shortAddr(challengerAddr)}</b> challenges you to a duel!
+    </div>
+    ${betLine}
+    <div style="font-size:11px;color:#888;margin-top:8px;">3 rounds · Best of 3 · Auto-battle</div>
+  `;
+  document.getElementById('duel-accept-btn').onclick = () => {
+    socket.emit('townDuelAccept', { requestId });
+    modal.classList.add('hidden');
+    townShowToast('⚔️ Duel accepted! Fighting...', 2000);
+  };
+  document.getElementById('duel-reject-btn').onclick = () => {
+    socket.emit('townDuelReject', { requestId });
+    modal.classList.add('hidden');
+  };
+  modal.classList.remove('hidden');
+  // Auto-reject after 15s
+  setTimeout(() => {
+    if (!modal.classList.contains('hidden')) {
+      socket.emit('townDuelReject', { requestId });
+      modal.classList.add('hidden');
+    }
+  }, 15000);
+}
+
+function showDuelResultModal({ rounds, winner, challengerAddr, defenderAddr, betAmount, winnerBit, winnerExp, loserExp, youWon }) {
+  const modal = document.getElementById('duel-result-modal');
+  if (!modal) return;
+
+  const myAddr = getActiveBtctAddr ? getActiveBtctAddr() : '';
+  const iAmChallenger = myAddr === challengerAddr;
+  const cLabel = iAmChallenger ? 'You' : shortAddr(challengerAddr);
+  const dLabel = iAmChallenger ? shortAddr(defenderAddr) : 'You';
+
+  let html = `<div style="text-align:center;margin-bottom:12px;">
+    ${youWon
+      ? '<div style="font-size:22px;color:#4ecca3;font-weight:bold;">🏆 YOU WIN!</div>'
+      : '<div style="font-size:22px;color:#e94560;font-weight:bold;">💀 DEFEAT</div>'}
+    <div style="font-size:11px;color:#888;margin-top:4px;">
+      ${youWon ? `+${winnerBit} BIT &nbsp; +${winnerExp} EXP` : `+${loserExp} EXP`}
+      ${betAmount > 0 ? `<span style="color:#f5c542"> · Bet: ${betAmount}</span>` : ''}
+    </div>
+  </div>
+  <div style="font-size:11px;display:flex;justify-content:space-between;margin-bottom:8px;color:#aaa;">
+    <span style="color:#4ecca3;font-weight:bold;">${cLabel}</span>
+    <span>vs</span>
+    <span style="color:#e94560;font-weight:bold;">${dLabel}</span>
+  </div>`;
+
+  rounds.forEach(r => {
+    const rWinLabel = r.roundWinner === 'c' ? cLabel : dLabel;
+    html += `<div class="duel-round-block">
+      <div class="duel-round-title">Round ${r.round} — <span style="color:#f5c542">${rWinLabel} wins</span>
+        <span style="color:#888;font-size:10px;">(${r.cWins}-${r.dWins})</span>
+      </div>
+      <div class="duel-log">`;
+    r.log.forEach(l => {
+      const atkLabel = l.attacker === 'c' ? cLabel : dLabel;
+      const defLabel = l.attacker === 'c' ? dLabel : cLabel;
+      html += `<div class="duel-log-line${l.crit ? ' crit' : ''}">
+        <span class="atk">${atkLabel}</span> → <span class="dmg">${l.crit ? '💥' : ''}${l.dmg}</span>
+        <span class="rem">(${defLabel} HP: ${l.attacker === 'c' ? l.dHp : l.cHp})</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="document.getElementById('duel-result-modal').classList.add('hidden');TownMobs.loadPlayerData();">OK</button>`;
+
+  document.getElementById('duel-result-body').innerHTML = html;
+  modal.classList.remove('hidden');
 }
 
 // ======================== HUNT MODE & SHOP ========================

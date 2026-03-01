@@ -84,6 +84,60 @@ async function getAdBubbleText(address) {
 }
 app.set('getAdBubbleText', getAdBubbleText);
 
+// ===================== PvP DUEL LOGIC =====================
+
+// In-memory pending duel requests (15s timeout)
+const pendingDuels = new Map();
+
+function simulateDuel(cStats, dStats) {
+  // cStats/dStats: { atk, def, max_hp } from DB
+  const rounds = [];
+  let cWins = 0, dWins = 0;
+
+  for (let r = 0; r < 3; r++) {
+    if (cWins === 2 || dWins === 2) break;
+
+    let cHp = cStats.max_hp;
+    let dHp = dStats.max_hp;
+    const log = [];
+    // 선공 랜덤
+    let turn = Math.random() < 0.5 ? 'c' : 'd';
+    let swings = 0;
+
+    while (cHp > 0 && dHp > 0 && swings < 60) {
+      if (turn === 'c') {
+        const crit = Math.random() < 0.05;
+        let dmg = Math.max(1, cStats.atk - Math.floor(dStats.def * 0.5));
+        if (crit) dmg = Math.round(dmg * 1.5);
+        dHp -= dmg;
+        log.push({ attacker: 'c', dmg, crit, cHp: Math.max(0, cHp), dHp: Math.max(0, dHp) });
+        turn = 'd';
+      } else {
+        const crit = Math.random() < 0.05;
+        let dmg = Math.max(1, dStats.atk - Math.floor(cStats.def * 0.5));
+        if (crit) dmg = Math.round(dmg * 1.5);
+        cHp -= dmg;
+        log.push({ attacker: 'd', dmg, crit, cHp: Math.max(0, cHp), dHp: Math.max(0, dHp) });
+        turn = 'c';
+      }
+      swings++;
+    }
+
+    // 라운드 승자 (HP 더 많이 남은 쪽, 동점이면 랜덤)
+    let roundWinner;
+    if (cHp > dHp) roundWinner = 'c';
+    else if (dHp > cHp) roundWinner = 'd';
+    else roundWinner = Math.random() < 0.5 ? 'c' : 'd';
+
+    if (roundWinner === 'c') cWins++;
+    else dWins++;
+
+    rounds.push({ round: r + 1, log, roundWinner, cHp: Math.max(0, cHp), dHp: Math.max(0, dHp), cWins, dWins });
+  }
+
+  return { winner: cWins >= 2 ? 'challenger' : 'defender', rounds };
+}
+
 io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id} (transport: ${socket.conn.transport.name})`);
 
@@ -243,8 +297,186 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---- PvP Duel Events ----
+  socket.on('townDuelRequest', async ({ defenderAddr, betAmount }) => {
+    try {
+      const challengerPlayer = townPlayers[socket.id];
+      if (!challengerPlayer) return;
+      const challengerAddr = challengerPlayer.address;
+      if (!challengerAddr || challengerAddr === defenderAddr) return;
+
+      betAmount = Math.max(0, Math.min(1000, parseInt(betAmount) || 0));
+
+      // Find defender socket
+      const defSocket = Object.entries(townPlayers).find(([, p]) => p.address === defenderAddr);
+      if (!defSocket) {
+        socket.emit('townDuelError', { msg: 'That player has left the town.' });
+        return;
+      }
+
+      // PvP cooldown: same pair within 5 min
+      const { pool } = require('./db');
+      const coolRow = await pool.query(
+        `SELECT id FROM town_duels WHERE ((challenger=$1 AND defender=$2) OR (challenger=$2 AND defender=$1))
+         AND created_at > NOW() - INTERVAL '5 minutes' AND status != 'pending' LIMIT 1`,
+        [challengerAddr, defenderAddr]
+      );
+      if (coolRow.rows.length > 0) {
+        socket.emit('townDuelError', { msg: 'You can only duel the same player once every 5 minutes.' });
+        return;
+      }
+
+      // BET: challenger must have enough BIT
+      if (betAmount > 0) {
+        const bitRow = await pool.query('SELECT bit_balance FROM town_players WHERE btct_address=$1', [challengerAddr]);
+        if (!bitRow.rows.length || Number(bitRow.rows[0].bit_balance) < betAmount) {
+          socket.emit('townDuelError', { msg: `Not enough BIT to bet ${betAmount}.` });
+          return;
+        }
+      }
+
+      const requestId = `duel_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+      pendingDuels.set(requestId, {
+        challengerSid: socket.id,
+        defenderSid: defSocket[0],
+        challengerAddr,
+        defenderAddr,
+        betAmount,
+        timeout: setTimeout(() => {
+          if (pendingDuels.has(requestId)) {
+            pendingDuels.delete(requestId);
+            socket.emit('townDuelTimeout', { msg: 'Duel request timed out.' });
+          }
+        }, 15000)
+      });
+
+      io.to(defSocket[0]).emit('townDuelChallenge', {
+        requestId,
+        challengerAddr,
+        betAmount,
+      });
+    } catch (e) {
+      console.error('[Duel] request error:', e.message);
+    }
+  });
+
+  socket.on('townDuelAccept', async ({ requestId }) => {
+    try {
+      const req = pendingDuels.get(requestId);
+      if (!req) {
+        socket.emit('townDuelError', { msg: 'Duel request expired.' });
+        return;
+      }
+      clearTimeout(req.timeout);
+      pendingDuels.delete(requestId);
+
+      const { pool } = require('./db');
+
+      // Fetch both players' stats
+      const [cRow, dRow] = await Promise.all([
+        pool.query('SELECT * FROM town_players WHERE btct_address=$1', [req.challengerAddr]),
+        pool.query('SELECT * FROM town_players WHERE btct_address=$1', [req.defenderAddr]),
+      ]);
+      if (!cRow.rows.length || !dRow.rows.length) {
+        io.to(req.challengerSid).emit('townDuelError', { msg: 'Player data not found.' });
+        return;
+      }
+
+      const cStats = cRow.rows[0];
+      const dStats = dRow.rows[0];
+
+      // BET: deduct from both if bet > 0
+      if (req.betAmount > 0) {
+        const dBit = await pool.query('SELECT bit_balance FROM town_players WHERE btct_address=$1', [req.defenderAddr]);
+        if (!dBit.rows.length || Number(dBit.rows[0].bit_balance) < req.betAmount) {
+          io.to(req.challengerSid).emit('townDuelError', { msg: 'Opponent does not have enough BIT for the bet.' });
+          io.to(req.defenderSid).emit('townDuelError', { msg: 'You do not have enough BIT for the bet.' });
+          return;
+        }
+        await pool.query('UPDATE town_players SET bit_balance = bit_balance - $1 WHERE btct_address=$2', [req.betAmount, req.challengerAddr]);
+        await pool.query('UPDATE town_players SET bit_balance = bit_balance - $1 WHERE btct_address=$2', [req.betAmount, req.defenderAddr]);
+      }
+
+      // === 3-round best-of-3 battle ===
+      const result = simulateDuel(cStats, dStats);
+
+      const winnerAddr = result.winner === 'challenger' ? req.challengerAddr : req.defenderAddr;
+      const loserAddr  = result.winner === 'challenger' ? req.defenderAddr : req.challengerAddr;
+      const winnerSid  = result.winner === 'challenger' ? req.challengerSid : req.defenderSid;
+      const loserSid   = result.winner === 'challenger' ? req.defenderSid : req.challengerSid;
+
+      // Rewards
+      const BASE_BIT_WIN = 30;
+      const BASE_EXP_WIN = 20;
+      const BASE_EXP_LOSE = 8;
+      const totalBitWin = BASE_BIT_WIN + req.betAmount * 2;
+
+      await pool.query(
+        `UPDATE town_players SET
+           bit_balance = bit_balance + $1,
+           exp = exp + $2,
+           level = GREATEST(level, floor((exp + $2) / 100)::int + 1),
+           max_hp = 100 + (GREATEST(level, floor((exp + $2) / 100)::int + 1) - 1) * 10,
+           atk = 10 + (GREATEST(level, floor((exp + $2) / 100)::int + 1) - 1) * 2
+         WHERE btct_address=$3`,
+        [totalBitWin, BASE_EXP_WIN, winnerAddr]
+      );
+      await pool.query(
+        `UPDATE town_players SET
+           exp = exp + $1,
+           level = GREATEST(level, floor((exp + $1) / 100)::int + 1),
+           max_hp = 100 + (GREATEST(level, floor((exp + $1) / 100)::int + 1) - 1) * 10,
+           atk = 10 + (GREATEST(level, floor((exp + $1) / 100)::int + 1) - 1) * 2
+         WHERE btct_address=$2`,
+        [BASE_EXP_LOSE, loserAddr]
+      );
+
+      // Save to DB
+      await pool.query(
+        `INSERT INTO town_duels (challenger, defender, winner, rounds_log, bet_amount, base_reward_bit, base_reward_exp, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed')`,
+        [req.challengerAddr, req.defenderAddr, winnerAddr, JSON.stringify(result.rounds), req.betAmount, BASE_BIT_WIN, BASE_EXP_WIN]
+      );
+
+      const payload = {
+        rounds: result.rounds,
+        winner: winnerAddr,
+        loser: loserAddr,
+        challengerAddr: req.challengerAddr,
+        defenderAddr: req.defenderAddr,
+        betAmount: req.betAmount,
+        winnerBit: totalBitWin,
+        winnerExp: BASE_EXP_WIN,
+        loserExp: BASE_EXP_LOSE,
+      };
+
+      io.to(winnerSid).emit('townDuelResult', { ...payload, youWon: true });
+      io.to(loserSid).emit('townDuelResult', { ...payload, youWon: false });
+
+    } catch (e) {
+      console.error('[Duel] accept error:', e.message);
+    }
+  });
+
+  socket.on('townDuelReject', ({ requestId }) => {
+    const req = pendingDuels.get(requestId);
+    if (!req) return;
+    clearTimeout(req.timeout);
+    pendingDuels.delete(requestId);
+    io.to(req.challengerSid).emit('townDuelRejected', { defenderAddr: req.defenderAddr });
+  });
+
   // ---- Disconnect cleanup ----
   socket.on('disconnect', () => {
+    // Cancel any pending duels involving this socket
+    for (const [id, req] of pendingDuels.entries()) {
+      if (req.challengerSid === socket.id || req.defenderSid === socket.id) {
+        clearTimeout(req.timeout);
+        pendingDuels.delete(id);
+        const otherSid = req.challengerSid === socket.id ? req.defenderSid : req.challengerSid;
+        io.to(otherSid).emit('townDuelError', { msg: 'Opponent disconnected.' });
+      }
+    }
     if (townPlayers[socket.id]) {
       delete townPlayers[socket.id];
       io.emit('townPlayerLeft', {

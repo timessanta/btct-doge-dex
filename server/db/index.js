@@ -112,6 +112,22 @@ async function initDB() {
       )
     `);
 
+    // Town RPG — PvP Duel records
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS town_duels (
+        id SERIAL PRIMARY KEY,
+        challenger VARCHAR(42) NOT NULL,
+        defender VARCHAR(42) NOT NULL,
+        winner VARCHAR(42),
+        rounds_log JSONB,
+        bet_amount BIGINT DEFAULT 0,
+        base_reward_bit INT DEFAULT 30,
+        base_reward_exp INT DEFAULT 20,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     console.log('[DB] Tables initialized');
   } catch (err) {
     console.error('[DB] Init error:', err.message);

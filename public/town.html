@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260302g">
+  <link rel="stylesheet" href="town-style.css?v=20260302h">
 </head>
 <body>
   <!-- Top Bar -->
@@ -378,6 +378,31 @@
     </div>
   </div>
 
+  <!-- Duel Challenge Popup (incoming) -->
+  <div id="duel-challenge-modal" class="modal-overlay hidden" style="z-index:9500;">
+    <div class="modal-box" style="max-width:320px;width:92%;">
+      <div class="modal-header" style="background:rgba(229,69,96,0.15);border-bottom:1px solid rgba(229,69,96,0.35);">
+        <span>⚔️ Duel Challenge!</span>
+      </div>
+      <div id="duel-challenge-body" style="padding:14px 18px 10px;"></div>
+      <div style="display:flex;gap:8px;padding:0 18px 14px;">
+        <button id="duel-accept-btn" class="btn btn-primary" style="flex:1;background:#27ae60;">✅ Accept</button>
+        <button id="duel-reject-btn" class="btn btn-danger" style="flex:1;">❌ Reject</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duel Result Modal -->
+  <div id="duel-result-modal" class="modal-overlay hidden" style="z-index:9500;">
+    <div class="modal-box" style="max-width:380px;width:94%;max-height:80vh;overflow-y:auto;">
+      <div class="modal-header" style="background:rgba(78,204,163,0.08);border-bottom:1px solid rgba(78,204,163,0.25);">
+        <span>⚔️ Duel Result</span>
+        <button onclick="document.getElementById('duel-result-modal').classList.add('hidden');TownMobs.loadPlayerData();">&#x2715;</button>
+      </div>
+      <div id="duel-result-body" style="padding:14px 18px;"></div>
+    </div>
+  </div>
+
   <!-- Shop Modal -->
   <div id="shop-modal" class="modal-overlay hidden">
     <div class="modal-box" style="max-width:400px;width:94%;">
@@ -421,6 +446,6 @@
   <script src="doge-htlc.js?v=20260220i"></script>
   <script src="town-mob.js?v=20260302c"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260302e"></script>
+  <script src="town.js?v=20260302f"></script>
 </body>
 </html>
