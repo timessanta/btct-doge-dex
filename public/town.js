@@ -1826,12 +1826,26 @@ class TownScene extends Phaser.Scene {
       </div>
       <div id="pp-duel-bet" style="display:flex;align-items:center;gap:8px;margin-top:8px;background:rgba(245,197,66,0.07);border-radius:6px;padding:7px 10px;">
         <span style="font-size:11px;color:#aaa;white-space:nowrap;">BIT Bet (0=Honor):</span>
-        <input id="pp-bet-input" type="number" min="0" max="1000" value="0"
+        <input id="pp-bet-input" type="number" min="0" max="1000" step="1" value="0"
           style="width:72px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.15);color:#f5c542;border-radius:4px;padding:3px 6px;font-size:13px;text-align:center;">
         <span style="font-size:10px;color:rgba(255,255,255,0.35);">max 1000</span>
       </div>
     `;
     modal.classList.remove('hidden');
+
+    // Disable Phaser keyboard when bet input is focused (arrow keys captured by Phaser)
+    setTimeout(() => {
+      const betInput = document.getElementById('pp-bet-input');
+      if (betInput) {
+        const getPhaserScene = () => game?.scene?.scenes?.find(s => s.input?.keyboard);
+        betInput.addEventListener('focus', () => {
+          const s = getPhaserScene(); if (s) s.input.keyboard.enabled = false;
+        });
+        betInput.addEventListener('blur', () => {
+          const s = getPhaserScene(); if (s) s.input.keyboard.enabled = true;
+        });
+      }
+    }, 0);
 
     // Async fetch profile stats
     (async () => {
@@ -1861,6 +1875,11 @@ function closePanel() {
 function closeModal() {
   document.getElementById('trade-modal').classList.add('hidden');
   currentTradeId = null;
+  // Re-enable Phaser keyboard in case it was disabled by bet input focus
+  if (game?.scene?.scenes) {
+    const s = game.scene.scenes.find(sc => sc.input?.keyboard);
+    if (s) s.input.keyboard.enabled = true;
+  }
 }
 
 // ======================== PANEL TAB SYSTEM ========================
