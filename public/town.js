@@ -1030,22 +1030,22 @@ class TownScene extends Phaser.Scene {
       if (this.input.keyboard) {
         this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
         this.attackKey.on('down', () => {
-          const ci = document.getElementById('town-chat-input');
-          if (ci && document.activeElement === ci) return;
+          const tag = document.activeElement?.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           TownMobs.playerAttack();
         });
         // "Q" key for quick drink
         this.drinkKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
         this.drinkKey.on('down', () => {
-          const ci = document.getElementById('town-chat-input');
-          if (ci && document.activeElement === ci) return;
+          const tag = document.activeElement?.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           TownMobs.useItem('drink_s');
         });
         // "C" key for stats
         this.statsKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
         this.statsKey.on('down', () => {
-          const ci = document.getElementById('town-chat-input');
-          if (ci && document.activeElement === ci) return;
+          const tag = document.activeElement?.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           const sm = document.getElementById('stats-modal');
           if (sm && !sm.classList.contains('hidden')) { closeStatsModal(); } else { openStatsModal(); }
         });
