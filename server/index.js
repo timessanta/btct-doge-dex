@@ -318,11 +318,11 @@ io.on('connection', (socket) => {
       const { pool } = require('./db');
       const coolRow = await pool.query(
         `SELECT id FROM town_duels WHERE ((challenger=$1 AND defender=$2) OR (challenger=$2 AND defender=$1))
-         AND created_at > NOW() - INTERVAL '5 minutes' AND status != 'pending' LIMIT 1`,
+         AND created_at > NOW() - INTERVAL '1 minute' AND status != 'pending' LIMIT 1`,
         [challengerAddr, defenderAddr]
       );
       if (coolRow.rows.length > 0) {
-        socket.emit('townDuelError', { msg: 'You can only duel the same player once every 5 minutes.' });
+        socket.emit('townDuelError', { msg: 'You can only duel the same player once every 1 minute.' });
         return;
       }
 
