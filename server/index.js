@@ -223,6 +223,23 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ---- Town Wave (1:1) ----
+  socket.on('townWave', (data) => {
+    if (!townPlayers[socket.id]) return;
+    const targetAddr = (data.targetAddr || '').replace(/^0x/, '').toLowerCase();
+    if (!targetAddr) return;
+    const sender = townPlayers[socket.id];
+    // Find target socket
+    const targetSocketId = Object.keys(townPlayers).find(sid => townPlayers[sid].address === targetAddr);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('townWaveReceived', {
+        id: socket.id,
+        address: sender.address,
+        emoji: '👋',
+      });
+    }
+  });
+
   // ---- Chat & Trade Events ----
 
   // Register address room for personal notifications

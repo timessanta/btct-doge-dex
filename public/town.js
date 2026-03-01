@@ -1337,6 +1337,12 @@ class TownScene extends Phaser.Scene {
       this.showEmojiBubble(data.id, data.address, data.emoji);
     });
 
+    // 1:1 Wave received
+    socket.on('townWaveReceived', (data) => {
+      this.showEmojiBubble(data.id, data.address, '👋');
+      showToast('👋 ' + '0x' + data.address.substring(0, 8) + '... 님이 인사를 건넸어요!');
+    });
+
     // Character update from another player
     socket.on('townCharUpdate', (data) => {
       if (!data.id || !otherPlayers[data.id]) return;
@@ -3517,9 +3523,14 @@ function sendTownEmoji(emoji) {
   // Do NOT auto-hide — close via toggle button only
 }
 
-// Wave at a player from profile modal
+// Wave at a player from profile modal (1:1)
 function townSendEmoji(targetAddr) {
-  sendTownEmoji('👋');
+  if (socket) socket.emit('townWave', { targetAddr });
+  // Show on self locally
+  if (game && game.scene && game.scene.scenes) {
+    const scene = game.scene.scenes.find(s => s.showEmojiBubble);
+    if (scene) scene.showEmojiBubble(null, getActiveBtctAddr(), '👋');
+  }
   closeModal();
 }
 
