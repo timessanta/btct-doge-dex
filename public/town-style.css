@@ -1300,3 +1300,8 @@ body {
 }
 .duel-shake { animation: duelShake 0.3s ease; }
 .duel-log-line { animation: duelFadeIn 0.2s ease; }
+
+/* Hide number input spinners */
+#pp-bet-input::-webkit-inner-spin-button,
+#pp-bet-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#pp-bet-input { -moz-appearance: textfield; }
