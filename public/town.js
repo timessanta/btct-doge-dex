@@ -1028,21 +1028,21 @@ class TownScene extends Phaser.Scene {
       }
       // "1" key for attack
       if (this.input.keyboard) {
-        this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+        this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE, false);
         this.attackKey.on('down', () => {
           const tag = document.activeElement?.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           TownMobs.playerAttack();
         });
         // "Q" key for quick drink
-        this.drinkKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+        this.drinkKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q, false);
         this.drinkKey.on('down', () => {
           const tag = document.activeElement?.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           TownMobs.useItem('drink_s');
         });
         // "C" key for stats
-        this.statsKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.statsKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C, false);
         this.statsKey.on('down', () => {
           const tag = document.activeElement?.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
