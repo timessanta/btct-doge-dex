@@ -2781,9 +2781,13 @@ if (typeof TownMiner !== 'undefined') {
 // ======================== PHASER CONFIG ========================
 
 function getGameHeight() {
+  const gc = document.getElementById('game-container');
+  if (gc && gc.clientHeight > 0) return gc.clientHeight;
   return (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 44;
 }
 function getGameWidth() {
+  const gc = document.getElementById('game-container');
+  if (gc && gc.clientWidth > 0) return gc.clientWidth;
   return window.visualViewport ? window.visualViewport.width : window.innerWidth;
 }
 
