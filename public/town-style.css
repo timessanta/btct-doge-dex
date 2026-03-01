@@ -1004,8 +1004,8 @@ body {
 /* Mobile attack button */
 #mobile-attack-btn {
   position: fixed;
-  bottom: calc(70px + env(safe-area-inset-bottom));
-  right: 80px;
+  bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  right: 128px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -1017,8 +1017,12 @@ body {
   font-size: 22px;
   cursor: pointer;
   z-index: 6000;
+  pointer-events: auto;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
   transition: background 0.15s;
 }
 #mobile-attack-btn.hidden { display: none; }
@@ -1031,6 +1035,9 @@ body {
 @media (max-width: 600px) {
   #combat-hud {
     top: 52px;
+    left: auto;
+    right: 8px;
+    transform: none;
     gap: 4px;
   }
   #combat-info { font-size: 10px; gap: 6px; padding: 3px 8px; }

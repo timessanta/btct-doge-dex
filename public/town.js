@@ -1022,7 +1022,9 @@ class TownScene extends Phaser.Scene {
       const mobileAtkBtn = document.getElementById('mobile-attack-btn');
       if (mobileAtkBtn) {
         mobileAtkBtn.classList.toggle('hidden', !TownMobs.enabled || !isMobile());
-        mobileAtkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); TownMobs.playerAttack(); });
+        mobileAtkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); TownMobs.playerAttack(); }, { passive: false });
+        mobileAtkBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+        mobileAtkBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.pointerType !== 'touch') return; TownMobs.playerAttack(); });
       }
       // "1" key for attack
       if (this.input.keyboard) {
