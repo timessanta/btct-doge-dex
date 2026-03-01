@@ -968,20 +968,20 @@
     createPlayerHpBar(scene) {
       this._hpBarBg = scene.add.rectangle(0, 0, 30, 5, 0x222222);
       this._hpBarBg.setOrigin(0.5);
-      this._hpBarBg.setDepth(99994);
+      this._hpBarBg.setDepth(100000);
       this._hpBarBg.setAlpha(0.7);
       this._hpBarBg.setStrokeStyle(0.5, 0x4ecca3, 0.4);
 
       this._hpBarFill = scene.add.rectangle(0, 0, 30, 5, 0x44cc44);
       this._hpBarFill.setOrigin(0.5);
-      this._hpBarFill.setDepth(99995);
+      this._hpBarFill.setDepth(100001);
 
       this._hpBarText = scene.add.text(0, 0, '', {
         fontSize: '7px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
         color: '#fff', stroke: '#000', strokeThickness: 1,
       });
       this._hpBarText.setOrigin(0.5);
-      this._hpBarText.setDepth(99996);
+      this._hpBarText.setDepth(100002);
 
       this._hpBarVisible = false;
       this._setHpBarVisible(false);
@@ -999,7 +999,7 @@
       const show = this.enabled;
       if (show !== this._hpBarVisible) this._setHpBarVisible(show);
       if (!show) return;
-      const barY = y - 18;
+      const barY = y - 32;
       if (this._hpBarBg) this._hpBarBg.setPosition(x, barY);
       if (this._hpBarFill) this._hpBarFill.setPosition(x, barY);
       if (this._hpBarText) this._hpBarText.setPosition(x, barY);
