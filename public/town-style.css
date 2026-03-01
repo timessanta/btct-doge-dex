@@ -857,7 +857,8 @@ body {
 #combat-hud {
   position: fixed;
   top: 38px;
-  left: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1030,7 +1031,6 @@ body {
 @media (max-width: 600px) {
   #combat-hud {
     top: 36px;
-    left: 4px;
     gap: 4px;
   }
   #combat-info { font-size: 10px; gap: 6px; padding: 3px 8px; }
