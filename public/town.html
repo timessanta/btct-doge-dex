@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260302c">
+  <link rel="stylesheet" href="town-style.css?v=20260302d">
 </head>
 <body>
   <!-- Top Bar -->
@@ -27,7 +27,7 @@
   <!-- Combat HUD -->
   <div id="combat-hud" class="hidden">
     <div id="combat-info">
-      <span id="level-display">Lv.1</span>
+      <span id="level-display" onclick="openStatsModal()" title="View Stats (C)">Lv.1</span>
       <span id="bit-display">0 BIT</span>
     </div>
     <button id="quick-drink" onclick="TownMobs.useItem('drink_s')" title="Use Energy Drink (Q)">🧃 0</button>
@@ -367,6 +367,17 @@
     </div>
   </div>
 
+  <!-- Character Stats Modal -->
+  <div id="stats-modal" class="modal-overlay hidden">
+    <div class="modal-box stats-modal-box">
+      <div class="modal-header">
+        <span>⚔️ Character Stats</span>
+        <button onclick="closeStatsModal()">&#x2715;</button>
+      </div>
+      <div id="stats-content" style="padding:14px 18px;"></div>
+    </div>
+  </div>
+
   <!-- Shop Modal -->
   <div id="shop-modal" class="modal-overlay hidden">
     <div class="modal-box" style="max-width:400px;width:94%;">
@@ -398,7 +409,7 @@
     <span>Arrow Keys / WASD to move</span>
     <span>SPACE near NPC to interact</span>
     <span>1 to Attack (Hunt Mode)</span>
-    <span>Q to use Drink</span>
+    <span>Q to use Drink &nbsp; C for Stats</span>
     <span>ENTER to chat</span>
     <span><a href="/privacy" target="_blank" style="color:#666;">Privacy Policy</a></span>
   </div>
@@ -408,8 +419,8 @@
   <script src="web.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town-mob.js?v=20260302b"></script>
+  <script src="town-mob.js?v=20260302c"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260302a"></script>
+  <script src="town.js?v=20260302b"></script>
 </body>
 </html>

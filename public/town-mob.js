@@ -1024,11 +1024,140 @@
     getShopItems() {
       return Object.entries(ITEMS).map(([id, item]) => ({ id, ...item }));
     },
+
+    // ---- Stats Modal ----
+    async openStatsModal() {
+      const modal = document.getElementById('stats-modal');
+      const content = document.getElementById('stats-content');
+      if (!modal || !content) return;
+      modal.classList.remove('hidden');
+      content.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.4);font-size:13px;padding:20px 0;">Loading...</div>';
+
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) {
+        content.innerHTML = '<div style="text-align:center;color:rgba(255,80,80,0.8);font-size:13px;padding:20px 0;">Wallet not connected</div>';
+        return;
+      }
+
+      try {
+        const data = await fetch(`/api/town/player/${addr}`).then(r => r.json());
+        const lvl = data.level || 1;
+        const exp = Number(data.exp) || 0;
+        const expForLevel = (lvl - 1) * 100;
+        const expThisLevel = exp - expForLevel;
+        const expPercent = Math.min(100, (expThisLevel / 100) * 100);
+        const kills = data.mobs_killed || 0;
+        const deaths = data.deaths || 0;
+        const bits = Number(data.bit_balance) || 0;
+        const hp = this.playerHp;
+        const maxHp = data.max_hp || 100;
+        const atk = data.atk || 10;
+        const def = data.def || 0;
+        const crit = Math.round((this.playerStats.critRate || 0.05) * 100);
+        const spd = this.playerStats.atkSpd || 0.8;
+        const inv = data.inventory || [];
+
+        let invHtml = '';
+        if (inv.length === 0) {
+          invHtml = '<div class="stats-empty-inv">Inventory is empty</div>';
+        } else {
+          invHtml = '<div class="stats-inv-list">';
+          inv.forEach(slot => {
+            const def2 = ITEMS[slot.item_id];
+            if (!def2) return;
+            invHtml += `<div class="stats-inv-item">
+              <span class="stats-inv-name">${def2.emoji} ${def2.name}</span>
+              <span class="stats-inv-qty">×${slot.quantity}</span>
+              <button class="stats-inv-use" onclick="TownMobs.useItem('${slot.item_id}');TownMobs.openStatsModal();">\u25b6 Use</button>
+            </div>`;
+          });
+          invHtml += '</div>';
+        }
+
+        content.innerHTML = `
+          <!-- EXP -->
+          <div class="stats-section-title">Experience</div>
+          <div class="stats-exp-wrap">
+            <span class="stats-exp-label">Lv.${lvl}</span>
+            <div class="stats-exp-bar-bg">
+              <div class="stats-exp-bar-fill" style="width:${expPercent}%"></div>
+            </div>
+            <span class="stats-exp-text">${expThisLevel}/100</span>
+          </div>
+          <hr class="stats-divider">
+
+          <!-- Vitals -->
+          <div class="stats-section-title">Vitals &amp; Combat</div>
+          <div class="stats-grid">
+            <div class="stats-cell">
+              <span class="stats-cell-icon">❤️</span>
+              <span class="stats-cell-label">HP</span>
+              <span class="stats-cell-value">${Math.max(0,Math.round(hp))} / ${maxHp}</span>
+            </div>
+            <div class="stats-cell">
+              <span class="stats-cell-icon">⚔️</span>
+              <span class="stats-cell-label">ATK</span>
+              <span class="stats-cell-value">${atk}</span>
+            </div>
+            <div class="stats-cell">
+              <span class="stats-cell-icon">🎯</span>
+              <span class="stats-cell-label">CRIT</span>
+              <span class="stats-cell-value">${crit}%</span>
+            </div>
+            <div class="stats-cell">
+              <span class="stats-cell-icon">🛡️</span>
+              <span class="stats-cell-label">DEF</span>
+              <span class="stats-cell-value">${def}</span>
+            </div>
+            <div class="stats-cell">
+              <span class="stats-cell-icon">⚡</span>
+              <span class="stats-cell-label">SPD</span>
+              <span class="stats-cell-value">${spd}s</span>
+            </div>
+          </div>
+          <hr class="stats-divider">
+
+          <!-- Battle Record -->
+          <div class="stats-section-title">Battle Record</div>
+          <div class="stats-battle-row">
+            <div class="stats-battle-cell">
+              <span class="stats-battle-icon">🏆</span>
+              <span class="stats-battle-label">Kills</span>
+              <span class="stats-battle-value">${kills.toLocaleString()}</span>
+            </div>
+            <div class="stats-battle-cell">
+              <span class="stats-battle-icon">💀</span>
+              <span class="stats-battle-label">Deaths</span>
+              <span class="stats-battle-value">${deaths.toLocaleString()}</span>
+            </div>
+            <div class="stats-battle-cell">
+              <span class="stats-battle-icon">💰</span>
+              <span class="stats-battle-label">BIT</span>
+              <span class="stats-battle-value" style="color:#f5c542">${bits.toLocaleString()}</span>
+            </div>
+          </div>
+          <hr class="stats-divider">
+
+          <!-- Inventory -->
+          <div class="stats-section-title">Inventory</div>
+          ${invHtml}
+        `;
+      } catch (e) {
+        content.innerHTML = '<div style="text-align:center;color:rgba(255,80,80,0.8);font-size:13px;padding:16px 0;">Failed to load stats</div>';
+      }
+    },
+
+    closeStatsModal() {
+      const modal = document.getElementById('stats-modal');
+      if (modal) modal.classList.add('hidden');
+    },
   };
 
   // ---- Expose globally ----
   window.TownMobs = TownMobs;
   window.MOB_TYPES = MOB_TYPES;
   window.ITEMS = ITEMS;
+  window.openStatsModal = () => TownMobs.openStatsModal();
+  window.closeStatsModal = () => TownMobs.closeStatsModal();
 
 })();

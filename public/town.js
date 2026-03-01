@@ -1039,6 +1039,14 @@ class TownScene extends Phaser.Scene {
           if (ci && document.activeElement === ci) return;
           TownMobs.useItem('drink_s');
         });
+        // "C" key for stats
+        this.statsKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.statsKey.on('down', () => {
+          const ci = document.getElementById('town-chat-input');
+          if (ci && document.activeElement === ci) return;
+          const sm = document.getElementById('stats-modal');
+          if (sm && !sm.classList.contains('hidden')) { closeStatsModal(); } else { openStatsModal(); }
+        });
       }
     }
   }
