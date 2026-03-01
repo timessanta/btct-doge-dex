@@ -3780,52 +3780,118 @@ function showDuelChallengePopup({ requestId, challengerAddr, betAmount }) {
   }, 15000);
 }
 
-function showDuelResultModal({ rounds, winner, challengerAddr, defenderAddr, betAmount, winnerBit, winnerExp, loserExp, youWon }) {
+function showDuelResultModal(data) {
   const modal = document.getElementById('duel-result-modal');
-  if (!modal) return;
+  const body = document.getElementById('duel-result-body');
+  if (!modal || !body) return;
 
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const { rounds, winner, challengerAddr, defenderAddr, betAmount, winnerBit, winnerExp, loserExp, youWon } = data;
   const myAddr = getActiveBtctAddr ? getActiveBtctAddr() : '';
   const iAmChallenger = myAddr === challengerAddr;
   const cLabel = iAmChallenger ? 'You' : shortAddr(challengerAddr);
   const dLabel = iAmChallenger ? shortAddr(defenderAddr) : 'You';
 
-  let html = `<div style="text-align:center;margin-bottom:12px;">
-    ${youWon
-      ? '<div style="font-size:22px;color:#4ecca3;font-weight:bold;">🏆 YOU WIN!</div>'
-      : '<div style="font-size:22px;color:#e94560;font-weight:bold;">💀 DEFEAT</div>'}
-    <div style="font-size:11px;color:#888;margin-top:4px;">
-      ${youWon ? `+${winnerBit} BIT &nbsp; +${winnerExp} EXP` : `+${loserExp} EXP`}
-      ${betAmount > 0 ? `<span style="color:#f5c542"> · Bet: ${betAmount}</span>` : ''}
-    </div>
-  </div>
-  <div style="font-size:11px;display:flex;justify-content:space-between;margin-bottom:8px;color:#aaa;">
-    <span style="color:#4ecca3;font-weight:bold;">${cLabel}</span>
-    <span>vs</span>
-    <span style="color:#e94560;font-weight:bold;">${dLabel}</span>
-  </div>`;
-
-  rounds.forEach(r => {
-    const rWinLabel = r.roundWinner === 'c' ? cLabel : dLabel;
-    html += `<div class="duel-round-block">
-      <div class="duel-round-title">Round ${r.round} — <span style="color:#f5c542">${rWinLabel} wins</span>
-        <span style="color:#888;font-size:10px;">(${r.cWins}-${r.dWins})</span>
+  body.innerHTML = `
+    <div class="duel-vs-wrap">
+      <div class="duel-fighter" id="duel-f-left">
+        <div class="duel-fighter-char">${iAmChallenger ? '🧙' : '👤'}</div>
+        <div class="duel-fighter-name">${cLabel}</div>
+        <div class="duel-fighter-hp-bg"><div class="duel-fighter-hp-fill" id="duel-hp-left" style="width:100%"></div></div>
+        <div class="duel-fighter-hp-text" id="duel-hp-left-text">…</div>
       </div>
-      <div class="duel-log">`;
-    r.log.forEach(l => {
-      const atkLabel = l.attacker === 'c' ? cLabel : dLabel;
-      const defLabel = l.attacker === 'c' ? dLabel : cLabel;
-      html += `<div class="duel-log-line${l.crit ? ' crit' : ''}">
-        <span class="atk">${atkLabel}</span> → <span class="dmg">${l.crit ? '💥' : ''}${l.dmg}</span>
-        <span class="rem">(${defLabel} HP: ${l.attacker === 'c' ? l.dHp : l.cHp})</span>
-      </div>`;
-    });
-    html += `</div></div>`;
-  });
-
-  html += `<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="document.getElementById('duel-result-modal').classList.add('hidden');TownMobs.loadPlayerData();">OK</button>`;
-
-  document.getElementById('duel-result-body').innerHTML = html;
+      <div class="duel-vs-badge">⚔️</div>
+      <div class="duel-fighter" id="duel-f-right">
+        <div class="duel-fighter-char">${!iAmChallenger ? '🧙' : '👤'}</div>
+        <div class="duel-fighter-name">${dLabel}</div>
+        <div class="duel-fighter-hp-bg"><div class="duel-fighter-hp-fill" id="duel-hp-right" style="width:100%"></div></div>
+        <div class="duel-fighter-hp-text" id="duel-hp-right-text">…</div>
+      </div>
+    </div>
+    <div id="duel-round-banner" class="duel-round-banner"></div>
+    <div id="duel-live-log" class="duel-log" style="max-height:160px;overflow-y:auto;margin-top:6px;"></div>
+    <div id="duel-final" class="hidden"></div>
+  `;
   modal.classList.remove('hidden');
+
+  (async () => {
+    await sleep(350);
+
+    function setHpBar(side, cur, max) {
+      const fill = document.getElementById(`duel-hp-${side}`);
+      const txt  = document.getElementById(`duel-hp-${side}-text`);
+      const pct  = Math.max(0, cur / max * 100);
+      if (fill) {
+        fill.style.width = pct + '%';
+        fill.style.background = pct > 50 ? '#4ecca3' : pct > 25 ? '#f5c542' : '#e94560';
+      }
+      if (txt) txt.textContent = `${Math.max(0, cur)}/${max}`;
+    }
+
+    function shake(side) {
+      const el = document.getElementById(`duel-f-${side}`);
+      if (!el) return;
+      el.classList.add('duel-shake');
+      setTimeout(() => el.classList.remove('duel-shake'), 350);
+    }
+
+    for (const r of rounds) {
+      const banner = document.getElementById('duel-round-banner');
+      const logBox = document.getElementById('duel-live-log');
+      const cMax = r.cStartHp || 100;
+      const dMax = r.dStartHp || 100;
+
+      if (banner) { banner.textContent = `⚔️  Round ${r.round}`; banner.style.color = '#88ccff'; }
+      setHpBar('left',  cMax, cMax);
+      setHpBar('right', dMax, dMax);
+      if (logBox) logBox.innerHTML = '';
+
+      await sleep(550);
+
+      for (const l of r.log) {
+        await sleep(400);
+        const hitSide = l.attacker === 'c' ? 'right' : 'left';
+        const newHp   = l.attacker === 'c' ? l.dHp : l.cHp;
+        const maxHp   = l.attacker === 'c' ? dMax  : cMax;
+        shake(hitSide);
+        setHpBar(hitSide, newHp, maxHp);
+        if (logBox) {
+          const line = document.createElement('div');
+          const atkLabel = l.attacker === 'c' ? cLabel : dLabel;
+          line.className = 'duel-log-line' + (l.crit ? ' crit' : '');
+          line.innerHTML = `<span class="atk">${atkLabel}</span> → <span class="dmg">${l.crit ? '💥' : '🗡'}${l.dmg}</span> <span class="rem">HP: ${Math.max(0, newHp)}/${maxHp}</span>`;
+          logBox.appendChild(line);
+          logBox.scrollTop = logBox.scrollHeight;
+        }
+      }
+
+      await sleep(600);
+      const rWinLabel = r.roundWinner === 'c' ? cLabel : dLabel;
+      if (banner) {
+        banner.textContent = `Round ${r.round} — ${rWinLabel} WINS  (${r.cWins}-${r.dWins})`;
+        banner.style.color = '#f5c542';
+      }
+      await sleep(950);
+    }
+
+    const finalEl = document.getElementById('duel-final');
+    if (finalEl) {
+      finalEl.classList.remove('hidden');
+      finalEl.innerHTML = `
+        <div class="duel-final-banner ${youWon ? 'win' : 'lose'}">
+          ${youWon ? '🏆 YOU WIN!' : '💀 DEFEAT'}
+        </div>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-bottom:12px;">
+          ${youWon
+            ? `<span style="color:#4ecca3">+${winnerBit} BIT</span> &nbsp;·&nbsp; <span style="color:#88ccff">+${winnerExp} EXP</span>`
+            : `<span style="color:#aaa">+${loserExp} EXP</span>`}
+          ${betAmount > 0 ? `&nbsp;·&nbsp; <span style="color:#f5c542">Bet: ${betAmount}</span>` : ''}
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="document.getElementById('duel-result-modal').classList.add('hidden');TownMobs.loadPlayerData();">OK</button>
+      `;
+    }
+    if (youWon) townShowToast('🏆 You won the duel!', 3000);
+  })();
 }
 
 // ======================== HUNT MODE & SHOP ========================

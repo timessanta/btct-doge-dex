@@ -132,7 +132,7 @@ function simulateDuel(cStats, dStats) {
     if (roundWinner === 'c') cWins++;
     else dWins++;
 
-    rounds.push({ round: r + 1, log, roundWinner, cHp: Math.max(0, cHp), dHp: Math.max(0, dHp), cWins, dWins });
+    rounds.push({ round: r + 1, cStartHp: cStats.max_hp, dStartHp: dStats.max_hp, log, roundWinner, cHp: Math.max(0, cHp), dHp: Math.max(0, dHp), cWins, dWins });
   }
 
   return { winner: cWins >= 2 ? 'challenger' : 'defender', rounds };
