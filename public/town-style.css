@@ -1004,8 +1004,8 @@ body {
 /* Mobile attack button */
 #mobile-attack-btn {
   position: fixed;
-  bottom: calc(130px + env(safe-area-inset-bottom, 0px));
-  right: 128px;
+  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  right: calc(24px + 64px + 14px);
   width: 56px;
   height: 56px;
   border-radius: 50%;
