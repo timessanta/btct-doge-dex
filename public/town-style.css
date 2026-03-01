@@ -852,3 +852,220 @@ body {
 .mine-btn-start.mining:hover {
   background: linear-gradient(135deg, #ff7b7b 0%, #dd5555 100%);
 }
+
+/* ======================== Combat HUD ======================== */
+#combat-hud {
+  position: fixed;
+  top: 38px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5000;
+  pointer-events: auto;
+}
+#combat-hud.hidden { display: none; }
+
+#combat-hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#player-hp-bar {
+  position: relative;
+  width: 160px;
+  height: 16px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(78,204,163,0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#player-hp-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #44cc44, #66dd66);
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+#player-hp-text {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+#combat-info {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+#level-display { color: #88ccff; }
+#bit-display { color: #f5c542; }
+
+#quick-drink {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(78,204,163,0.4);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  transition: background 0.2s;
+  pointer-events: auto;
+}
+#quick-drink:hover:not(:disabled) { background: rgba(78,204,163,0.3); }
+#quick-drink:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Hunt mode button */
+#hunt-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  font-size: 18px;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+#hunt-toggle-btn.hunt-active {
+  background: rgba(229,69,96,0.3);
+  border-color: #e94560;
+  box-shadow: 0 0 8px rgba(229,69,96,0.5);
+  animation: huntPulse 1.5s ease-in-out infinite;
+}
+@keyframes huntPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(229,69,96,0.4); }
+  50% { box-shadow: 0 0 16px rgba(229,69,96,0.8); }
+}
+
+/* Shop Modal */
+.shop-balance {
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #f5c542;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(245,197,66,0.1);
+  border-radius: 8px;
+}
+#shop-items { display: flex; flex-direction: column; gap: 8px; }
+.shop-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.shop-item:hover { background: rgba(255,255,255,0.1); }
+.shop-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shop-item-name { font-size: 13px; font-weight: bold; color: #f0f0f0; }
+.shop-item-desc { font-size: 11px; color: #888; }
+.shop-item-price {
+  font-size: 12px;
+  font-weight: bold;
+  color: #f5c542;
+  white-space: nowrap;
+}
+.shop-buy-btn {
+  background: linear-gradient(135deg, #00d4ff 0%, #0099dd 100%);
+  border: none;
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+.shop-buy-btn:hover { background: linear-gradient(135deg, #00e4ff 0%, #00aaee 100%); }
+.shop-divider {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin: 12px 0;
+}
+.shop-section-title {
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #aaa;
+}
+.inv-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+.inv-item-name { font-size: 12px; color: #ccc; }
+.inv-item-qty { font-size: 12px; font-weight: bold; color: #88ccff; }
+.inv-use-btn {
+  background: #27ae60;
+  border: none;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+}
+.inv-use-btn:hover { background: #2ecc71; }
+
+/* Mobile attack button */
+#mobile-attack-btn {
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  right: 80px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(229,69,96,0.3);
+  border: 2px solid rgba(229,69,96,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 6000;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+#mobile-attack-btn.hidden { display: none; }
+#mobile-attack-btn:active {
+  background: rgba(229,69,96,0.6);
+  transform: scale(0.92);
+}
+
+/* ======================== Mobile Combat ======================== */
+@media (max-width: 600px) {
+  #combat-hud {
+    top: 36px;
+    left: 4px;
+    gap: 4px;
+  }
+  #player-hp-bar { width: 120px; height: 14px; }
+  #player-hp-text { font-size: 9px; }
+  #combat-info { font-size: 10px; gap: 6px; }
+  #quick-drink { font-size: 11px; padding: 3px 6px; }
+}

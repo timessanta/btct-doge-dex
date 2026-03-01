@@ -773,5 +773,121 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// ======================== TOWN RPG — BIT API ========================
+
+// Get player stats + BIT balance
+router.get('/town/player/:address', async (req, res) => {
+  try {
+    const addr = req.params.address.replace(/^0x/, '').toLowerCase();
+    let result = await pool.query('SELECT * FROM town_players WHERE btct_address = $1', [addr]);
+    if (result.rows.length === 0) {
+      // Auto-create player on first visit
+      await pool.query('INSERT INTO town_players (btct_address) VALUES ($1) ON CONFLICT DO NOTHING', [addr]);
+      result = await pool.query('SELECT * FROM town_players WHERE btct_address = $1', [addr]);
+    }
+    const player = result.rows[0];
+    // Get inventory
+    const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address = $1', [addr]);
+    res.json({ ...player, inventory: inv.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Add BIT reward (mob kill)
+router.post('/town/reward', async (req, res) => {
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const bits = parseInt(req.body.bits) || 0;
+    const exp = parseInt(req.body.exp) || 0;
+    if (!addr || bits < 0 || bits > 200) return res.status(400).json({ error: 'Invalid reward' });
+
+    const result = await pool.query(
+      `UPDATE town_players SET bit_balance = bit_balance + $2, exp = exp + $3,
+       mobs_killed = mobs_killed + 1, updated_at = NOW()
+       WHERE btct_address = $1 RETURNING bit_balance, exp, level, mobs_killed`,
+      [addr, bits, exp]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Player not found' });
+
+    // Level up check (every 100 exp per level)
+    const p = result.rows[0];
+    const newLevel = Math.floor(Number(p.exp) / 100) + 1;
+    if (newLevel > p.level) {
+      await pool.query(
+        'UPDATE town_players SET level = $2, max_hp = 100 + ($2 - 1) * 10, atk = 10 + ($2 - 1) * 2 WHERE btct_address = $1',
+        [addr, newLevel]
+      );
+      return res.json({ ...p, level: newLevel, levelUp: true });
+    }
+    res.json(p);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Record death
+router.post('/town/death', async (req, res) => {
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    if (!addr) return res.status(400).json({ error: 'No address' });
+    await pool.query('UPDATE town_players SET deaths = deaths + 1, updated_at = NOW() WHERE btct_address = $1', [addr]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Buy item from shop
+router.post('/town/shop/buy', async (req, res) => {
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const itemId = req.body.itemId;
+    const price = parseInt(req.body.price) || 0;
+    if (!addr || !itemId || price <= 0) return res.status(400).json({ error: 'Invalid params' });
+
+    // Check balance
+    const player = await pool.query('SELECT bit_balance FROM town_players WHERE btct_address = $1', [addr]);
+    if (player.rows.length === 0) return res.status(404).json({ error: 'Player not found' });
+    if (Number(player.rows[0].bit_balance) < price) return res.status(400).json({ error: 'Not enough BIT' });
+
+    // Deduct BIT and add item
+    await pool.query('UPDATE town_players SET bit_balance = bit_balance - $2, updated_at = NOW() WHERE btct_address = $1', [addr, price]);
+    await pool.query(
+      `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1, $2, 1)
+       ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity = town_inventory.quantity + 1`,
+      [addr, itemId]
+    );
+    const updated = await pool.query('SELECT bit_balance FROM town_players WHERE btct_address = $1', [addr]);
+    const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address = $1', [addr]);
+    res.json({ bit_balance: updated.rows[0].bit_balance, inventory: inv.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Use consumable item
+router.post('/town/item/use', async (req, res) => {
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const itemId = req.body.itemId;
+    if (!addr || !itemId) return res.status(400).json({ error: 'Invalid params' });
+
+    const inv = await pool.query('SELECT quantity FROM town_inventory WHERE btct_address = $1 AND item_id = $2', [addr, itemId]);
+    if (inv.rows.length === 0 || inv.rows[0].quantity <= 0) return res.status(400).json({ error: 'Item not owned' });
+
+    // Decrease quantity
+    await pool.query(
+      'UPDATE town_inventory SET quantity = quantity - 1 WHERE btct_address = $1 AND item_id = $2',
+      [addr, itemId]
+    );
+    // Remove 0 quantity rows
+    await pool.query('DELETE FROM town_inventory WHERE btct_address = $1 AND item_id = $2 AND quantity <= 0', [addr, itemId]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
 

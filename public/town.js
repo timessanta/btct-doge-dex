@@ -145,6 +145,8 @@ const NPC_POS = { x: 13, y: 11 };
 const HOUSE_CHAR_POS = { x: 25, y: 19 };
 // Top-right house door → Mining House
 const HOUSE_MINE_POS = { x: 25, y: 4 };
+// Bottom-left house door → Shop
+const HOUSE_SHOP_POS = { x: 3, y: 19 };
 
 // ---- Socket ----
 let socket = null;
@@ -901,6 +903,32 @@ class TownScene extends Phaser.Scene {
       }
     ).setOrigin(0.5).setDepth(200);
 
+    // House (bottom-left) interaction hint — Shop
+    this.houseShopHint = this.add.text(
+      HOUSE_SHOP_POS.x * TILE + TILE / 2,
+      HOUSE_SHOP_POS.y * TILE + TILE + 12,
+      (isMobile() ? '[ACT]' : '[SPACE]') + ' Shop',
+      {
+        fontSize: '10px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        padding: { x: 5, y: 2 }
+      }
+    ).setOrigin(0.5).setDepth(9999).setVisible(false);
+
+    // Shop house label (always visible)
+    this.add.text(
+      HOUSE_SHOP_POS.x * TILE + TILE / 2,
+      (HOUSE_SHOP_POS.y - 3) * TILE + TILE / 2,
+      '🛒 Shop',
+      {
+        fontSize: '9px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3,
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        padding: { x: 4, y: 2 }
+      }
+    ).setOrigin(0.5).setDepth(200);
+
     // Player character — load customization config from localStorage
     this.myCharConfig = loadCharConfig();
     this.createAnimations();
@@ -980,6 +1008,38 @@ class TownScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+
+    // ---- Mob Combat System ----
+    if (typeof TownMobs !== 'undefined') {
+      TownMobs.init(this, MAP, BLOCKED);
+      TownMobs.updateHpBar();
+      TownMobs.updateHUD();
+      // Show combat HUD if hunt mode was previously enabled
+      const combatHud = document.getElementById('combat-hud');
+      if (combatHud) combatHud.classList.toggle('hidden', !TownMobs.enabled);
+      // Mobile attack button
+      const mobileAtkBtn = document.getElementById('mobile-attack-btn');
+      if (mobileAtkBtn) {
+        mobileAtkBtn.classList.toggle('hidden', !TownMobs.enabled || !isMobile());
+        mobileAtkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); TownMobs.playerAttack(); });
+      }
+      // "1" key for attack
+      if (this.input.keyboard) {
+        this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+        this.attackKey.on('down', () => {
+          const ci = document.getElementById('town-chat-input');
+          if (ci && document.activeElement === ci) return;
+          TownMobs.playerAttack();
+        });
+        // "Q" key for quick drink
+        this.drinkKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+        this.drinkKey.on('down', () => {
+          const ci = document.getElementById('town-chat-input');
+          if (ci && document.activeElement === ci) return;
+          TownMobs.useItem('drink_s');
+        });
+      }
+    }
   }
 
   // Play walk animation using texture-specific anim key (fallback to base key)
@@ -1010,10 +1070,13 @@ class TownScene extends Phaser.Scene {
     const chatInput = document.getElementById('town-chat-input');
     const chatFocused = chatInput && (document.activeElement === chatInput);
 
-    const up = !chatFocused && (this.cursors?.up?.isDown || this.wasd?.up?.isDown || mobileInput.y < -0.3);
-    const down = !chatFocused && (this.cursors?.down?.isDown || this.wasd?.down?.isDown || mobileInput.y > 0.3);
-    const left = !chatFocused && (this.cursors?.left?.isDown || this.wasd?.left?.isDown || mobileInput.x < -0.3);
-    const right = !chatFocused && (this.cursors?.right?.isDown || this.wasd?.right?.isDown || mobileInput.x > 0.3);
+    // Block movement when dead
+    const isDead = typeof TownMobs !== 'undefined' && TownMobs.playerDead;
+
+    const up = !chatFocused && !isDead && (this.cursors?.up?.isDown || this.wasd?.up?.isDown || mobileInput.y < -0.3);
+    const down = !chatFocused && !isDead && (this.cursors?.down?.isDown || this.wasd?.down?.isDown || mobileInput.y > 0.3);
+    const left = !chatFocused && !isDead && (this.cursors?.left?.isDown || this.wasd?.left?.isDown || mobileInput.x < -0.3);
+    const right = !chatFocused && !isDead && (this.cursors?.right?.isDown || this.wasd?.right?.isDown || mobileInput.x > 0.3);
 
     this.player.setVelocity(0);
 
@@ -1080,6 +1143,16 @@ class TownScene extends Phaser.Scene {
     const mineDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
       HOUSE_MINE_POS.x * TILE + TILE / 2, HOUSE_MINE_POS.y * TILE + TILE / 2);
     this.houseMineHint.setVisible(mineDist < TILE * 2);
+
+    // Check house (bottom-left) proximity — Shop
+    const shopDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_SHOP_POS.x * TILE + TILE / 2, HOUSE_SHOP_POS.y * TILE + TILE / 2);
+    this.houseShopHint.setVisible(shopDist < TILE * 2);
+
+    // ---- Mob system update ----
+    if (typeof TownMobs !== 'undefined' && TownMobs.enabled) {
+      TownMobs.update(this.time.now, this.game.loop.delta);
+    }
 
     // Send position to server (throttled)
     this.sendPosition();
@@ -1639,6 +1712,15 @@ class TownScene extends Phaser.Scene {
     if (mineDist < TILE * 2) {
       TownSounds.playInteract();
       openMinePanel();
+      return;
+    }
+
+    // Check house (bottom-left): open shop
+    const shopDist = Phaser.Math.Distance.Between(this.player.x, this.player.y,
+      HOUSE_SHOP_POS.x * TILE + TILE / 2, HOUSE_SHOP_POS.y * TILE + TILE / 2);
+    if (shopDist < TILE * 2) {
+      TownSounds.playInteract();
+      openShop();
       return;
     }
 
@@ -3595,4 +3677,67 @@ function saveCharacter() {
 
   closeCharModal();
   townShowToast('🎨 Character saved!', 2500);
+}
+
+// ======================== HUNT MODE & SHOP ========================
+
+function toggleHuntMode() {
+  if (typeof TownMobs === 'undefined') return;
+  const enabled = TownMobs.toggle();
+  const combatHud = document.getElementById('combat-hud');
+  if (combatHud) combatHud.classList.toggle('hidden', !enabled);
+  const mobileAtkBtn = document.getElementById('mobile-attack-btn');
+  if (mobileAtkBtn) mobileAtkBtn.classList.toggle('hidden', !enabled || !isMobile());
+  townShowToast(enabled ? '⚔️ Hunt Mode ON — Press 1 to attack!' : '⚔️ Hunt Mode OFF', 2500);
+}
+
+function openShop() {
+  if (typeof TownMobs === 'undefined') return;
+  const modal = document.getElementById('shop-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  // Update balance
+  const balEl = document.getElementById('shop-bit-balance');
+  if (balEl) balEl.textContent = TownMobs.bitBalance.toLocaleString();
+
+  // Render shop items
+  const container = document.getElementById('shop-items');
+  if (container) {
+    const items = TownMobs.getShopItems();
+    container.innerHTML = items.map(item => `
+      <div class="shop-item">
+        <div class="shop-item-info">
+          <div class="shop-item-name">${item.emoji} ${item.name}</div>
+          <div class="shop-item-desc">${item.desc}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="shop-item-price">${item.price} BIT</span>
+          <button class="shop-buy-btn" onclick="TownMobs.buyItem('${item.id}').then(()=>openShop())">Buy</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Render inventory
+  const invContainer = document.getElementById('shop-inventory');
+  if (invContainer) {
+    if (TownMobs.inventory.length === 0) {
+      invContainer.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:8px;">Empty</div>';
+    } else {
+      invContainer.innerHTML = TownMobs.inventory.map(inv => {
+        const def = TownMobs.getItemDef(inv.item_id);
+        return `<div class="inv-item">
+          <span class="inv-item-name">${def ? def.emoji + ' ' + def.name : inv.item_id}</span>
+          <span class="inv-item-qty">x${inv.quantity}</span>
+          ${def && def.type === 'consumable' ? `<button class="inv-use-btn" onclick="TownMobs.useItem('${inv.item_id}').then(()=>openShop())">Use</button>` : ''}
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+function closeShop() {
+  const modal = document.getElementById('shop-modal');
+  if (modal) modal.classList.add('hidden');
 }

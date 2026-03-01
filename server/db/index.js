@@ -78,6 +78,40 @@ async function initDB() {
     await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS buyer_doge_address VARCHAR(50)`);
     await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS doge_redeem_script TEXT`);
 
+    // IP tracking
+    await client.query(`ALTER TABLE trade_ads ADD COLUMN IF NOT EXISTS creator_ip VARCHAR(45)`);
+    await client.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS initiator_ip VARCHAR(45)`);
+
+    // Town RPG — BIT (in-game currency) and player stats
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS town_players (
+        btct_address VARCHAR(42) PRIMARY KEY,
+        bit_balance BIGINT DEFAULT 0,
+        hp INT DEFAULT 100,
+        max_hp INT DEFAULT 100,
+        atk INT DEFAULT 10,
+        def INT DEFAULT 0,
+        level INT DEFAULT 1,
+        exp BIGINT DEFAULT 0,
+        mobs_killed INT DEFAULT 0,
+        deaths INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Town RPG — inventory items
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS town_inventory (
+        id SERIAL PRIMARY KEY,
+        btct_address VARCHAR(42) NOT NULL,
+        item_id VARCHAR(30) NOT NULL,
+        quantity INT DEFAULT 1,
+        equipped BOOLEAN DEFAULT false,
+        UNIQUE(btct_address, item_id)
+      )
+    `);
+
     console.log('[DB] Tables initialized');
   } catch (err) {
     console.error('[DB] Init error:', err.message);
