@@ -32,6 +32,26 @@
       text-align: center;
       padding: 80px 20px 60px;
       background: linear-gradient(180deg, #0f3460 0%, var(--bg) 100%);
+      position: relative;
+    }
+    .lang-switch {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+    }
+    .lang-switch a {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: color 0.2s, border-color 0.2s;
+      display: inline-block;
+    }
+    .lang-switch a:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      text-decoration: none;
     }
     .hero-badge {
       display: inline-block;
@@ -318,6 +338,7 @@
 
   <!-- Hero -->
   <div class="hero">
+    <div class="lang-switch"><a href="/about">🇺🇸 English</a></div>
     <div class="hero-badge">🌍 세계 최초 RPG 타운 + HTLC DEX</div>
     <h1>BTCT/DOGE DEX</h1>
     <p>Bitcoin Time과 Dogecoin을 직접 교환하세요 — 회원가입 불필요, 비수탁형, 중개자 없음. HTLC 아토믹 스왑 기술로 구동됩니다.</p>
