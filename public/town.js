@@ -2780,10 +2780,17 @@ if (typeof TownMiner !== 'undefined') {
 
 // ======================== PHASER CONFIG ========================
 
+function getGameHeight() {
+  return (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 44;
+}
+function getGameWidth() {
+  return window.visualViewport ? window.visualViewport.width : window.innerWidth;
+}
+
 const config = {
   type: Phaser.AUTO,
-  width: window.innerWidth,
-  height: window.innerHeight - 44,
+  width: getGameWidth(),
+  height: getGameHeight(),
   parent: 'game-container',
   pixelArt: true,
   physics: {
@@ -2803,10 +2810,15 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Handle resize
-window.addEventListener('resize', () => {
-  game.scale.resize(window.innerWidth, window.innerHeight - 44);
-});
+// Handle resize — visualViewport가 탭바/키보드를 제외한 실제 가시 영역을 반환
+function onGameResize() {
+  game.scale.resize(getGameWidth(), getGameHeight());
+}
+window.addEventListener('resize', onGameResize);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', onGameResize);
+  window.visualViewport.addEventListener('scroll', onGameResize);
+}
 
 // ======================== MOBILE CONTROLS ========================
 
