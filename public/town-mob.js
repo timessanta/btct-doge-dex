@@ -964,17 +964,57 @@
       }
     },
 
+    // Create in-game HP bar above player sprite
+    createPlayerHpBar(scene) {
+      this._hpBarBg = scene.add.rectangle(0, 0, 30, 5, 0x222222);
+      this._hpBarBg.setOrigin(0.5);
+      this._hpBarBg.setDepth(99994);
+      this._hpBarBg.setAlpha(0.7);
+      this._hpBarBg.setStrokeStyle(0.5, 0x4ecca3, 0.4);
+
+      this._hpBarFill = scene.add.rectangle(0, 0, 30, 5, 0x44cc44);
+      this._hpBarFill.setOrigin(0.5);
+      this._hpBarFill.setDepth(99995);
+
+      this._hpBarText = scene.add.text(0, 0, '', {
+        fontSize: '7px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        color: '#fff', stroke: '#000', strokeThickness: 1,
+      });
+      this._hpBarText.setOrigin(0.5);
+      this._hpBarText.setDepth(99996);
+
+      this._hpBarVisible = false;
+      this._setHpBarVisible(false);
+    },
+
+    _setHpBarVisible(v) {
+      this._hpBarVisible = v;
+      if (this._hpBarBg) this._hpBarBg.setVisible(v);
+      if (this._hpBarFill) this._hpBarFill.setVisible(v);
+      if (this._hpBarText) this._hpBarText.setVisible(v);
+    },
+
+    // Call every frame from town.js update()
+    updatePlayerHpBarPos(x, y) {
+      const show = this.enabled;
+      if (show !== this._hpBarVisible) this._setHpBarVisible(show);
+      if (!show) return;
+      const barY = y - 18;
+      if (this._hpBarBg) this._hpBarBg.setPosition(x, barY);
+      if (this._hpBarFill) this._hpBarFill.setPosition(x, barY);
+      if (this._hpBarText) this._hpBarText.setPosition(x, barY);
+    },
+
     updateHpBar() {
-      const hpFill = document.getElementById('player-hp-fill');
-      const hpText = document.getElementById('player-hp-text');
-      if (hpFill) {
-        const ratio = Math.max(0, this.playerHp / this.playerMaxHp) * 100;
-        hpFill.style.width = ratio + '%';
-        if (ratio > 50) hpFill.style.background = 'linear-gradient(90deg, #44cc44, #66dd66)';
-        else if (ratio > 25) hpFill.style.background = 'linear-gradient(90deg, #cccc44, #dddd66)';
-        else hpFill.style.background = 'linear-gradient(90deg, #cc4444, #dd6666)';
+      const ratio = Math.max(0, this.playerHp / this.playerMaxHp);
+      if (this._hpBarFill) {
+        this._hpBarFill.setSize(30 * ratio, 5);
+        const color = ratio > 0.5 ? 0x44cc44 : (ratio > 0.25 ? 0xcccc44 : 0xcc4444);
+        this._hpBarFill.setFillStyle(color);
       }
-      if (hpText) hpText.textContent = `${Math.max(0, Math.round(this.playerHp))} / ${this.playerMaxHp}`;
+      if (this._hpBarText) {
+        this._hpBarText.setText(`${Math.max(0, Math.round(this.playerHp))}/${this.playerMaxHp}`);
+      }
     },
 
     getItemDef(itemId) {

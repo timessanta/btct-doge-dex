@@ -1012,6 +1012,7 @@ class TownScene extends Phaser.Scene {
     // ---- Mob Combat System ----
     if (typeof TownMobs !== 'undefined') {
       TownMobs.init(this, MAP, BLOCKED);
+      TownMobs.createPlayerHpBar(this);
       TownMobs.updateHpBar();
       TownMobs.updateHUD();
       // Show combat HUD if hunt mode was previously enabled
@@ -1107,13 +1108,18 @@ class TownScene extends Phaser.Scene {
     this.player.setDepth(this.player.y);
 
     // Update label position
-    this.playerLabel.setPosition(this.player.x, this.player.y - 22);
+    this.playerLabel.setPosition(this.player.x, this.player.y - 24);
+
+    // Update in-game HP bar position (above name label)
+    if (typeof TownMobs !== 'undefined') {
+      TownMobs.updatePlayerHpBarPos(this.player.x, this.player.y);
+    }
 
     // Update self bubble position
-    if (this.selfBubble) this.selfBubble.setPosition(this.player.x, this.player.y - 36);
+    if (this.selfBubble) this.selfBubble.setPosition(this.player.x, this.player.y - 40);
 
     // Update self chat bubble position
-    if (this.selfChatBubble) this.selfChatBubble.setPosition(this.player.x, this.player.y - 54);
+    if (this.selfChatBubble) this.selfChatBubble.setPosition(this.player.x, this.player.y - 58);
 
     // Update other players' chat bubbles
     for (const id in otherPlayers) {
@@ -1124,7 +1130,7 @@ class TownScene extends Phaser.Scene {
     // Update trade notif badge position
     if (this.tradeNotifBadge) {
       const bx = this.player.x + 10;
-      const by = this.player.y - 46;
+      const by = this.player.y - 52;
       this.tradeNotifBadge.setPosition(bx, by);
       this.tradeNotifBadge.setDepth(99999);
     }
@@ -1487,7 +1493,7 @@ class TownScene extends Phaser.Scene {
       if (this.selfChatBubble) { this.tweens.killTweensOf(this.selfChatBubble); this.selfChatBubble.destroy(); }
       if (this._selfChatTimer) { clearTimeout(this._selfChatTimer); }
       this.selfChatBubble = this.add.text(
-        this.player.x, this.player.y - 54, `💬 ${text}`, style
+        this.player.x, this.player.y - 58, `💬 ${text}`, style
       ).setOrigin(0.5).setDepth(100001);
       this._selfChatTimer = setTimeout(() => {
         if (this.selfChatBubble) {
@@ -1563,7 +1569,7 @@ class TownScene extends Phaser.Scene {
     this.selfBubble = null;
     if (!text || !this.player) return;
 
-    this.selfBubble = this.add.text(this.player.x, this.player.y - 36, text, {
+    this.selfBubble = this.add.text(this.player.x, this.player.y - 40, text, {
       fontSize: '9px', color: '#f5c542', fontFamily: 'Arial,sans-serif', fontStyle: 'bold',
       stroke: '#000', strokeThickness: 2,
       backgroundColor: 'rgba(22,33,62,0.85)',

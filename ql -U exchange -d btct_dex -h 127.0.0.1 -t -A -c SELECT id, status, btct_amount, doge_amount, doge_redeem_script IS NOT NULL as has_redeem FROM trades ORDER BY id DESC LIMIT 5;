@@ -1,0 +1,9 @@
+ id |     status      |              seller_address              |              buyer_address               | btct_amount  | doge_amount | has_redeem_script |         buyer_doge_address         |        seller_doge_address         |         created_at         
+----+-----------------+------------------------------------------+------------------------------------------+--------------+-------------+-------------------+------------------------------------+------------------------------------+----------------------------
+ 10 | seller_redeemed | e5bfd1afe17bca6a88fbe4bea6a472648da8d608 | b4b8a863f57a8dd60a9e9cd7800af6c24ab01c6e | 100000000000 |   500000000 | t                 | DTfrYYifEib9b9Dbdifj1PCPt9ZbLV8fVu | DGF7C5bt6Ayo164GpoeUu8EFk93UqShniU | 2026-02-22 02:57:29.734758
+  9 | completed       | 8da386e7dab8e0514f836603bff941ced89eafaa | e5bfd1afe17bca6a88fbe4bea6a472648da8d608 | 100000000000 |   100000000 | t                 | DGF7C5bt6Ayo164GpoeUu8EFk93UqShniU | DKeJmgQYZBckSPoLxWcxVJ6p2TGB5uzDMa | 2026-02-21 02:40:59.99925
+  8 | completed       | b4b8a863f57a8dd60a9e9cd7800af6c24ab01c6e | e5bfd1afe17bca6a88fbe4bea6a472648da8d608 | 100000000000 |   500000000 | t                 | DGF7C5bt6Ayo164GpoeUu8EFk93UqShniU | DTfrYYifEib9b9Dbdifj1PCPt9ZbLV8fVu | 2026-02-21 02:05:46.151701
+  7 | cancelled       | b4b8a863f57a8dd60a9e9cd7800af6c24ab01c6e | e5bfd1afe17bca6a88fbe4bea6a472648da8d608 | 100000000000 |   500000000 | f                 |                                    |                                    | 2026-02-21 02:01:04.348128
+  6 | cancelled       | b4b8a863f57a8dd60a9e9cd7800af6c24ab01c6e | e5bfd1afe17bca6a88fbe4bea6a472648da8d608 | 100000000000 |   500000000 | f                 |                                    |                                    | 2026-02-21 01:59:49.345359
+(5 rows)
+
