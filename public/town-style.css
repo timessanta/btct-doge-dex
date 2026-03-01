@@ -856,7 +856,7 @@ body {
 /* ======================== Combat HUD ======================== */
 #combat-hud {
   position: fixed;
-  top: 38px;
+  top: 52px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1030,7 +1030,7 @@ body {
 /* ======================== Mobile Combat ======================== */
 @media (max-width: 600px) {
   #combat-hud {
-    top: 36px;
+    top: 52px;
     gap: 4px;
   }
   #combat-info { font-size: 10px; gap: 6px; padding: 3px 8px; }
