@@ -1030,6 +1030,10 @@ class TownScene extends Phaser.Scene {
       const newKey = getOrCreateCharTexture(this, this.myCharConfig);
       this.player.setTexture(newKey, 0);
       playCharAnim(this.player, 'down');
+      // 다른 플레이어에게 무기 변경 broadcast
+      if (socket && socket.connected) {
+        socket.emit('townCharUpdate', { character: this.myCharConfig });
+      }
     };
     // Race condition 대비: 이미 loadPlayerData 완료된 경우
     if (TownMobs.equippedWeapon && !this.myCharConfig.weapon) {

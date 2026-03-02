@@ -1208,6 +1208,8 @@
         this.inventory = data.inventory;
         if (this._onBitChange) this._onBitChange(this.bitBalance);
         this.updateHUD();
+        // 텍스처 변경 + 다른 플레이어에게 broadcast (_onWeaponLoaded 콜백)
+        if (this._onWeaponLoaded) this._onWeaponLoaded(weaponId);
         if (typeof townShowToast === 'function') townShowToast(`⚔️ Equipped ${wDef ? wDef.emoji + ' ' + wDef.name : weaponId}!`, 2500);
         return { ...data, prevWeapon };
       } catch (e) { console.warn('[Market] equip error:', e.message); return null; }
