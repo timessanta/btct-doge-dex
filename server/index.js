@@ -622,6 +622,17 @@ io.on('connection', (socket) => {
           weapon_id: targetData.rows[0].weapon_id,
           inventory: targetInv.rows
         });
+        // 양쪽 캐릭터 weapon 변경을 전체에 broadcast (다른 플레이어 화면 즉시 반영)
+        const newSenderWeapon = senderData.rows[0].weapon_id || null;
+        const newTargetWeapon = targetData.rows[0].weapon_id || null;
+        if (townPlayers[req.senderSid]) {
+          townPlayers[req.senderSid].character = { ...(townPlayers[req.senderSid].character || {}), weapon: newSenderWeapon };
+          io.emit('townCharUpdate', { id: req.senderSid, character: townPlayers[req.senderSid].character });
+        }
+        if (townPlayers[req.targetSid]) {
+          townPlayers[req.targetSid].character = { ...(townPlayers[req.targetSid].character || {}), weapon: newTargetWeapon };
+          io.emit('townCharUpdate', { id: req.targetSid, character: townPlayers[req.targetSid].character });
+        }
         io.emit('marketUpdate');
       } catch (e) {
         await client.query('ROLLBACK');
