@@ -4234,14 +4234,17 @@ function openShop(tab) {
     if (wContainer) {
       const items = TownMobs.getShopItems('weapons');
       const eq = TownMobs.equippedWeapon;
+      const ownedIds = new Set(TownMobs.inventory.filter(i => { const d = TownMobs.getItemDef(i.item_id); return d && d.type === 'weapon'; }).map(i => i.item_id));
       wContainer.innerHTML = items.map(item => {
         const isEq = item.id === eq;
+        const isOwned = ownedIds.has(item.id);
         const icon = drawWeaponIcon(item.id, 40);
         const iconSrc = icon.toDataURL();
+        const badge = isEq ? '<span style="color:#4ecca3;font-size:10px;">[EQUIPPED]</span>' : isOwned ? '<span style="color:#f5c542;font-size:10px;">[OWNED]</span>' : '';
         return `<div class="shop-item${isEq ? ' shop-item-equipped' : ''}">
           <img src="${iconSrc}" width="40" height="40" style="image-rendering:pixelated;border-radius:4px;margin-right:10px;">
           <div class="shop-item-info" style="flex:1;">
-            <div class="shop-item-name">${item.emoji} ${item.name} ${isEq ? '<span style="color:#4ecca3;font-size:10px;">[EQUIPPED]</span>' : ''}</div>
+            <div class="shop-item-name">${item.emoji} ${item.name} ${badge}</div>
             <div class="shop-item-desc">${item.desc}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
@@ -4558,15 +4561,7 @@ function onTradeDone(data) {
 
 async function weaponBuyAndRefresh(weaponId) {
   const result = await TownMobs.buyWeapon(weaponId);
-  if (result) {
-    // Re-create player texture with new weapon equipped
-    const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
-    if (s && s.player) {
-      s.myCharConfig.weapon = weaponId;
-      const newKey = getOrCreateCharTexture(s, s.myCharConfig);
-      s.player.setTexture(newKey, 0);
-      playCharAnim(s.player, 'down');
-    }
-  }
-  openShop('weapons');
+  // Weapon goes to inventory — open items tab so player can equip it
+  if (result) openShop('items');
+  else openShop('weapons');
 }

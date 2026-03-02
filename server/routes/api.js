@@ -920,32 +920,35 @@ router.post('/town/item/use', async (req, res) => {
 
 // Buy/equip weapon
 router.post('/town/weapon/buy', async (req, res) => {
+  const client = await pool.connect();
   try {
     const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
     const weaponId = req.body.weaponId;
     if (!addr || !WEAPON_DEFS[weaponId]) return res.status(400).json({ error: 'Invalid weapon' });
 
     const price = WEAPON_DEFS[weaponId].price;
-    const player = await pool.query('SELECT bit_balance, level, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
-    if (player.rows.length === 0) return res.status(404).json({ error: 'Player not found' });
-    const p = player.rows[0];
+    await client.query('BEGIN');
+    const player = await client.query('SELECT bit_balance FROM town_players WHERE btct_address=$1 FOR UPDATE', [addr]);
+    if (player.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Player not found' }); }
+    if (Number(player.rows[0].bit_balance) < price) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Not enough BIT' }); }
 
-    if (Number(p.bit_balance) < price) return res.status(400).json({ error: 'Not enough BIT' });
-
-    const wpBonus = WEAPON_DEFS[weaponId].atk;
-    const level = p.level || 1;
-    const newAtk = 10 + (level - 1) * 2 + wpBonus;
-    const newDef = Math.floor((level - 1) * 0.8);
-
-    await pool.query(
-      'UPDATE town_players SET bit_balance=bit_balance-$2, weapon_id=$3, atk=$4, def=$5, updated_at=NOW() WHERE btct_address=$1',
-      [addr, price, weaponId, newAtk, newDef]
+    // Deduct BIT only — weapon goes to inventory (not auto-equipped)
+    await client.query('UPDATE town_players SET bit_balance=bit_balance-$2, updated_at=NOW() WHERE btct_address=$1', [addr, price]);
+    await client.query(
+      `INSERT INTO town_inventory (btct_address, item_id, quantity)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity = town_inventory.quantity + 1`,
+      [addr, weaponId]
     );
-    const updated = await pool.query('SELECT bit_balance, atk, def, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
-    res.json({ ...updated.rows[0], prevWeapon: p.weapon_id });
+    await client.query('COMMIT');
+
+    const updated = await pool.query('SELECT bit_balance FROM town_players WHERE btct_address=$1', [addr]);
+    const inv = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [addr]);
+    res.json({ bit_balance: updated.rows[0].bit_balance, inventory: inv.rows });
   } catch (e) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: e.message });
-  }
+  } finally { client.release(); }
 });
 
 // ======================== Item Market ========================

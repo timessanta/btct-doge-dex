@@ -1222,10 +1222,6 @@
       if (!w) return;
       const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
       if (!addr) { if (typeof townShowToast === 'function') townShowToast('Wallet not connected', 2000); return; }
-      if (this.equippedWeapon) {
-        const prev = WEAPONS[this.equippedWeapon];
-        if (!confirm(`Replace ${prev ? prev.emoji + ' ' + prev.name : this.equippedWeapon} with ${w.emoji} ${w.name}?\nNo refund.`)) return;
-      }
       try {
         const result = await fetch('/api/town/weapon/buy', {
           method: 'POST',
@@ -1236,14 +1232,11 @@
           if (typeof townShowToast === 'function') townShowToast(result.error, 2500);
           return;
         }
-        this.equippedWeapon = weaponId;
-        this.playerStats.atk = Number(result.atk);
-        this.playerStats.def = Number(result.def);
-        this.playerStats.critRate = 0.05 + (w.critBonus || 0);
+        this.inventory = result.inventory || this.inventory;
         this.bitBalance = Number(result.bit_balance);
         if (this._onBitChange) this._onBitChange(this.bitBalance);
         this.updateHUD();
-        if (typeof townShowToast === 'function') townShowToast(`Equipped ${w.emoji} ${w.name}! ATK up!`, 3000);
+        if (typeof townShowToast === 'function') townShowToast(`${w.emoji} ${w.name} added to inventory! Equip it from the Items tab.`, 3000);
         return result;
       } catch (e) {
         console.warn('[Mob] buyWeapon error:', e.message);
