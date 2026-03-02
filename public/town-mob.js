@@ -1289,12 +1289,16 @@
         } else {
           invHtml = '<div class="stats-inv-list">';
           inv.forEach(slot => {
-            const def2 = ITEMS[slot.item_id];
+            const def2 = this.getItemDef(slot.item_id);
             if (!def2) return;
+            const isWeapon = def2.type === 'weapon';
+            const actionBtn = isWeapon
+              ? `<button class="stats-inv-use" style="background:#4a1f9a;" onclick="TownMobs.equipWeaponFromInventory('${slot.item_id}').then(r=>{if(r){const s=game&&game.scene&&game.scene.scenes.find(sc=>sc.myCharConfig);if(s&&s.player){s.myCharConfig.weapon='${slot.item_id}';const k=getOrCreateCharTexture(s,s.myCharConfig);s.player.setTexture(k,0);playCharAnim(s.player,'down');}TownMobs.openStatsModal();}});">Equip</button>`
+              : `<button class="stats-inv-use" onclick="TownMobs.useItem('${slot.item_id}');TownMobs.openStatsModal();">\u25b6 Use</button>`;
             invHtml += `<div class="stats-inv-item">
               <span class="stats-inv-name">${def2.emoji} ${def2.name}</span>
               <span class="stats-inv-qty">×${slot.quantity}</span>
-              <button class="stats-inv-use" onclick="TownMobs.useItem('${slot.item_id}');TownMobs.openStatsModal();">\u25b6 Use</button>
+              ${actionBtn}
             </div>`;
           });
           invHtml += '</div>';
