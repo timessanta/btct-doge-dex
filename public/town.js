@@ -4475,9 +4475,6 @@ function sendTradeOffer() {
   const sel = document.getElementById('trade-send-item').value;
   const bit = Math.max(0, parseInt(document.getElementById('trade-send-bit').value) || 0);
   const [itemId, itemType] = sel ? sel.split('|') : ['', ''];
-  if (!itemId && bit === 0) {
-    townShowToast('Select an item or enter BIT amount to offer', 2500); return;
-  }
   const myOffer = { bit };
   if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
   socket.emit('townTradeOffer', { targetAddr: _tradeTargetAddr, myOffer });
@@ -4525,9 +4522,6 @@ function acceptTrade() {
   const sel = document.getElementById('trade-recv-item').value;
   const bit = Math.max(0, parseInt(document.getElementById('trade-recv-bit').value) || 0);
   const [itemId, itemType] = sel ? sel.split('|') : ['', ''];
-  if (!itemId && bit === 0) {
-    townShowToast('Select what you offer in return (or 0 BIT for free trade)', 2500); return;
-  }
   const myOffer = { bit };
   if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
   socket.emit('townTradeAccept', { requestId: _tradeRequestId, myOffer });
