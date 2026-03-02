@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260302m">
+  <link rel="stylesheet" href="town-style.css?v=20260302p">
 </head>
 <body>
   <!-- Top Bar -->
@@ -417,6 +417,7 @@
         <div id="shop-tabs" style="display:flex;gap:6px;margin:8px 0 10px;">
           <button class="shop-tab-btn active" data-tab="items" onclick="openShop('items')">🧃 Items</button>
           <button class="shop-tab-btn" data-tab="weapons" onclick="openShop('weapons')">⚔️ Weapons</button>
+          <button class="shop-tab-btn" data-tab="market" onclick="openShop('market')">🏪 Market</button>
         </div>
         <!-- Items section -->
         <div id="shop-items-section">
@@ -428,6 +429,15 @@
         <!-- Weapons section -->
         <div id="shop-weapons-section" style="display:none;">
           <div id="shop-weapons"></div>
+        </div>
+        <!-- Market section -->
+        <div id="shop-market-section" style="display:none;">
+          <div id="market-sell-form-area"></div>
+          <div class="shop-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>🏪 Listings</span>
+            <button onclick="openShop('market')" style="background:none;border:none;color:#4ecca3;cursor:pointer;font-size:12px;padding:0;">↺ Refresh</button>
+          </div>
+          <div id="market-listings"></div>
         </div>
       </div>
     </div>
@@ -457,8 +467,8 @@
   <script src="web.js"></script>
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
-  <script src="town-mob.js?v=20260302h"></script>
+  <script src="town-mob.js?v=20260302i"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260302n"></script>
+  <script src="town.js?v=20260302o"></script>
 </body>
 </html>

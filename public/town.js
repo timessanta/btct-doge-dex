@@ -4203,6 +4203,7 @@ function openShop(tab) {
     // --- Weapons tab ---
     document.getElementById('shop-items-section').style.display = 'none';
     document.getElementById('shop-weapons-section').style.display = 'block';
+    document.getElementById('shop-market-section').style.display = 'none';
     const wContainer = document.getElementById('shop-weapons');
     if (wContainer) {
       const items = TownMobs.getShopItems('weapons');
@@ -4226,10 +4227,17 @@ function openShop(tab) {
         </div>`;
       }).join('');
     }
+  } else if (currentTab === 'market') {
+    // --- Market tab ---
+    document.getElementById('shop-items-section').style.display = 'none';
+    document.getElementById('shop-weapons-section').style.display = 'none';
+    document.getElementById('shop-market-section').style.display = 'block';
+    renderMarketListings();
   } else {
     // --- Items tab ---
     document.getElementById('shop-items-section').style.display = 'block';
     document.getElementById('shop-weapons-section').style.display = 'none';
+    document.getElementById('shop-market-section').style.display = 'none';
     const container = document.getElementById('shop-items');
     if (container) {
       const items = TownMobs.getShopItems('items');
@@ -4255,10 +4263,12 @@ function openShop(tab) {
       } else {
         invContainer.innerHTML = TownMobs.inventory.map(inv => {
           const def = TownMobs.getItemDef(inv.item_id);
+          const isWeapon = def && def.type === 'weapon';
           return `<div class="inv-item">
             <span class="inv-item-name">${def ? def.emoji + ' ' + def.name : inv.item_id}</span>
             <span class="inv-item-qty">x${inv.quantity}</span>
             ${def && def.type === 'consumable' ? `<button class="inv-use-btn" onclick="TownMobs.useItem('${inv.item_id}').then(()=>openShop('items'))">Use</button>` : ''}
+            ${isWeapon ? `<button class="inv-use-btn" style="background:#4a1f9a;" onclick="marketEquipWeapon('${inv.item_id}')">Equip</button>` : ''}
           </div>`;
         }).join('');
       }
@@ -4269,6 +4279,144 @@ function openShop(tab) {
 function closeShop() {
   const modal = document.getElementById('shop-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+// ======================== Item Market ========================
+async function renderMarketListings() {
+  const el = document.getElementById('market-listings');
+  if (!el) return;
+  el.innerHTML = '<div style="color:#888;text-align:center;padding:14px;font-size:12px;">Loading...</div>';
+  const listings = await TownMobs.getMarketListings();
+  const sellArea = document.getElementById('market-sell-form-area');
+  if (sellArea && !sellArea.children.length) {
+    // Show sell button bar by default
+    sellArea.innerHTML = `<div style="text-align:right;margin-bottom:8px;">
+      <button class="market-list-btn" onclick="openMarketSellForm()">+ Sell Item</button>
+    </div>`;
+  }
+  if (!listings.length) {
+    el.innerHTML = '<div style="color:#555;text-align:center;padding:16px;font-size:12px;">No listings yet. Be the first to sell!</div>';
+    return;
+  }
+  el.innerHTML = listings.map(l => {
+    const def = TownMobs.getItemDef(l.item_id);
+    const name = def ? `${def.emoji} ${def.name}` : l.item_id;
+    const seller = l.is_mine ? '<span style="color:#f5c542;">📦 Your listing</span>' : `by 0x${l.seller_address.slice(0,6)}…`;
+    return `<div class="market-item">
+      <div class="market-item-info">
+        <div class="market-item-name">${name}</div>
+        <div class="market-item-seller">${seller}</div>
+      </div>
+      <div class="market-item-right">
+        <span class="market-item-price">${Number(l.price_bit).toLocaleString()} BIT</span>
+        ${l.is_mine
+          ? `<button class="market-cancel-btn" onclick="marketCancel(${l.id})">Cancel</button>`
+          : `<button class="market-buy-btn" onclick="marketBuy(${l.id})">Buy</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openMarketSellForm() {
+  const area = document.getElementById('market-sell-form-area');
+  if (!area) return;
+  // Toggle off
+  if (area.querySelector('.market-sell-form')) {
+    area.innerHTML = `<div style="text-align:right;margin-bottom:8px;">
+      <button class="market-list-btn" onclick="openMarketSellForm()">+ Sell Item</button>
+    </div>`;
+    return;
+  }
+  const sellable = [];
+  if (TownMobs.equippedWeapon) {
+    const w = TownMobs.getItemDef(TownMobs.equippedWeapon);
+    sellable.push({ id: TownMobs.equippedWeapon, type: 'weapon', label: `${w ? w.emoji + ' ' + w.name : TownMobs.equippedWeapon} [Equipped]` });
+  }
+  TownMobs.inventory.forEach(inv => {
+    const def = TownMobs.getItemDef(inv.item_id);
+    const type = (def && def.type === 'weapon') ? 'weapon' : 'item';
+    sellable.push({ id: inv.item_id, type, label: `${def ? def.emoji + ' ' + def.name : inv.item_id} ×${inv.quantity}` });
+  });
+  if (!sellable.length) {
+    area.innerHTML = '<div style="color:#555;font-size:12px;padding:8px;text-align:center;">No items to sell</div>';
+    return;
+  }
+  area.innerHTML = `<div class="market-sell-form">
+    <div style="font-size:11px;color:#aaa;margin-bottom:5px;">📦 List item for sale</div>
+    <select id="market-sell-item" style="width:100%;background:#0a1628;border:1px solid #2a3f6a;color:#f0f0f0;padding:5px 8px;border-radius:6px;font-size:12px;margin-bottom:6px;">
+      ${sellable.map(s => `<option value="${s.id}|${s.type}">${s.label}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input id="market-sell-price" type="number" min="1" placeholder="Price in BIT"
+        style="flex:1;background:#0a1628;border:1px solid #2a3f6a;color:#f0f0f0;padding:5px 8px;border-radius:6px;font-size:12px;">
+      <button class="market-list-btn" onclick="marketListItem()">List</button>
+      <button class="market-cancel-btn" onclick="openMarketSellForm()">✕</button>
+    </div>
+  </div>`;
+}
+
+async function marketListItem() {
+  const sel = document.getElementById('market-sell-item');
+  const priceEl = document.getElementById('market-sell-price');
+  if (!sel || !priceEl) return;
+  const [itemId, itemType] = sel.value.split('|');
+  const price = parseInt(priceEl.value);
+  if (!price || price < 1) { if (typeof townShowToast === 'function') townShowToast('Enter a valid price (min 1 BIT)', 2000); return; }
+  const result = await TownMobs.listItemForSale(itemId, itemType, price);
+  if (result) {
+    if (itemType === 'weapon') {
+      const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
+      if (s && s.player && s.myCharConfig.weapon === itemId) {
+        const oldKey = charTextureKey(s.myCharConfig);
+        if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
+        s.myCharConfig.weapon = null;
+        const newKey = getOrCreateCharTexture(s, s.myCharConfig);
+        s.player.setTexture(newKey, 0);
+        playCharAnim(s.player, 'down');
+      }
+    }
+    openShop('market');
+  }
+}
+
+async function marketBuy(listingId) {
+  const result = await TownMobs.buyMarketItem(listingId);
+  if (result) openShop('market');
+}
+
+async function marketCancel(listingId) {
+  const result = await TownMobs.cancelMarketListing(listingId);
+  if (result) {
+    if (result.weapon_id && result.weapon_id !== TownMobs.equippedWeapon) {
+      TownMobs.equippedWeapon = result.weapon_id;
+      const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
+      if (s && s.player) {
+        const oldKey = charTextureKey(s.myCharConfig);
+        if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
+        s.myCharConfig.weapon = result.weapon_id;
+        const newKey = getOrCreateCharTexture(s, s.myCharConfig);
+        s.player.setTexture(newKey, 0);
+        playCharAnim(s.player, 'down');
+      }
+    }
+    openShop('market');
+  }
+}
+
+async function marketEquipWeapon(weaponId) {
+  const result = await TownMobs.equipWeaponFromInventory(weaponId);
+  if (result) {
+    const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
+    if (s && s.player) {
+      const oldKey = charTextureKey(s.myCharConfig);
+      if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
+      s.myCharConfig.weapon = weaponId;
+      const newKey = getOrCreateCharTexture(s, s.myCharConfig);
+      s.player.setTexture(newKey, 0);
+      playCharAnim(s.player, 'down');
+    }
+    openShop('items');
+  }
 }
 
 async function weaponBuyAndRefresh(weaponId) {

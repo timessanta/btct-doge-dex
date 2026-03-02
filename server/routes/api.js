@@ -948,4 +948,197 @@ router.post('/town/weapon/buy', async (req, res) => {
   }
 });
 
+// ======================== Item Market ========================
+
+// GET /town/market — active listings
+router.get('/town/market', async (req, res) => {
+  try {
+    const addr = (req.query.address || '').replace(/^0x/, '').toLowerCase();
+    const result = await pool.query(
+      `SELECT id, seller_address, item_id, item_type, quantity, price_bit, created_at
+       FROM town_market WHERE status='active' ORDER BY created_at DESC LIMIT 100`
+    );
+    res.json(result.rows.map(r => ({ ...r, is_mine: r.seller_address === addr })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /town/market/list — list item for sale (removes from inventory)
+router.post('/town/market/list', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const { itemId, itemType, priceBit } = req.body;
+    if (!addr || !itemId || !itemType || !priceBit || Number(priceBit) < 1)
+      return res.status(400).json({ error: 'Invalid params' });
+    await client.query('BEGIN');
+    if (itemType === 'weapon') {
+      if (!WEAPON_DEFS[itemId]) throw new Error('Invalid weapon');
+      const p = await client.query('SELECT level, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+      if (p.rows.length === 0) throw new Error('Player not found');
+      if (p.rows[0].weapon_id !== itemId) throw new Error('Weapon not currently equipped');
+      const lv = p.rows[0].level || 1;
+      const baseAtk = 10 + (lv - 1) * 2;
+      const baseDef = Math.floor((lv - 1) * 0.8);
+      await client.query(
+        'UPDATE town_players SET weapon_id=NULL, atk=$2, def=$3, updated_at=NOW() WHERE btct_address=$1',
+        [addr, baseAtk, baseDef]
+      );
+    } else {
+      const inv = await client.query(
+        'SELECT quantity FROM town_inventory WHERE btct_address=$1 AND item_id=$2',
+        [addr, itemId]
+      );
+      if (inv.rows.length === 0 || inv.rows[0].quantity < 1) throw new Error('Item not in inventory');
+      await client.query(
+        'UPDATE town_inventory SET quantity=quantity-1 WHERE btct_address=$1 AND item_id=$2', [addr, itemId]
+      );
+      await client.query(
+        'DELETE FROM town_inventory WHERE btct_address=$1 AND item_id=$2 AND quantity<=0', [addr, itemId]
+      );
+    }
+    await client.query(
+      'INSERT INTO town_market (seller_address, item_id, item_type, quantity, price_bit) VALUES ($1,$2,$3,1,$4)',
+      [addr, itemId, itemType, priceBit]
+    );
+    await client.query('COMMIT');
+    const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    const player = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    res.json({ inventory: inv.rows, weapon_id: player.rows[0]?.weapon_id, bit_balance: player.rows[0]?.bit_balance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+// POST /town/market/buy/:id — buy a listing
+router.post('/town/market/buy/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const listingId = parseInt(req.params.id);
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    if (!addr || !listingId) return res.status(400).json({ error: 'Invalid params' });
+    await client.query('BEGIN');
+    const listing = await client.query(
+      'SELECT * FROM town_market WHERE id=$1 AND status=$2 FOR UPDATE', [listingId, 'active']
+    );
+    if (listing.rows.length === 0) throw new Error('Listing not available');
+    const l = listing.rows[0];
+    if (l.seller_address === addr) throw new Error('Cannot buy your own listing');
+    const buyer = await client.query('SELECT bit_balance FROM town_players WHERE btct_address=$1', [addr]);
+    if (buyer.rows.length === 0) throw new Error('Player not found');
+    if (Number(buyer.rows[0].bit_balance) < Number(l.price_bit)) throw new Error('Not enough BIT');
+    await client.query('UPDATE town_players SET bit_balance=bit_balance-$2, updated_at=NOW() WHERE btct_address=$1', [addr, l.price_bit]);
+    await client.query('UPDATE town_players SET bit_balance=bit_balance+$2, updated_at=NOW() WHERE btct_address=$1', [l.seller_address, l.price_bit]);
+    await client.query('UPDATE town_market SET status=$1, buyer_address=$2, updated_at=NOW() WHERE id=$3', ['sold', addr, listingId]);
+    // Item always goes to buyer's inventory (weapons too — equip manually)
+    await client.query(
+      `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+       ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+      [addr, l.item_id]
+    );
+    await client.query('COMMIT');
+    const updated = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    res.json({ bit_balance: updated.rows[0].bit_balance, weapon_id: updated.rows[0].weapon_id, inventory: inv.rows });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+// POST /town/market/cancel/:id — cancel own listing
+router.post('/town/market/cancel/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const listingId = parseInt(req.params.id);
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    await client.query('BEGIN');
+    const listing = await client.query(
+      'SELECT * FROM town_market WHERE id=$1 AND status=$2 AND seller_address=$3 FOR UPDATE',
+      [listingId, 'active', addr]
+    );
+    if (listing.rows.length === 0) throw new Error('Listing not found or unauthorized');
+    const l = listing.rows[0];
+    await client.query('UPDATE town_market SET status=$1, updated_at=NOW() WHERE id=$2', ['cancelled', listingId]);
+    if (l.item_type === 'weapon') {
+      const p = await client.query('SELECT level, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+      if (!p.rows[0].weapon_id) {
+        // No current weapon — re-equip directly
+        const lv = p.rows[0]?.level || 1;
+        const wpDef = WEAPON_DEFS[l.item_id];
+        const newAtk = 10 + (lv - 1) * 2 + (wpDef ? wpDef.atk : 0);
+        const newDef = Math.floor((lv - 1) * 0.8);
+        await client.query(
+          'UPDATE town_players SET weapon_id=$2, atk=$3, def=$4, updated_at=NOW() WHERE btct_address=$1',
+          [addr, l.item_id, newAtk, newDef]
+        );
+      } else {
+        // Already has weapon — return to inventory
+        await client.query(
+          `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+           ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+          [addr, l.item_id]
+        );
+      }
+    } else {
+      await client.query(
+        `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+         ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+        [addr, l.item_id]
+      );
+    }
+    await client.query('COMMIT');
+    const updated = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    res.json({ bit_balance: updated.rows[0].bit_balance, weapon_id: updated.rows[0].weapon_id, inventory: inv.rows });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+// POST /town/weapon/equip — equip weapon from inventory
+router.post('/town/weapon/equip', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const weaponId = req.body.weaponId;
+    if (!addr || !WEAPON_DEFS[weaponId]) return res.status(400).json({ error: 'Invalid weapon' });
+    await client.query('BEGIN');
+    const inv = await client.query(
+      'SELECT quantity FROM town_inventory WHERE btct_address=$1 AND item_id=$2', [addr, weaponId]
+    );
+    if (inv.rows.length === 0 || inv.rows[0].quantity < 1) throw new Error('Weapon not in inventory');
+    await client.query('UPDATE town_inventory SET quantity=quantity-1 WHERE btct_address=$1 AND item_id=$2', [addr, weaponId]);
+    await client.query('DELETE FROM town_inventory WHERE btct_address=$1 AND item_id=$2 AND quantity<=0', [addr, weaponId]);
+    const p = await client.query('SELECT level, weapon_id FROM town_players WHERE btct_address=$1 FOR UPDATE', [addr]);
+    if (p.rows.length === 0) throw new Error('Player not found');
+    const lv = p.rows[0].level || 1;
+    if (p.rows[0].weapon_id) {
+      // Return old weapon to inventory
+      await client.query(
+        `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+         ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+        [addr, p.rows[0].weapon_id]
+      );
+    }
+    const wpDef = WEAPON_DEFS[weaponId];
+    const newAtk = 10 + (lv - 1) * 2 + wpDef.atk;
+    const newDef = Math.floor((lv - 1) * 0.8);
+    await client.query(
+      'UPDATE town_players SET weapon_id=$2, atk=$3, def=$4, updated_at=NOW() WHERE btct_address=$1',
+      [addr, weaponId, newAtk, newDef]
+    );
+    await client.query('COMMIT');
+    const updated = await pool.query('SELECT bit_balance, atk, def, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    const invRes = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    res.json({ ...updated.rows[0], inventory: invRes.rows });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally { client.release(); }
+});
+
 module.exports = router;

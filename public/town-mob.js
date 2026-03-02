@@ -1115,6 +1115,92 @@
       return Object.entries(ITEMS).map(([id, item]) => ({ id, ...item }));
     },
 
+    // ---- Item Market ----
+    async getMarketListings() {
+      try {
+        const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+        const r = await fetch(`/api/town/market?address=${encodeURIComponent(addr)}`);
+        return r.ok ? await r.json() : [];
+      } catch (e) { return []; }
+    },
+
+    async listItemForSale(itemId, itemType, priceBit) {
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) { if (typeof townShowToast === 'function') townShowToast('Wallet not connected', 2000); return null; }
+      try {
+        const r = await fetch('/api/town/market/list', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: addr, itemId, itemType, priceBit })
+        });
+        const data = await r.json();
+        if (!r.ok) { if (typeof townShowToast === 'function') townShowToast(data.error || 'Failed', 2500); return null; }
+        this.inventory = data.inventory;
+        if (data.weapon_id !== undefined) this.equippedWeapon = data.weapon_id || null;
+        if (this._onBitChange) this._onBitChange(this.bitBalance);
+        if (typeof townShowToast === 'function') townShowToast('📦 Listed on market!', 2000);
+        return data;
+      } catch (e) { console.warn('[Market] list error:', e.message); return null; }
+    },
+
+    async buyMarketItem(listingId) {
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) { if (typeof townShowToast === 'function') townShowToast('Wallet not connected', 2000); return null; }
+      try {
+        const r = await fetch(`/api/town/market/buy/${listingId}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: addr })
+        });
+        const data = await r.json();
+        if (!r.ok) { if (typeof townShowToast === 'function') townShowToast(data.error || 'Purchase failed', 2500); return null; }
+        this.bitBalance = Number(data.bit_balance);
+        this.inventory = data.inventory;
+        if (this._onBitChange) this._onBitChange(this.bitBalance);
+        if (typeof townShowToast === 'function') townShowToast('✅ Purchased! Check your inventory.', 2500);
+        return data;
+      } catch (e) { console.warn('[Market] buy error:', e.message); return null; }
+    },
+
+    async cancelMarketListing(listingId) {
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) return null;
+      try {
+        const r = await fetch(`/api/town/market/cancel/${listingId}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: addr })
+        });
+        const data = await r.json();
+        if (!r.ok) { if (typeof townShowToast === 'function') townShowToast(data.error || 'Cancel failed', 2500); return null; }
+        this.inventory = data.inventory;
+        if (data.weapon_id !== undefined) this.equippedWeapon = data.weapon_id || null;
+        if (typeof townShowToast === 'function') townShowToast('↩️ Listing cancelled', 2000);
+        return data;
+      } catch (e) { console.warn('[Market] cancel error:', e.message); return null; }
+    },
+
+    async equipWeaponFromInventory(weaponId) {
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) return null;
+      try {
+        const r = await fetch('/api/town/weapon/equip', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: addr, weaponId })
+        });
+        const data = await r.json();
+        if (!r.ok) { if (typeof townShowToast === 'function') townShowToast(data.error || 'Equip failed', 2500); return null; }
+        const prevWeapon = this.equippedWeapon;
+        this.equippedWeapon = weaponId;
+        this.playerStats.atk = Number(data.atk);
+        this.playerStats.def = Number(data.def);
+        const wDef = WEAPONS[weaponId];
+        this.playerStats.critRate = 0.05 + (wDef ? (wDef.critBonus || 0) : 0);
+        this.inventory = data.inventory;
+        if (this._onBitChange) this._onBitChange(this.bitBalance);
+        this.updateHUD();
+        if (typeof townShowToast === 'function') townShowToast(`⚔️ Equipped ${wDef ? wDef.emoji + ' ' + wDef.name : weaponId}!`, 2500);
+        return { ...data, prevWeapon };
+      } catch (e) { console.warn('[Market] equip error:', e.message); return null; }
+    },
+
     getEquippedWeapon() {
       return this.equippedWeapon ? (WEAPONS[this.equippedWeapon] || null) : null;
     },

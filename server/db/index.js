@@ -128,6 +128,22 @@ async function initDB() {
       )
     `);
 
+    // Town Market — BIT-only P2P item exchange
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS town_market (
+        id SERIAL PRIMARY KEY,
+        seller_address VARCHAR(42) NOT NULL,
+        item_id VARCHAR(30) NOT NULL,
+        item_type VARCHAR(10) DEFAULT 'item',
+        quantity INT DEFAULT 1,
+        price_bit BIGINT NOT NULL,
+        status VARCHAR(10) DEFAULT 'active',
+        buyer_address VARCHAR(42),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // Migrations
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS weapon_id VARCHAR(20) DEFAULT NULL`);
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS max_level_rewarded BOOLEAN DEFAULT false`);

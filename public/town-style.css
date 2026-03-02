@@ -1327,3 +1327,49 @@ body {
 #pp-bet-input::-webkit-inner-spin-button,
 #pp-bet-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 #pp-bet-input { -moz-appearance: textfield; }
+
+/* ======================== Item Market ======================== */
+#market-listings { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.market-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+.market-item:hover { background: rgba(255,255,255,0.08); }
+.market-item-info { flex: 1; min-width: 0; }
+.market-item-name { font-size: 13px; font-weight: bold; color: #f0f0f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-item-seller { font-size: 10px; color: #888; margin-top: 2px; }
+.market-item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.market-item-price { font-size: 12px; font-weight: bold; color: #f5c542; white-space: nowrap; }
+.market-buy-btn {
+  background: linear-gradient(135deg, #1a6e3a, #27ae60);
+  color: #fff; border: none; border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer;
+}
+.market-buy-btn:hover { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+.market-cancel-btn {
+  background: rgba(180,40,40,0.6); color: #fff; border: 1px solid rgba(255,80,80,0.4);
+  border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer;
+}
+.market-cancel-btn:hover { background: rgba(220,60,60,0.8); }
+.market-list-btn {
+  background: linear-gradient(135deg, #1a4a8e, #2980b9);
+  color: #fff; border: none; border-radius: 6px;
+  padding: 5px 12px; font-size: 12px; font-weight: bold; cursor: pointer;
+}
+.market-list-btn:hover { background: linear-gradient(135deg, #2980b9, #3498db); }
+.market-sell-form {
+  background: rgba(10,22,40,0.8);
+  border: 1px solid rgba(78,204,163,0.25);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;
+}
+/* Hide market sell price spinner */
+#market-sell-price::-webkit-inner-spin-button,
+#market-sell-price::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#market-sell-price { -moz-appearance: textfield; }
+
