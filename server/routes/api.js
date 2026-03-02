@@ -810,9 +810,9 @@ router.post('/town/reward', async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Player not found' });
 
-    // Level up check (every 100 exp per level)
+    // Level up check (every 100 exp per level, max level 50)
     const p = result.rows[0];
-    const newLevel = Math.floor(Number(p.exp) / 100) + 1;
+    const newLevel = Math.min(50, Math.floor(Number(p.exp) / 100) + 1);
     if (newLevel > p.level) {
       await pool.query(
         'UPDATE town_players SET level = $2, max_hp = 100 + ($2 - 1) * 10, atk = 10 + ($2 - 1) * 2 WHERE btct_address = $1',

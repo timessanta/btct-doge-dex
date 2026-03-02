@@ -17,6 +17,8 @@
   };
 
   // ---- Mob Definitions ----
+  const MAX_LEVEL = 50;
+
   const MOB_TYPES = {
     slime: {
       name: 'Slime',
@@ -30,13 +32,69 @@
       bitReward: 30, expReward: 12,
       color: '#8B4513', eyeColor: '#ff0', size: 16,
     },
+    zombie: {
+      name: 'Zombie',
+      hp: 120, atk: 12, speed: 20, detectRange: 90, atkRange: 22, atkCooldown: 2200,
+      bitReward: 45, expReward: 18,
+      color: '#7a9a6a', eyeColor: '#f00', size: 17,
+    },
+    wolf: {
+      name: 'Wolf',
+      hp: 90, atk: 16, speed: 75, detectRange: 150, atkRange: 20, atkCooldown: 900,
+      bitReward: 60, expReward: 25,
+      color: '#8a8a8a', eyeColor: '#ff8800', size: 16,
+    },
     orc: {
       name: 'Orc',
-      hp: 150, atk: 18, speed: 35, detectRange: 140, atkRange: 26, atkCooldown: 2000,
-      bitReward: 80, expReward: 30,
+      hp: 200, atk: 22, speed: 35, detectRange: 140, atkRange: 26, atkCooldown: 2000,
+      bitReward: 90, expReward: 35,
       color: '#556B2F', eyeColor: '#f44', size: 20,
     },
+    skeleton: {
+      name: 'Skeleton',
+      hp: 160, atk: 20, speed: 45, detectRange: 160, atkRange: 24, atkCooldown: 1400,
+      bitReward: 110, expReward: 45,
+      color: '#e8e8d0', eyeColor: '#4af', size: 17,
+    },
+    dark_mage: {
+      name: 'Dark Mage',
+      hp: 140, atk: 28, speed: 55, detectRange: 170, atkRange: 24, atkCooldown: 1100,
+      bitReward: 140, expReward: 60,
+      color: '#5b21b6', eyeColor: '#f0f', size: 16,
+    },
+    golem: {
+      name: 'Golem',
+      hp: 450, atk: 28, speed: 18, detectRange: 120, atkRange: 28, atkCooldown: 2800,
+      bitReward: 200, expReward: 80,
+      color: '#7a6048', eyeColor: '#f80', size: 24,
+    },
+    vampire: {
+      name: 'Vampire',
+      hp: 240, atk: 35, speed: 62, detectRange: 180, atkRange: 22, atkCooldown: 1000,
+      bitReward: 240, expReward: 100,
+      color: '#8b0000', eyeColor: '#f55', size: 18,
+    },
+    dragon: {
+      name: 'Dragon',
+      hp: 700, atk: 50, speed: 32, detectRange: 200, atkRange: 30, atkCooldown: 2000,
+      bitReward: 400, expReward: 150,
+      color: '#cc2200', eyeColor: '#ff0', size: 26,
+    },
   };
+
+  // ---- Mob level spawn table ----
+  const MOB_LEVEL_TABLE = [
+    { type: 'slime',     minLv: 1,  maxLv: 8  },
+    { type: 'goblin',    minLv: 3,  maxLv: 14 },
+    { type: 'zombie',    minLv: 6,  maxLv: 20 },
+    { type: 'wolf',      minLv: 10, maxLv: 26 },
+    { type: 'orc',       minLv: 15, maxLv: 32 },
+    { type: 'skeleton',  minLv: 20, maxLv: 38 },
+    { type: 'dark_mage', minLv: 25, maxLv: 43 },
+    { type: 'golem',     minLv: 30, maxLv: 48 },
+    { type: 'vampire',   minLv: 35, maxLv: 50 },
+    { type: 'dragon',    minLv: 40, maxLv: 50 },
+  ];
 
   // ---- Spawn Zones (grass tiles, avoid paths/buildings/water) ----
   // We'll compute walkable spawn positions from MAP data
@@ -577,13 +635,11 @@
 
       const pos = spawnPositions[Math.floor(Math.random() * spawnPositions.length)];
 
-      // Random type based on player level
+      // Random type based on player level (level table)
       const level = this.playerStats.level;
-      let types = ['slime'];
-      if (level >= 2) types.push('slime', 'goblin');
-      if (level >= 4) types.push('goblin', 'orc');
-      if (level >= 6) types.push('orc');
-      const type = types[Math.floor(Math.random() * types.length)];
+      const eligible = MOB_LEVEL_TABLE.filter(m => level >= m.minLv && level <= m.maxLv + 5);
+      const pool = eligible.length > 0 ? eligible : [{ type: 'slime' }];
+      const type = pool[Math.floor(Math.random() * pool.length)].type;
 
       const mob = new Mob(this.scene, type, pos.x, pos.y);
       this.mobs.push(mob);
