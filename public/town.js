@@ -289,7 +289,69 @@ const TownSounds = {
 // config: { type:0-3, skin:0-5, cloth:0-5, hair:0-4, hat:0-4, glasses:0-2 }
 function charTextureKey(config) {
   if (!config) return 'char';
-  return `char_${config.type||0}_${config.skin||0}_${config.cloth||0}_${config.hair||0}_${config.hat||0}_${config.glasses||0}`;
+  return `char_${config.type||0}_${config.skin||0}_${config.cloth||0}_${config.hair||0}_${config.hat||0}_${config.glasses||0}_${config.weapon||'none'}`;
+}
+
+// Draw weapon overlay on character canvas (24×32)
+function drawWeaponOnChar(ctx, weaponId, dir, frame) {
+  if (!weaponId) return;
+  const yOff = frame === 1 ? -1 : frame === 2 ? 1 : 0;
+  // Weapon anchor: right hand side for dir 0/3, left for dir 1/2
+  let xBase, yBase;
+  switch (dir) {
+    case 0: xBase = 19; yBase = 9 + yOff; break; // front-right
+    case 1: xBase = 3;  yBase = 9 + yOff; break; // back-left
+    case 2: xBase = 1;  yBase = 9 + yOff; break; // left
+    case 3: xBase = 19; yBase = 9 + yOff; break; // right
+  }
+  const len = 16;
+  ctx.save();
+  switch (weaponId) {
+    case 'iron_sword':
+      ctx.fillStyle = '#888'; ctx.fillRect(xBase, yBase, 2, len);
+      ctx.fillStyle = '#aaa'; ctx.fillRect(xBase, yBase, 1, len - 2);
+      ctx.fillStyle = '#555'; ctx.fillRect(xBase - 2, yBase + len - 4, 6, 1);
+      ctx.fillStyle = '#6b4226'; ctx.fillRect(xBase, yBase + len, 2, 4);
+      break;
+    case 'steel_sword':
+      ctx.fillStyle = '#5b8ec4'; ctx.fillRect(xBase, yBase, 2, len);
+      ctx.fillStyle = '#a8d0f8'; ctx.fillRect(xBase, yBase, 1, len - 2);
+      ctx.fillStyle = '#c0a050'; ctx.fillRect(xBase - 3, yBase + len - 4, 8, 2);
+      ctx.fillStyle = '#6b4226'; ctx.fillRect(xBase, yBase + len, 2, 4);
+      break;
+    case 'magic_staff':
+      ctx.fillStyle = '#6a3d9a'; ctx.fillRect(xBase, yBase + 3, 2, len + 2);
+      ctx.fillStyle = 'rgba(200,120,255,0.9)';
+      ctx.beginPath(); ctx.arc(xBase + 1, yBase + 2, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath(); ctx.arc(xBase, yBase + 1, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.25; ctx.fillStyle = '#cc80ff';
+      ctx.beginPath(); ctx.arc(xBase + 1, yBase + 2, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+    case 'dark_blade':
+      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(xBase, yBase, 2, len + 2);
+      ctx.fillStyle = '#cc0033';
+      ctx.fillRect(xBase, yBase + 4, 1, 1); ctx.fillRect(xBase, yBase + 9, 1, 1); ctx.fillRect(xBase, yBase + 14, 1, 1);
+      ctx.fillStyle = '#4a4a7a'; ctx.fillRect(xBase - 2, yBase + len - 2, 6, 2);
+      ctx.fillStyle = '#2a2a3a'; ctx.fillRect(xBase, yBase + len + 2, 2, 4);
+      ctx.globalAlpha = 0.18; ctx.fillStyle = '#7700cc';
+      ctx.beginPath(); ctx.ellipse(xBase + 1, yBase + len / 2, 4, 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+    case 'dragon_blade':
+      ctx.fillStyle = '#8b0000'; ctx.fillRect(xBase, yBase, 2, len);
+      ctx.fillStyle = '#f6c90e'; ctx.fillRect(xBase, yBase, 1, len - 2);
+      ctx.fillStyle = 'rgba(139,0,0,0.8)';
+      ctx.fillRect(xBase + 1, yBase + 4, 1, 1); ctx.fillRect(xBase + 1, yBase + 9, 1, 1); ctx.fillRect(xBase + 1, yBase + 14, 1, 1);
+      ctx.fillStyle = '#d4a017'; ctx.fillRect(xBase - 3, yBase + len - 3, 8, 2);
+      ctx.fillStyle = '#8b0000'; ctx.fillRect(xBase, yBase + len, 2, 4);
+      ctx.globalAlpha = 0.22; ctx.fillStyle = '#ff6600';
+      ctx.beginPath(); ctx.ellipse(xBase + 1, yBase + len / 2, 4, 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+  }
+  ctx.restore();
 }
 
 function generateCharTexture(scene, config, textureKey) {
@@ -470,6 +532,9 @@ function generateCharTexture(scene, config, textureKey) {
         } else if (dir === 1) { ctx.fillRect(6, 8, 3, 2); }
         else if (dir === 2) { ctx.fillRect(15, 8, 3, 2); }
       }
+
+      // --- Weapon overlay ---
+      if (config.weapon) drawWeaponOnChar(ctx, config.weapon, dir, frame);
 
       ctx.restore();
     }
@@ -951,7 +1016,7 @@ class TownScene extends Phaser.Scene {
     ).setOrigin(0.5).setDepth(200);
 
     // Player character — load customization config from localStorage
-    this.myCharConfig = loadCharConfig();
+    this.myCharConfig = { ...loadCharConfig(), weapon: (typeof TownMobs !== 'undefined' ? TownMobs.equippedWeapon : null) || null };
     this.createAnimations();
     const startX = 15 * TILE + TILE / 2;
     const startY = 15 * TILE + TILE / 2;
@@ -3804,6 +3869,9 @@ function _drawCharFrame(ctx, config, ox, oy) {
     ctx.fillStyle = '#1a1a1a'; ctx.fillRect(11, 8, 2, 1);
   }
 
+  // Weapon overlay (front/idle for preview)
+  if (config.weapon) drawWeaponOnChar(ctx, config.weapon, 0, 0);
+
   ctx.restore();
 }
 
@@ -4009,48 +4077,177 @@ function toggleHuntMode() {
   townShowToast(enabled ? '⚔️ Hunt Mode ON — Press 1 to attack!' : '⚔️ Hunt Mode OFF', 2500);
 }
 
-function openShop() {
+// ---- Weapon icon Canvas renderer ----
+function drawWeaponIcon(weaponId, size) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  const s = size / 32;
+  ctx.save();
+  ctx.scale(s, s);
+  switch (weaponId) {
+    case 'iron_sword': {
+      // Grey straight sword
+      ctx.fillStyle = '#888'; ctx.fillRect(14, 4, 4, 20);
+      ctx.fillStyle = '#aaa'; ctx.fillRect(15, 4, 2, 18);
+      ctx.fillStyle = '#6b4226'; ctx.fillRect(14, 22, 4, 6);
+      ctx.fillStyle = '#777'; ctx.fillRect(9, 13, 14, 3);
+      ctx.fillStyle = '#555'; ctx.fillRect(9, 15, 14, 1);
+      break;
+    }
+    case 'steel_sword': {
+      // Blue-tinted refined sword
+      ctx.fillStyle = '#5b8ec4'; ctx.fillRect(14, 3, 4, 22);
+      ctx.fillStyle = '#a8d0f8'; ctx.fillRect(15, 3, 2, 20);
+      ctx.fillStyle = '#4a6fa5'; ctx.fillRect(13, 3, 1, 5); ctx.fillRect(18, 3, 1, 5);
+      ctx.fillStyle = '#c0a050'; ctx.fillRect(8, 13, 16, 3);
+      ctx.fillStyle = '#f0c040'; ctx.fillRect(9, 13, 14, 1);
+      ctx.fillStyle = '#6b4226'; ctx.fillRect(14, 23, 4, 6);
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(15, 23, 2, 5);
+      break;
+    }
+    case 'magic_staff': {
+      // Purple staff + glowing orb
+      ctx.fillStyle = '#6a3d9a'; ctx.fillRect(14, 10, 4, 22);
+      ctx.fillStyle = '#9b59b6'; ctx.fillRect(15, 10, 2, 20);
+      // Orb
+      ctx.fillStyle = 'rgba(200,120,255,0.9)';
+      ctx.beginPath(); ctx.arc(16, 7, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath(); ctx.arc(14, 5, 2, 0, Math.PI * 2); ctx.fill();
+      // Glow
+      ctx.globalAlpha = 0.25; ctx.fillStyle = '#d080ff';
+      ctx.beginPath(); ctx.arc(16, 7, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'dark_blade': {
+      // Black curved blade + red runes
+      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(14, 2, 5, 24);
+      ctx.fillStyle = '#2d2d4e';
+      ctx.beginPath(); ctx.moveTo(14,2); ctx.lineTo(19,10); ctx.lineTo(16,26); ctx.lineTo(14,26); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#cc0033';
+      ctx.fillRect(15, 6, 2, 1); ctx.fillRect(15, 13, 2, 1); ctx.fillRect(15, 19, 2, 1);
+      ctx.fillStyle = '#4a4a7a'; ctx.fillRect(8, 20, 16, 3);
+      ctx.fillStyle = '#2a2a4a'; ctx.fillRect(14, 23, 4, 7);
+      // Dark smoke glow
+      ctx.globalAlpha = 0.2; ctx.fillStyle = '#7700cc';
+      ctx.beginPath(); ctx.ellipse(16, 14, 8, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'dragon_blade': {
+      // Gold+red dragon blade + fire glow
+      ctx.fillStyle = '#8b0000'; ctx.fillRect(13, 2, 6, 22);
+      ctx.fillStyle = '#d4a017';
+      ctx.beginPath(); ctx.moveTo(16, 1); ctx.lineTo(19, 8); ctx.lineTo(16, 24); ctx.lineTo(13, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f6c90e'; ctx.fillRect(15, 3, 2, 18);
+      // Scale pattern
+      ctx.fillStyle = 'rgba(139,0,0,0.7)';
+      ctx.fillRect(14, 8, 2, 1); ctx.fillRect(16, 12, 2, 1); ctx.fillRect(14, 16, 2, 1);
+      // Guard
+      ctx.fillStyle = '#f6c90e'; ctx.fillRect(8, 20, 16, 3);
+      ctx.fillStyle = '#d4a017'; ctx.fillRect(9, 22, 14, 1);
+      ctx.fillRect(8, 20, 3, 3); ctx.fillRect(21, 20, 3, 3);
+      // Handle
+      ctx.fillStyle = '#8b0000'; ctx.fillRect(14, 23, 4, 7);
+      ctx.fillStyle = '#f6c90e'; ctx.fillRect(14, 23, 4, 1); ctx.fillRect(14, 28, 4, 1);
+      // Fire aura
+      ctx.globalAlpha = 0.30; ctx.fillStyle = '#ff6600';
+      ctx.beginPath(); ctx.ellipse(16, 12, 9, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.15; ctx.fillStyle = '#ffaa00';
+      ctx.beginPath(); ctx.ellipse(16, 12, 13, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      break;
+    }
+  }
+  ctx.restore();
+  return c;
+}
+
+function openShop(tab) {
   if (typeof TownMobs === 'undefined') return;
   const modal = document.getElementById('shop-modal');
   if (!modal) return;
   modal.classList.remove('hidden');
+  const currentTab = tab || modal.dataset.tab || 'items';
+  modal.dataset.tab = currentTab;
 
   // Update balance
   const balEl = document.getElementById('shop-bit-balance');
   if (balEl) balEl.textContent = TownMobs.bitBalance.toLocaleString();
 
-  // Render shop items
-  const container = document.getElementById('shop-items');
-  if (container) {
-    const items = TownMobs.getShopItems();
-    container.innerHTML = items.map(item => `
-      <div class="shop-item">
-        <div class="shop-item-info">
-          <div class="shop-item-name">${item.emoji} ${item.name}</div>
-          <div class="shop-item-desc">${item.desc}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span class="shop-item-price">${item.price} BIT</span>
-          <button class="shop-buy-btn" onclick="TownMobs.buyItem('${item.id}').then(()=>openShop())">Buy</button>
-        </div>
-      </div>
-    `).join('');
+  // Tab buttons
+  const tabBar = document.getElementById('shop-tabs');
+  if (tabBar) {
+    tabBar.querySelectorAll('.shop-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === currentTab);
+    });
   }
 
-  // Render inventory
-  const invContainer = document.getElementById('shop-inventory');
-  if (invContainer) {
-    if (TownMobs.inventory.length === 0) {
-      invContainer.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:8px;">Empty</div>';
-    } else {
-      invContainer.innerHTML = TownMobs.inventory.map(inv => {
-        const def = TownMobs.getItemDef(inv.item_id);
-        return `<div class="inv-item">
-          <span class="inv-item-name">${def ? def.emoji + ' ' + def.name : inv.item_id}</span>
-          <span class="inv-item-qty">x${inv.quantity}</span>
-          ${def && def.type === 'consumable' ? `<button class="inv-use-btn" onclick="TownMobs.useItem('${inv.item_id}').then(()=>openShop())">Use</button>` : ''}
+  if (currentTab === 'weapons') {
+    // --- Weapons tab ---
+    document.getElementById('shop-items-section').style.display = 'none';
+    document.getElementById('shop-weapons-section').style.display = 'block';
+    const wContainer = document.getElementById('shop-weapons');
+    if (wContainer) {
+      const items = TownMobs.getShopItems('weapons');
+      const eq = TownMobs.equippedWeapon;
+      wContainer.innerHTML = items.map(item => {
+        const isEq = item.id === eq;
+        const icon = drawWeaponIcon(item.id, 40);
+        const iconSrc = icon.toDataURL();
+        return `<div class="shop-item${isEq ? ' shop-item-equipped' : ''}">
+          <img src="${iconSrc}" width="40" height="40" style="image-rendering:pixelated;border-radius:4px;margin-right:10px;">
+          <div class="shop-item-info" style="flex:1;">
+            <div class="shop-item-name">${item.emoji} ${item.name} ${isEq ? '<span style="color:#4ecca3;font-size:10px;">[EQUIPPED]</span>' : ''}</div>
+            <div class="shop-item-desc">${item.desc}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="shop-item-price">${item.price} BIT</span>
+            ${isEq
+              ? '<button class="shop-buy-btn" disabled style="opacity:0.4;">Equipped</button>'
+              : `<button class="shop-buy-btn" onclick="weaponBuyAndRefresh('${item.id}')">Buy</button>`}
+          </div>
         </div>`;
       }).join('');
+    }
+  } else {
+    // --- Items tab ---
+    document.getElementById('shop-items-section').style.display = 'block';
+    document.getElementById('shop-weapons-section').style.display = 'none';
+    const container = document.getElementById('shop-items');
+    if (container) {
+      const items = TownMobs.getShopItems('items');
+      container.innerHTML = items.map(item => `
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <div class="shop-item-name">${item.emoji} ${item.name}</div>
+            <div class="shop-item-desc">${item.desc}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="shop-item-price">${item.price} BIT</span>
+            <button class="shop-buy-btn" onclick="TownMobs.buyItem('${item.id}').then(()=>openShop('items'))">Buy</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render inventory
+    const invContainer = document.getElementById('shop-inventory');
+    if (invContainer) {
+      if (TownMobs.inventory.length === 0) {
+        invContainer.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:8px;">Empty</div>';
+      } else {
+        invContainer.innerHTML = TownMobs.inventory.map(inv => {
+          const def = TownMobs.getItemDef(inv.item_id);
+          return `<div class="inv-item">
+            <span class="inv-item-name">${def ? def.emoji + ' ' + def.name : inv.item_id}</span>
+            <span class="inv-item-qty">x${inv.quantity}</span>
+            ${def && def.type === 'consumable' ? `<button class="inv-use-btn" onclick="TownMobs.useItem('${inv.item_id}').then(()=>openShop('items'))">Use</button>` : ''}
+          </div>`;
+        }).join('');
+      }
     }
   }
 }
@@ -4058,4 +4255,18 @@ function openShop() {
 function closeShop() {
   const modal = document.getElementById('shop-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+async function weaponBuyAndRefresh(weaponId) {
+  const result = await TownMobs.buyWeapon(weaponId);
+  if (result) {
+    // Re-create player texture with new weapon equipped
+    const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
+    if (s) {
+      s.myCharConfig.weapon = weaponId;
+      const newKey = getOrCreateCharTexture(s, s.myCharConfig);
+      if (s.player) playCharAnim(s.player, 'down');
+    }
+  }
+  openShop('weapons');
 }

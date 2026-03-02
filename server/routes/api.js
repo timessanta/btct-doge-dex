@@ -776,6 +776,15 @@ router.get('/stats', async (req, res) => {
 // ======================== TOWN RPG — BIT API ========================
 
 // Get player stats + BIT balance
+// Weapon definitions (server-side for ATK calculation)
+const WEAPON_DEFS = {
+  iron_sword:   { atk: 8,  price: 400 },
+  steel_sword:  { atk: 18, price: 1000 },
+  magic_staff:  { atk: 15, price: 1500 },
+  dark_blade:   { atk: 30, price: 3000 },
+  dragon_blade: { atk: 50, price: 8000 },
+};
+
 router.get('/town/player/:address', async (req, res) => {
   try {
     const addr = req.params.address.replace(/^0x/, '').toLowerCase();
@@ -814,9 +823,29 @@ router.post('/town/reward', async (req, res) => {
     const p = result.rows[0];
     const newLevel = Math.min(50, Math.floor((1 + Math.sqrt(1 + Number(p.exp) / 25)) / 2));
     if (newLevel > p.level) {
+      // Get weapon bonus for ATK calculation
+      const wpRow = await pool.query('SELECT weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+      const wpId = wpRow.rows[0]?.weapon_id;
+      const wpBonus = (wpId && WEAPON_DEFS[wpId]) ? WEAPON_DEFS[wpId].atk : 0;
+      const newDef = Math.floor((newLevel - 1) * 0.8);
+      const newAtk = 10 + (newLevel - 1) * 2 + wpBonus;
+      const newMaxHp = 100 + (newLevel - 1) * 10;
+      // Max level reward: 5000 BIT one-time
+      const isMaxLevel = newLevel >= 50;
+      const rewardRow = isMaxLevel
+        ? await pool.query('SELECT max_level_rewarded FROM town_players WHERE btct_address=$1', [addr])
+        : null;
+      const alreadyRewarded = rewardRow && rewardRow.rows[0]?.max_level_rewarded;
+      if (isMaxLevel && !alreadyRewarded) {
+        await pool.query(
+          'UPDATE town_players SET level=$2, max_hp=$3, atk=$4, def=$5, bit_balance=bit_balance+5000, max_level_rewarded=true WHERE btct_address=$1',
+          [addr, newLevel, newMaxHp, newAtk, newDef]
+        );
+        return res.json({ ...p, level: newLevel, levelUp: true, maxLevel: true, maxLevelBitBonus: 5000 });
+      }
       await pool.query(
-        'UPDATE town_players SET level = $2, max_hp = 100 + ($2 - 1) * 10, atk = 10 + ($2 - 1) * 2 WHERE btct_address = $1',
-        [addr, newLevel]
+        'UPDATE town_players SET level=$2, max_hp=$3, atk=$4, def=$5 WHERE btct_address=$1',
+        [addr, newLevel, newMaxHp, newAtk, newDef]
       );
       return res.json({ ...p, level: newLevel, levelUp: true });
     }
@@ -889,5 +918,34 @@ router.post('/town/item/use', async (req, res) => {
   }
 });
 
-module.exports = router;
+// Buy/equip weapon
+router.post('/town/weapon/buy', async (req, res) => {
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    const weaponId = req.body.weaponId;
+    if (!addr || !WEAPON_DEFS[weaponId]) return res.status(400).json({ error: 'Invalid weapon' });
 
+    const price = WEAPON_DEFS[weaponId].price;
+    const player = await pool.query('SELECT bit_balance, level, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    if (player.rows.length === 0) return res.status(404).json({ error: 'Player not found' });
+    const p = player.rows[0];
+
+    if (Number(p.bit_balance) < price) return res.status(400).json({ error: 'Not enough BIT' });
+
+    const wpBonus = WEAPON_DEFS[weaponId].atk;
+    const level = p.level || 1;
+    const newAtk = 10 + (level - 1) * 2 + wpBonus;
+    const newDef = Math.floor((level - 1) * 0.8);
+
+    await pool.query(
+      'UPDATE town_players SET bit_balance=bit_balance-$2, weapon_id=$3, atk=$4, def=$5, updated_at=NOW() WHERE btct_address=$1',
+      [addr, price, weaponId, newAtk, newDef]
+    );
+    const updated = await pool.query('SELECT bit_balance, atk, def, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    res.json({ ...updated.rows[0], prevWeapon: p.weapon_id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;

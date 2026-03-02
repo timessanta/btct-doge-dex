@@ -16,6 +16,15 @@
     drink_l: { name: 'Energy Drink (L)', emoji: '🍹', type: 'consumable', hpRestore: 9999, price: 250, desc: 'Full HP restore' },
   };
 
+  // ---- Weapon Definitions ----
+  const WEAPONS = {
+    iron_sword:   { name: 'Iron Sword',   emoji: '⚔️',  type: 'weapon', atk: 8,  critBonus: 0,    price: 400,  desc: '+8 ATK' },
+    steel_sword:  { name: 'Steel Sword',  emoji: '🗡️',  type: 'weapon', atk: 18, critBonus: 0,    price: 1000, desc: '+18 ATK' },
+    magic_staff:  { name: 'Magic Staff',  emoji: '🔮',  type: 'weapon', atk: 15, critBonus: 0.05, price: 1500, desc: '+15 ATK, +5% Crit' },
+    dark_blade:   { name: 'Dark Blade',   emoji: '💀',  type: 'weapon', atk: 30, critBonus: 0.03, price: 3000, desc: '+30 ATK, +3% Crit' },
+    dragon_blade: { name: 'Dragon Blade', emoji: '🔥',  type: 'weapon', atk: 50, critBonus: 0.05, price: 8000, desc: '+50 ATK, +5% Crit' },
+  };
+
   // ---- Mob Definitions ----
   const MAX_LEVEL = 50;
 
@@ -40,43 +49,43 @@
     },
     wolf: {
       name: 'Wolf',
-      hp: 90, atk: 16, speed: 75, detectRange: 150, atkRange: 20, atkCooldown: 900,
+      hp: 110, atk: 20, speed: 75, detectRange: 150, atkRange: 20, atkCooldown: 850,
       bitReward: 60, expReward: 25,
       color: '#8a8a8a', eyeColor: '#ff8800', size: 16,
     },
     orc: {
       name: 'Orc',
-      hp: 200, atk: 22, speed: 35, detectRange: 140, atkRange: 26, atkCooldown: 2000,
+      hp: 280, atk: 30, speed: 35, detectRange: 140, atkRange: 26, atkCooldown: 1800,
       bitReward: 90, expReward: 35,
       color: '#556B2F', eyeColor: '#f44', size: 20,
     },
     skeleton: {
       name: 'Skeleton',
-      hp: 160, atk: 20, speed: 45, detectRange: 160, atkRange: 24, atkCooldown: 1400,
+      hp: 200, atk: 28, speed: 50, detectRange: 160, atkRange: 24, atkCooldown: 1200,
       bitReward: 110, expReward: 45,
       color: '#e8e8d0', eyeColor: '#4af', size: 17,
     },
     dark_mage: {
       name: 'Dark Mage',
-      hp: 140, atk: 28, speed: 55, detectRange: 170, atkRange: 24, atkCooldown: 1100,
+      hp: 180, atk: 40, speed: 55, detectRange: 170, atkRange: 24, atkCooldown: 1000,
       bitReward: 140, expReward: 60,
       color: '#5b21b6', eyeColor: '#f0f', size: 16,
     },
     golem: {
       name: 'Golem',
-      hp: 450, atk: 28, speed: 18, detectRange: 120, atkRange: 28, atkCooldown: 2800,
+      hp: 700, atk: 42, speed: 18, detectRange: 120, atkRange: 28, atkCooldown: 2500,
       bitReward: 200, expReward: 80,
       color: '#7a6048', eyeColor: '#f80', size: 24,
     },
     vampire: {
       name: 'Vampire',
-      hp: 240, atk: 35, speed: 62, detectRange: 180, atkRange: 22, atkCooldown: 1000,
+      hp: 340, atk: 55, speed: 65, detectRange: 180, atkRange: 22, atkCooldown: 850,
       bitReward: 240, expReward: 100,
       color: '#8b0000', eyeColor: '#f55', size: 18,
     },
     dragon: {
       name: 'Dragon',
-      hp: 700, atk: 50, speed: 32, detectRange: 200, atkRange: 30, atkCooldown: 2000,
+      hp: 1500, atk: 90, speed: 32, detectRange: 200, atkRange: 30, atkCooldown: 1200,
       bitReward: 400, expReward: 150,
       color: '#cc2200', eyeColor: '#ff0', size: 26,
     },
@@ -550,6 +559,10 @@
           this.playerHp = this.playerStats.maxHp;
           this.playerMaxHp = this.playerStats.maxHp;
           this.inventory = data.inventory || [];
+          this.equippedWeapon = data.weapon_id || null;
+          // Apply weapon crit bonus
+          const wpDef = data.weapon_id ? WEAPONS[data.weapon_id] : null;
+          this.playerStats.critRate = 0.05 + (wpDef ? (wpDef.critBonus || 0) : 0);
           if (this._onBitChange) this._onBitChange(this.bitBalance);
           if (this._onHpChange) this._onHpChange(this.playerHp, this.playerMaxHp);
           this.updateHUD();
@@ -750,7 +763,8 @@
         if (result.levelUp) {
           this.playerStats.level = result.level;
           this.playerStats.maxHp = 100 + (result.level - 1) * 10;
-          this.playerStats.atk = 10 + (result.level - 1) * 2;
+          this.playerStats.atk = result.atk || (10 + (result.level - 1) * 2);
+          this.playerStats.def = (result.def !== undefined) ? result.def : Math.floor((result.level - 1) * 0.8);
           this.playerMaxHp = this.playerStats.maxHp;
           this.playerHp = this.playerMaxHp;
           if (this._onHpChange) this._onHpChange(this.playerHp, this.playerMaxHp);
@@ -1090,11 +1104,49 @@
     },
 
     getItemDef(itemId) {
-      return ITEMS[itemId] || null;
+      return ITEMS[itemId] || WEAPONS[itemId] || null;
     },
 
-    getShopItems() {
+    getShopItems(tab) {
+      if (tab === 'weapons') return Object.entries(WEAPONS).map(([id, w]) => ({ id, ...w }));
       return Object.entries(ITEMS).map(([id, item]) => ({ id, ...item }));
+    },
+
+    getEquippedWeapon() {
+      return this.equippedWeapon ? (WEAPONS[this.equippedWeapon] || null) : null;
+    },
+
+    async buyWeapon(weaponId) {
+      const w = WEAPONS[weaponId];
+      if (!w) return;
+      const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+      if (!addr) { if (typeof townShowToast === 'function') townShowToast('Wallet not connected', 2000); return; }
+      if (this.equippedWeapon) {
+        const prev = WEAPONS[this.equippedWeapon];
+        if (!confirm(`Replace ${prev ? prev.emoji + ' ' + prev.name : this.equippedWeapon} with ${w.emoji} ${w.name}?\nNo refund.`)) return;
+      }
+      try {
+        const result = await fetch('/api/town/weapon/buy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: addr, weaponId }),
+        }).then(r => r.json());
+        if (result.error) {
+          if (typeof townShowToast === 'function') townShowToast(result.error, 2500);
+          return;
+        }
+        this.equippedWeapon = weaponId;
+        this.playerStats.atk = Number(result.atk);
+        this.playerStats.def = Number(result.def);
+        this.playerStats.critRate = 0.05 + (w.critBonus || 0);
+        this.bitBalance = Number(result.bit_balance);
+        if (this._onBitChange) this._onBitChange(this.bitBalance);
+        this.updateHUD();
+        if (typeof townShowToast === 'function') townShowToast(`Equipped ${w.emoji} ${w.name}! ATK up!`, 3000);
+        return result;
+      } catch (e) {
+        console.warn('[Mob] buyWeapon error:', e.message);
+      }
     },
 
     // ---- Stats Modal ----

@@ -128,6 +128,10 @@ async function initDB() {
       )
     `);
 
+    // Migrations
+    await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS weapon_id VARCHAR(20) DEFAULT NULL`);
+    await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS max_level_rewarded BOOLEAN DEFAULT false`);
+
     console.log('[DB] Tables initialized');
   } catch (err) {
     console.error('[DB] Init error:', err.message);
