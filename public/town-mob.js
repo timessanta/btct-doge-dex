@@ -1293,7 +1293,7 @@
             if (!def2) return;
             const isWeapon = def2.type === 'weapon';
             const actionBtn = isWeapon
-              ? `<button class="stats-inv-use" style="background:#4a1f9a;" onclick="TownMobs.equipWeaponFromInventory('${slot.item_id}').then(r=>{if(r){const s=game&&game.scene&&game.scene.scenes.find(sc=>sc.myCharConfig);if(s&&s.player){s.myCharConfig.weapon='${slot.item_id}';const k=getOrCreateCharTexture(s,s.myCharConfig);s.player.setTexture(k,0);playCharAnim(s.player,'down');}TownMobs.openStatsModal();}});">Equip</button>`
+              ? `<button class="stats-inv-use" style="background:#4a1f9a;" onclick="statsEquipWeapon('${slot.item_id}')">Equip</button>`
               : `<button class="stats-inv-use" onclick="TownMobs.useItem('${slot.item_id}');TownMobs.openStatsModal();">\u25b6 Use</button>`;
             invHtml += `<div class="stats-inv-item">
               <span class="stats-inv-name">${def2.emoji} ${def2.name}</span>
@@ -1389,5 +1389,17 @@
   window.ITEMS = ITEMS;
   window.openStatsModal = () => TownMobs.openStatsModal();
   window.closeStatsModal = () => TownMobs.closeStatsModal();
+  window.statsEquipWeapon = async (weaponId) => {
+    const r = await TownMobs.equipWeaponFromInventory(weaponId);
+    if (!r) return;
+    const s = window.game && game.scene && game.scene.scenes.find(sc => sc.myCharConfig);
+    if (s && s.player) {
+      s.myCharConfig.weapon = weaponId;
+      const k = getOrCreateCharTexture(s, s.myCharConfig);
+      s.player.setTexture(k, 0);
+      playCharAnim(s.player, 'down');
+    }
+    TownMobs.openStatsModal();
+  };
 
 })();
