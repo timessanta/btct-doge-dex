@@ -1026,8 +1026,6 @@ class TownScene extends Phaser.Scene {
     // Callback: loadPlayerData 완료 시 무기 반영 (비동기 타이밍 보정)
     TownMobs._onWeaponLoaded = (weaponId) => {
       if (!this.player) return;
-      const oldKey = charTextureKey(this.myCharConfig);
-      if (this.textures.exists(oldKey)) this.textures.remove(oldKey);
       this.myCharConfig.weapon = weaponId || null;
       const newKey = getOrCreateCharTexture(this, this.myCharConfig);
       this.player.setTexture(newKey, 0);
@@ -4367,8 +4365,6 @@ async function marketListItem() {
     if (itemType === 'weapon') {
       const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
       if (s && s.player && s.myCharConfig.weapon === itemId) {
-        const oldKey = charTextureKey(s.myCharConfig);
-        if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
         s.myCharConfig.weapon = null;
         const newKey = getOrCreateCharTexture(s, s.myCharConfig);
         s.player.setTexture(newKey, 0);
@@ -4391,8 +4387,6 @@ async function marketCancel(listingId) {
       TownMobs.equippedWeapon = result.weapon_id;
       const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
       if (s && s.player) {
-        const oldKey = charTextureKey(s.myCharConfig);
-        if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
         s.myCharConfig.weapon = result.weapon_id;
         const newKey = getOrCreateCharTexture(s, s.myCharConfig);
         s.player.setTexture(newKey, 0);
@@ -4408,8 +4402,6 @@ async function marketEquipWeapon(weaponId) {
   if (result) {
     const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
     if (s && s.player) {
-      const oldKey = charTextureKey(s.myCharConfig);
-      if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
       s.myCharConfig.weapon = weaponId;
       const newKey = getOrCreateCharTexture(s, s.myCharConfig);
       s.player.setTexture(newKey, 0);
@@ -4425,8 +4417,6 @@ async function weaponBuyAndRefresh(weaponId) {
     // Re-create player texture with new weapon equipped
     const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
     if (s && s.player) {
-      const oldKey = charTextureKey(s.myCharConfig);
-      if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
       s.myCharConfig.weapon = weaponId;
       const newKey = getOrCreateCharTexture(s, s.myCharConfig);
       s.player.setTexture(newKey, 0);
