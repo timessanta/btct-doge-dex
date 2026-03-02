@@ -758,6 +758,22 @@
           this.showLevelUpEffect();
           this.updateHUD();
         }
+        // Max level (Lv.50) reward
+        if (result.maxLevel) {
+          setTimeout(() => {
+            if (typeof townShowToast === 'function')
+              townShowToast('🏆 MAX LEVEL! +5000 BIT & ✨ Golden Aura unlocked!', 6000);
+          }, 500);
+          // Unlock Golden Aura button
+          const auraBtn = document.getElementById('char-type-aura-btn');
+          if (auraBtn) {
+            auraBtn.disabled = false;
+            auraBtn.style.opacity = '1';
+            auraBtn.style.cursor = 'pointer';
+            const lock = document.getElementById('aura-lock');
+            if (lock) lock.remove();
+          }
+        }
         // Sync server balance
         if (result.bit_balance !== undefined) {
           this.bitBalance = Number(result.bit_balance);

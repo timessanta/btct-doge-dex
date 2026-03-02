@@ -328,8 +328,8 @@ function generateCharTexture(scene, config, textureKey) {
       ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
 
       // --- Legs ---
-      const legC = type===1 ? '#7f8c8d' : type===2 ? '#6c3483' : type===3 ? '#2c3e50' : '#34495e';
-      const legD = type===1 ? '#626d6d' : type===2 ? '#4a235a' : type===3 ? '#1a252f' : '#2c3e50';
+      const legC = type===1?'#7f8c8d':type===2?'#6c3483':type===3?'#2c3e50':type===4?'#d4a017':'#34495e';
+      const legD = type===1?'#626d6d':type===2?'#4a235a':type===3?'#1a252f':type===4?'#b8860b':'#2c3e50';
       ctx.fillStyle = legC;
       if (frame === 0) {
         ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
@@ -359,13 +359,20 @@ function generateCharTexture(scene, config, textureKey) {
         ctx.fillStyle = '#7d6544'; ctx.fillRect(7, 14, 10, 11);
         ctx.fillStyle = '#5d4a2e'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 14, 2, 11);
         ctx.fillStyle = '#c0a060'; ctx.fillRect(7, 22, 10, 2);
+      } else if (type === 4) {
+        // Golden Aura armor
+        ctx.fillStyle = '#d4a017'; ctx.fillRect(7, 14, 10, 11);
+        ctx.fillStyle = '#f6c90e'; ctx.fillRect(8, 15, 8, 2); ctx.fillRect(10, 17, 4, 5);
+        ctx.fillStyle = '#b8860b'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+        ctx.fillStyle = 'rgba(255,240,100,0.9)';
+        ctx.fillRect(9, 17, 1, 1); ctx.fillRect(13, 19, 1, 1); ctx.fillRect(11, 22, 2, 1);
       } else {
         ctx.fillStyle = clth; ctx.fillRect(7, 14, 10, 11);
         ctx.fillStyle = clthD; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
       }
 
       // --- Arms ---
-      const armC = type===1 ? '#7f8c8d' : type===3 ? '#7d6544' : clth;
+      const armC = type===1 ? '#7f8c8d' : type===3 ? '#7d6544' : type===4 ? '#d4a017' : clth;
       ctx.fillStyle = armC;
       if (frame === 0) {
         ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
@@ -380,6 +387,20 @@ function generateCharTexture(scene, config, textureKey) {
       if (type === 1) {
         ctx.fillStyle = '#bdc3c7';
         ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+      }
+      if (type === 4) {
+        ctx.fillStyle = '#f6c90e';
+        ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+      }
+
+      // --- Golden Aura glow overlay ---
+      if (type === 4) {
+        const grad = ctx.createRadialGradient(12, 14, 1, 12, 14, 16);
+        grad.addColorStop(0, 'rgba(255,220,50,0.28)');
+        grad.addColorStop(0.6, 'rgba(255,200,0,0.10)');
+        grad.addColorStop(1, 'rgba(255,180,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
       }
 
       // --- Head ---
@@ -1309,10 +1330,12 @@ class TownScene extends Phaser.Scene {
       const container = document.getElementById('town-chat-messages');
       if (!container) return;
       const addr = data.address || '';
-      const color = this.addrToCssColor(addr);
+      const isMaxLv = (data.level || 1) >= 50;
+      const color = isMaxLv ? '#f6c90e' : this.addrToCssColor(addr);
+      const namePrefix = isMaxLv ? '✨ ' : '';
       const line = document.createElement('div');
       line.className = 'town-chat-line';
-      line.innerHTML = `<span class="chat-name" style="color:${color}">${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" title="Translate">🌐</button><div class="chat-tl-result"></div>`;
+      line.innerHTML = `<span class="chat-name" style="color:${color}">${namePrefix}${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" title="Translate">🌐</button><div class="chat-tl-result"></div>`;
       // Store original text safely via dataset
       const btn = line.querySelector('.chat-tl-btn');
       btn.dataset.text = data.content;
@@ -1808,6 +1831,11 @@ class TownScene extends Phaser.Scene {
         <div style="color:#aaa;font-size:11px;">BTCT Address</div>
         <div style="color:#4ecca3;font-size:12px;word-break:break-all;user-select:all;">0x${cleanAddr}</div>
       </div>
+      <div id="pp-maxlv-badge" style="display:none;text-align:center;margin-bottom:10px;
+        background:linear-gradient(135deg,#b8860b,#f6c90e,#b8860b);color:#1a1a1a;
+        font-weight:bold;font-size:13px;padding:5px 12px;border-radius:20px;letter-spacing:1px;">
+        ✨ MAX LEVEL • Lv.50 ✨
+      </div>
       <div id="player-profile-stats" style="display:flex;gap:12px;margin-bottom:12px;">
         <div style="text-align:center;flex:1;background:rgba(255,255,255,0.04);padding:8px;border-radius:6px;">
           <div style="font-size:18px;color:#f5c542;" id="pp-listings">…</div>
@@ -1845,6 +1873,13 @@ class TownScene extends Phaser.Scene {
           const s = getPhaserScene(); if (s) s.input.keyboard.enabled = true;
         });
       }
+      // Show MAX LV badge if player is Lv.50
+      api(`/town/player/${cleanAddr}`).then(d => {
+        if (d && d.level >= 50) {
+          const badge = document.getElementById('pp-maxlv-badge');
+          if (badge) badge.style.display = 'block';
+        }
+      }).catch(() => {});
     }, 0);
 
     // Async fetch profile stats
@@ -3582,6 +3617,20 @@ function openCharModal() {
   pendingCharConfig = Object.assign({}, loadCharConfig());
   _syncCharModalUI(pendingCharConfig);
   updateCharPreview(pendingCharConfig);
+  // Golden Aura unlock: check if player is Lv.50
+  const myAddr = (getActiveBtctAddr() || '').replace(/^0x/, '');
+  const auraBtn = document.getElementById('char-type-aura-btn');
+  if (auraBtn && myAddr) {
+    api(`/town/player/${myAddr}`).then(d => {
+      if (d && d.level >= 50) {
+        auraBtn.disabled = false;
+        auraBtn.style.opacity = '1';
+        auraBtn.title = 'Golden Aura — Max Level Reward';
+        const lock = document.getElementById('aura-lock');
+        if (lock) lock.remove();
+      }
+    }).catch(() => {});
+  }
   const m = document.getElementById('char-modal');
   if (m) m.classList.remove('hidden');
 }
@@ -3614,6 +3663,13 @@ function _syncCharModalUI(config) {
 
 function setCharOpt(prop, val) {
   if (!pendingCharConfig) pendingCharConfig = loadCharConfig();
+  // Golden Aura (type=4) requires Lv.50
+  if (prop === 'type' && val === 4) {
+    const auraBtn = document.getElementById('char-type-aura-btn');
+    if (auraBtn && auraBtn.disabled) {
+      showToast('🔒 Reach Lv.50 to unlock Golden Aura!'); return;
+    }
+  }
   pendingCharConfig[prop] = val;
   _syncCharModalUI(pendingCharConfig);
   updateCharPreview(pendingCharConfig);
@@ -3644,8 +3700,8 @@ function _drawCharFrame(ctx, config, ox, oy) {
   ctx.beginPath(); ctx.ellipse(12, 30, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
 
   // Legs
-  const legC = type===1?'#7f8c8d':type===2?'#6c3483':type===3?'#2c3e50':'#34495e';
-  const legD = type===1?'#626d6d':type===2?'#4a235a':type===3?'#1a252f':'#2c3e50';
+  const legC = type===1?'#7f8c8d':type===2?'#6c3483':type===3?'#2c3e50':type===4?'#d4a017':'#34495e';
+  const legD = type===1?'#626d6d':type===2?'#4a235a':type===3?'#1a252f':type===4?'#b8860b':'#2c3e50';
   ctx.fillStyle = legC;
   ctx.fillRect(8, 24, 4, 6); ctx.fillRect(12, 24, 4, 6);
   ctx.fillStyle = legD;
@@ -3665,13 +3721,19 @@ function _drawCharFrame(ctx, config, ox, oy) {
     ctx.fillStyle = '#7d6544'; ctx.fillRect(7, 14, 10, 11);
     ctx.fillStyle = '#5d4a2e'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 14, 2, 11);
     ctx.fillStyle = '#c0a060'; ctx.fillRect(7, 22, 10, 2);
+  } else if (type === 4) {
+    ctx.fillStyle = '#d4a017'; ctx.fillRect(7, 14, 10, 11);
+    ctx.fillStyle = '#f6c90e'; ctx.fillRect(8, 15, 8, 2); ctx.fillRect(10, 17, 4, 5);
+    ctx.fillStyle = '#b8860b'; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
+    ctx.fillStyle = 'rgba(255,240,100,0.9)';
+    ctx.fillRect(9, 17, 1, 1); ctx.fillRect(13, 19, 1, 1); ctx.fillRect(11, 22, 2, 1);
   } else {
     ctx.fillStyle = clth; ctx.fillRect(7, 14, 10, 11);
     ctx.fillStyle = clthD; ctx.fillRect(7, 14, 10, 1); ctx.fillRect(11, 15, 2, 9);
   }
 
   // Arms
-  const armC = type===1?'#7f8c8d':type===3?'#7d6544':clth;
+  const armC = type===1?'#7f8c8d':type===3?'#7d6544':type===4?'#d4a017':clth;
   ctx.fillStyle = armC;
   ctx.fillRect(4, 15, 3, 8); ctx.fillRect(17, 15, 3, 8);
   ctx.fillStyle = skin;
@@ -3679,6 +3741,17 @@ function _drawCharFrame(ctx, config, ox, oy) {
   if (type === 1) {
     ctx.fillStyle = '#bdc3c7';
     ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+  }
+  if (type === 4) {
+    ctx.fillStyle = '#f6c90e';
+    ctx.fillRect(3, 14, 4, 3); ctx.fillRect(17, 14, 4, 3);
+    // Aura glow
+    const grad = ctx.createRadialGradient(12, 14, 1, 12, 14, 16);
+    grad.addColorStop(0, 'rgba(255,220,50,0.28)');
+    grad.addColorStop(0.6, 'rgba(255,200,0,0.10)');
+    grad.addColorStop(1, 'rgba(255,180,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 24, 32);
   }
 
   // Head
