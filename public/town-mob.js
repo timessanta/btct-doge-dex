@@ -1099,9 +1099,10 @@
         const data = await fetch(`/api/town/player/${addr}`).then(r => r.json());
         const lvl = data.level || 1;
         const exp = Number(data.exp) || 0;
-        const expForLevel = (lvl - 1) * 100;
+        const expForLevel = 100 * lvl * (lvl - 1);  // cumulative EXP at start of this level
+        const expNeeded = 200 * lvl;                 // EXP needed for this level
         const expThisLevel = exp - expForLevel;
-        const expPercent = Math.min(100, (expThisLevel / 100) * 100);
+        const expPercent = Math.min(100, (expThisLevel / expNeeded) * 100);
         const kills = data.mobs_killed || 0;
         const deaths = data.deaths || 0;
         const bits = Number(data.bit_balance) || 0;
@@ -1138,7 +1139,7 @@
             <div class="stats-exp-bar-bg">
               <div class="stats-exp-bar-fill" style="width:${expPercent}%"></div>
             </div>
-            <span class="stats-exp-text">${expThisLevel}/100</span>
+            <span class="stats-exp-text">${expThisLevel}/${expNeeded}</span>
           </div>
           <hr class="stats-divider">
 

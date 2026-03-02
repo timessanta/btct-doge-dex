@@ -432,18 +432,18 @@ io.on('connection', (socket) => {
         `UPDATE town_players SET
            bit_balance = bit_balance + $1,
            exp = exp + $2,
-           level = LEAST(50, GREATEST(level, floor((exp + $2) / 100)::int + 1)),
-           max_hp = 100 + (LEAST(50, GREATEST(level, floor((exp + $2) / 100)::int + 1)) - 1) * 10,
-           atk = 10 + (LEAST(50, GREATEST(level, floor((exp + $2) / 100)::int + 1)) - 1) * 2
+           level = LEAST(50, floor((1 + sqrt(1 + (exp + $2)::float / 25)) / 2)::int),
+           max_hp = 100 + (LEAST(50, floor((1 + sqrt(1 + (exp + $2)::float / 25)) / 2)::int) - 1) * 10,
+           atk = 10 + (LEAST(50, floor((1 + sqrt(1 + (exp + $2)::float / 25)) / 2)::int) - 1) * 2
          WHERE btct_address=$3`,
         [totalBitWin, BASE_EXP_WIN, winnerAddr]
       );
       await pool.query(
         `UPDATE town_players SET
            exp = exp + $1,
-           level = LEAST(50, GREATEST(level, floor((exp + $1) / 100)::int + 1)),
-           max_hp = 100 + (LEAST(50, GREATEST(level, floor((exp + $1) / 100)::int + 1)) - 1) * 10,
-           atk = 10 + (LEAST(50, GREATEST(level, floor((exp + $1) / 100)::int + 1)) - 1) * 2
+           level = LEAST(50, floor((1 + sqrt(1 + (exp + $1)::float / 25)) / 2)::int),
+           max_hp = 100 + (LEAST(50, floor((1 + sqrt(1 + (exp + $1)::float / 25)) / 2)::int) - 1) * 10,
+           atk = 10 + (LEAST(50, floor((1 + sqrt(1 + (exp + $1)::float / 25)) / 2)::int) - 1) * 2
          WHERE btct_address=$2`,
         [BASE_EXP_LOSE, loserAddr]
       );
