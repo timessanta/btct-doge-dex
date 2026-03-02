@@ -1476,6 +1476,26 @@ class TownScene extends Phaser.Scene {
       }
     });
 
+    // ---- 1:1 Trade socket handlers ----
+    socket.on('townTradeRequest', (data) => {
+      openTradeReceiveModal(data);
+    });
+    socket.on('townTradeDone', (data) => {
+      onTradeDone(data);
+    });
+    socket.on('townTradeDeclined', (data) => {
+      townShowToast(`❌ Trade declined by ${shortAddr(data.targetAddr)}`, 3000);
+    });
+    socket.on('townTradeExpired', () => {
+      townShowToast('⏱️ Trade request timed out', 3000);
+      closeTradeSendModal();
+    });
+    socket.on('townTradeError', (data) => {
+      townShowToast(`❌ Trade failed: ${data.msg}`, 4000);
+      closeTradeSendModal();
+      closeTradeReceiveModal();
+    });
+
     // Enter key to activate/send town chat
     this.setupTownChat();
     // Market price panel
@@ -1933,6 +1953,7 @@ class TownScene extends Phaser.Scene {
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="townShowPlayerAds('${cleanAddr}')">View Listings</button>
         <button class="btn" style="flex:1;min-width:80px;background:#0f3460;color:#e0e0e0;border:1px solid #1a4a80;" onclick="townSendEmoji('${cleanAddr}')">👋 Wave</button>
+        <button class="btn" style="flex:1;min-width:80px;background:#1a4a2e;color:#4ecca3;border:1px solid #2e7d52;" onclick="openTradeModal('0x${cleanAddr}')">🔄 Trade</button>
         <button class="btn duel-btn" id="pp-duel-btn" style="flex:1;min-width:80px;background:rgba(229,69,96,0.2);border:1px solid rgba(229,69,96,0.6);color:#e94560;" onclick="townRequestDuel('${cleanAddr}')">⚔️ Duel</button>
         <button class="btn btn-danger" onclick="closeModal()">Close</button>
       </div>
@@ -4404,6 +4425,141 @@ async function marketEquipWeapon(weaponId) {
     }
     openShop('items');
   }
+}
+
+// ======================== 1:1 P2P Trade ========================
+
+let _tradeTargetAddr = null;
+let _tradeRequestId = null;
+
+function buildOfferItems() {
+  const opts = ['<option value="">-- Nothing --</option>'];
+  if (TownMobs.equippedWeapon) {
+    const w = TownMobs.getItemDef(TownMobs.equippedWeapon);
+    opts.push(`<option value="${TownMobs.equippedWeapon}|weapon">${w ? w.emoji + ' ' + w.name : TownMobs.equippedWeapon} [Equipped]</option>`);
+  }
+  TownMobs.inventory.forEach(inv => {
+    const def = TownMobs.getItemDef(inv.item_id);
+    const type = (def && def.type === 'weapon') ? 'weapon' : 'item';
+    opts.push(`<option value="${inv.item_id}|${type}">${def ? def.emoji + ' ' + def.name : inv.item_id} ×${inv.quantity}</option>`);
+  });
+  return opts.join('');
+}
+
+function openTradeModal(targetAddr) {
+  closeModal();
+  _tradeTargetAddr = targetAddr;
+  const modal = document.getElementById('trade-send-modal');
+  if (!modal) return;
+  document.getElementById('trade-send-target').textContent = shortAddr(targetAddr);
+  document.getElementById('trade-send-item').innerHTML = buildOfferItems();
+  document.getElementById('trade-send-bit').value = '0';
+  modal.classList.remove('hidden');
+  // Disable Phaser keyboard for bit input
+  const bitInput = document.getElementById('trade-send-bit');
+  if (bitInput) {
+    const s = () => game?.scene?.scenes?.find(sc => sc.input?.keyboard);
+    bitInput.addEventListener('focus', () => { const sc = s(); if (sc) sc.input.keyboard.enabled = false; });
+    bitInput.addEventListener('blur',  () => { const sc = s(); if (sc) sc.input.keyboard.enabled = true;  });
+  }
+}
+
+function closeTradeSendModal() {
+  const modal = document.getElementById('trade-send-modal');
+  if (modal) modal.classList.add('hidden');
+  _tradeTargetAddr = null;
+}
+
+function sendTradeOffer() {
+  if (!socket || !_tradeTargetAddr) return;
+  const sel = document.getElementById('trade-send-item').value;
+  const bit = Math.max(0, parseInt(document.getElementById('trade-send-bit').value) || 0);
+  const [itemId, itemType] = sel ? sel.split('|') : ['', ''];
+  if (!itemId && bit === 0) {
+    townShowToast('Select an item or enter BIT amount to offer', 2500); return;
+  }
+  const myOffer = { bit };
+  if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
+  socket.emit('townTradeOffer', { targetAddr: _tradeTargetAddr, myOffer });
+  closeTradeSendModal();
+  townShowToast('⏳ Trade offer sent! Waiting for response…', 4000);
+}
+
+function openTradeReceiveModal(data) {
+  // data: { requestId, fromAddr, offer: { itemId?, itemType?, bit } }
+  _tradeRequestId = data.requestId;
+  const modal = document.getElementById('trade-recv-modal');
+  if (!modal) return;
+  document.getElementById('trade-recv-from').textContent = shortAddr(data.fromAddr);
+
+  // Describe what they offer
+  const offer = data.offer;
+  const parts = [];
+  if (offer.itemId) {
+    const def = TownMobs.getItemDef(offer.itemId);
+    parts.push(def ? `${def.emoji} ${def.name}` : offer.itemId);
+  }
+  if (offer.bit && offer.bit > 0) parts.push(`${Number(offer.bit).toLocaleString()} BIT`);
+  document.getElementById('trade-recv-offer-desc').textContent = parts.length ? parts.join(' + ') : '(nothing)';
+
+  document.getElementById('trade-recv-item').innerHTML = buildOfferItems();
+  document.getElementById('trade-recv-bit').value = '0';
+  modal.classList.remove('hidden');
+
+  const bitInput = document.getElementById('trade-recv-bit');
+  if (bitInput) {
+    const s = () => game?.scene?.scenes?.find(sc => sc.input?.keyboard);
+    bitInput.addEventListener('focus', () => { const sc = s(); if (sc) sc.input.keyboard.enabled = false; });
+    bitInput.addEventListener('blur',  () => { const sc = s(); if (sc) sc.input.keyboard.enabled = true;  });
+  }
+}
+
+function closeTradeReceiveModal() {
+  const modal = document.getElementById('trade-recv-modal');
+  if (modal) modal.classList.add('hidden');
+  _tradeRequestId = null;
+}
+
+function acceptTrade() {
+  if (!socket || !_tradeRequestId) return;
+  const sel = document.getElementById('trade-recv-item').value;
+  const bit = Math.max(0, parseInt(document.getElementById('trade-recv-bit').value) || 0);
+  const [itemId, itemType] = sel ? sel.split('|') : ['', ''];
+  if (!itemId && bit === 0) {
+    townShowToast('Select what you offer in return (or 0 BIT for free trade)', 2500); return;
+  }
+  const myOffer = { bit };
+  if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
+  socket.emit('townTradeAccept', { requestId: _tradeRequestId, myOffer });
+  closeTradeReceiveModal();
+  townShowToast('⏳ Processing trade…', 2000);
+}
+
+function declineTrade() {
+  if (!socket || !_tradeRequestId) return;
+  socket.emit('townTradeDecline', { requestId: _tradeRequestId });
+  closeTradeReceiveModal();
+}
+
+function onTradeDone(data) {
+  // Update local state
+  TownMobs.bitBalance = Number(data.bit_balance);
+  TownMobs.inventory = data.inventory || TownMobs.inventory;
+  if (data.weapon_id !== undefined && data.weapon_id !== TownMobs.equippedWeapon) {
+    TownMobs.equippedWeapon = data.weapon_id || null;
+    if (TownMobs._onWeaponLoaded) TownMobs._onWeaponLoaded(data.weapon_id || null);
+  }
+  if (TownMobs._onBitChange) TownMobs._onBitChange(TownMobs.bitBalance);
+  TownMobs.updateHUD();
+
+  // Build toast message
+  const gotParts = [];
+  if (data.youGot.itemId) {
+    const def = TownMobs.getItemDef(data.youGot.itemId);
+    gotParts.push(def ? `${def.emoji} ${def.name}` : data.youGot.itemId);
+  }
+  if (data.youGot.bit && data.youGot.bit > 0) gotParts.push(`${Number(data.youGot.bit).toLocaleString()} BIT`);
+  townShowToast(`✅ Trade complete! You got: ${gotParts.join(' + ') || '(nothing)'}`, 4000);
 }
 
 async function weaponBuyAndRefresh(weaponId) {

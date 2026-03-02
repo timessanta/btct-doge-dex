@@ -144,6 +144,19 @@ async function initDB() {
       )
     `);
 
+    // Town 1:1 P2P trade history
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS town_p2p_trades (
+        id SERIAL PRIMARY KEY,
+        requester_addr VARCHAR(42) NOT NULL,
+        target_addr VARCHAR(42) NOT NULL,
+        req_offer JSONB,
+        tgt_offer JSONB,
+        status VARCHAR(10) DEFAULT 'done',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // Migrations
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS weapon_id VARCHAR(20) DEFAULT NULL`);
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS max_level_rewarded BOOLEAN DEFAULT false`);

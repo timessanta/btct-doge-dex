@@ -89,6 +89,45 @@ app.set('getAdBubbleText', getAdBubbleText);
 // In-memory pending duel requests (15s timeout)
 const pendingDuels = new Map();
 
+// ===================== 1:1 TRADE LOGIC =====================
+
+// In-memory pending trade offers (30s timeout)
+const pendingTrades = new Map();
+
+// Atomic transfer of one side's offer (BIT and/or item)
+async function transferOffer(client, fromAddr, toAddr, offer) {
+  // offer: { itemId?, itemType?, bit }
+  const { pool } = require('./db');
+  if (offer.bit && Number(offer.bit) > 0) {
+    const bal = await client.query('SELECT bit_balance FROM town_players WHERE btct_address=$1', [fromAddr]);
+    if (Number(bal.rows[0]?.bit_balance || 0) < Number(offer.bit)) throw new Error('Insufficient BIT');
+    await client.query('UPDATE town_players SET bit_balance=bit_balance-$2, updated_at=NOW() WHERE btct_address=$1', [fromAddr, offer.bit]);
+    await client.query('UPDATE town_players SET bit_balance=bit_balance+$2, updated_at=NOW() WHERE btct_address=$1', [toAddr, offer.bit]);
+  }
+  if (offer.itemId && offer.itemType) {
+    if (offer.itemType === 'weapon') {
+      const p = await client.query('SELECT weapon_id, level FROM town_players WHERE btct_address=$1', [fromAddr]);
+      if (p.rows[0]?.weapon_id !== offer.itemId) throw new Error('Weapon not equipped by sender');
+      const lv = p.rows[0]?.level || 1;
+      await client.query(
+        'UPDATE town_players SET weapon_id=NULL, atk=$2, def=$3, updated_at=NOW() WHERE btct_address=$1',
+        [fromAddr, 10 + (lv - 1) * 2, Math.floor((lv - 1) * 0.8)]
+      );
+    } else {
+      const inv = await client.query('SELECT quantity FROM town_inventory WHERE btct_address=$1 AND item_id=$2', [fromAddr, offer.itemId]);
+      if (!inv.rows.length || inv.rows[0].quantity < 1) throw new Error('Item not found in sender inventory');
+      await client.query('UPDATE town_inventory SET quantity=quantity-1 WHERE btct_address=$1 AND item_id=$2', [fromAddr, offer.itemId]);
+      await client.query('DELETE FROM town_inventory WHERE btct_address=$1 AND item_id=$2 AND quantity<=0', [fromAddr, offer.itemId]);
+    }
+    // Give item to receiver (always goes to inventory)
+    await client.query(
+      `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+       ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+      [toAddr, offer.itemId]
+    );
+  }
+}
+
 function simulateDuel(cStats, dStats) {
   // cStats/dStats: { atk, def, max_hp } from DB
   const rounds = [];
@@ -148,6 +187,14 @@ io.on('connection', (socket) => {
     // Check for active ads
     const adText = await getAdBubbleText(addr);
 
+    // Fetch player level from DB
+    let playerLevel = 1;
+    try {
+      const { pool } = require('./db');
+      const lvRow = await pool.query('SELECT level FROM town_players WHERE btct_address=$1', [addr]);
+      if (lvRow.rows.length > 0) playerLevel = lvRow.rows[0].level || 1;
+    } catch(e) {}
+
     townPlayers[socket.id] = {
       id: socket.id,
       address: addr,
@@ -155,6 +202,7 @@ io.on('connection', (socket) => {
       y: data.y || 480,
       adText: adText || null,
       character: data.character || {},
+      level: playerLevel,
     };
 
     // Send all current players to new player
@@ -206,6 +254,7 @@ io.on('connection', (socket) => {
     io.emit('townChatMsg', {
       address: player.address,
       content,
+      level: player.level || 1,
       time: Date.now()
     });
   });
@@ -483,6 +532,88 @@ io.on('connection', (socket) => {
     io.to(req.challengerSid).emit('townDuelRejected', { defenderAddr: req.defenderAddr });
   });
 
+  // ===================== 1:1 TRADE SOCKET HANDLERS =====================
+
+  socket.on('townTradeOffer', ({ targetAddr, myOffer }) => {
+    const senderAddr = townPlayers[socket.id]?.address;
+    if (!senderAddr) return;
+    const cleanTarget = (targetAddr || '').replace(/^0x/, '').toLowerCase();
+    const targetSockets = Object.entries(townPlayers).filter(([, p]) => p.address === cleanTarget);
+    if (!targetSockets.length) {
+      socket.emit('townTradeError', { msg: 'That player is offline.' }); return;
+    }
+    const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      if (pendingTrades.has(requestId)) {
+        pendingTrades.delete(requestId);
+        socket.emit('townTradeExpired', { requestId });
+      }
+    }, 30000);
+    pendingTrades.set(requestId, {
+      requestId, senderSid: socket.id, senderAddr,
+      targetSid: targetSockets[0][0], targetAddr: cleanTarget,
+      myOffer, timeout
+    });
+    io.to(targetSockets[0][0]).emit('townTradeRequest', {
+      requestId, fromAddr: '0x' + senderAddr, offer: myOffer
+    });
+  });
+
+  socket.on('townTradeAccept', async ({ requestId, myOffer }) => {
+    const req = pendingTrades.get(requestId);
+    if (!req) { socket.emit('townTradeError', { msg: 'Trade expired or not found.' }); return; }
+    clearTimeout(req.timeout);
+    pendingTrades.delete(requestId);
+    try {
+      const { pool } = require('./db');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await transferOffer(client, req.senderAddr, req.targetAddr, req.myOffer);
+        await transferOffer(client, req.targetAddr, req.senderAddr, myOffer);
+        // Log to history
+        await client.query(
+          `INSERT INTO town_p2p_trades (requester_addr, target_addr, req_offer, tgt_offer, status)
+           VALUES ($1,$2,$3,$4,'done')`,
+          [req.senderAddr, req.targetAddr, JSON.stringify(req.myOffer), JSON.stringify(myOffer)]
+        );
+        await client.query('COMMIT');
+        // Fetch updated balances for both
+        const senderData = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [req.senderAddr]);
+        const targetData = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [req.targetAddr]);
+        const senderInv  = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [req.senderAddr]);
+        const targetInv  = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [req.targetAddr]);
+        io.to(req.senderSid).emit('townTradeDone', {
+          youGave: req.myOffer, youGot: myOffer,
+          bit_balance: senderData.rows[0].bit_balance,
+          weapon_id: senderData.rows[0].weapon_id,
+          inventory: senderInv.rows
+        });
+        io.to(req.targetSid).emit('townTradeDone', {
+          youGave: myOffer, youGot: req.myOffer,
+          bit_balance: targetData.rows[0].bit_balance,
+          weapon_id: targetData.rows[0].weapon_id,
+          inventory: targetInv.rows
+        });
+        io.emit('marketUpdate'); // Refresh market in case weapon moved
+      } catch (e) {
+        await client.query('ROLLBACK');
+        io.to(req.senderSid).emit('townTradeError', { msg: e.message });
+        io.to(req.targetSid).emit('townTradeError', { msg: e.message });
+      } finally { client.release(); }
+    } catch (e) {
+      socket.emit('townTradeError', { msg: e.message });
+    }
+  });
+
+  socket.on('townTradeDecline', ({ requestId }) => {
+    const req = pendingTrades.get(requestId);
+    if (!req) return;
+    clearTimeout(req.timeout);
+    pendingTrades.delete(requestId);
+    io.to(req.senderSid).emit('townTradeDeclined', { targetAddr: '0x' + req.targetAddr });
+  });
+
   // ---- Disconnect cleanup ----
   socket.on('disconnect', () => {
     // Cancel any pending duels involving this socket
@@ -492,6 +623,15 @@ io.on('connection', (socket) => {
         pendingDuels.delete(id);
         const otherSid = req.challengerSid === socket.id ? req.defenderSid : req.challengerSid;
         io.to(otherSid).emit('townDuelError', { msg: 'Opponent disconnected.' });
+      }
+    }
+    // Cancel any pending trades involving this socket
+    for (const [id, req] of pendingTrades.entries()) {
+      if (req.senderSid === socket.id || req.targetSid === socket.id) {
+        clearTimeout(req.timeout);
+        pendingTrades.delete(id);
+        const otherSid = req.senderSid === socket.id ? req.targetSid : req.senderSid;
+        io.to(otherSid).emit('townTradeError', { msg: 'Trade partner disconnected.' });
       }
     }
     if (townPlayers[socket.id]) {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260302p">
+  <link rel="stylesheet" href="town-style.css?v=20260303b">
 </head>
 <body>
   <!-- Top Bar -->
@@ -443,6 +443,56 @@
     </div>
   </div>
 
+  <!-- 1:1 Trade ─ Send Offer Modal -->
+  <div id="trade-send-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:360px;width:94%;">
+      <div class="modal-header">
+        <span>🔄 Trade Offer</span>
+        <button onclick="closeTradeSendModal()">✕</button>
+      </div>
+      <div style="padding:12px 16px;">
+        <div style="font-size:12px;color:#aaa;margin-bottom:10px;">To: <span id="trade-send-target" style="color:#4ecca3;"></span></div>
+        <div class="shop-section-title" style="margin-bottom:6px;">📦 You offer:</div>
+        <select id="trade-send-item" style="width:100%;background:#0a1628;border:1px solid #2a3f6a;color:#f0f0f0;padding:6px 8px;border-radius:6px;font-size:12px;margin-bottom:8px;"></select>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <span style="font-size:12px;color:#aaa;">+ BIT:</span>
+          <input id="trade-send-bit" type="number" min="0" value="0" class="trade-bit-input">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="market-list-btn" style="flex:1;" onclick="sendTradeOffer()">📨 Send</button>
+          <button class="market-cancel-btn" onclick="closeTradeSendModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1:1 Trade ─ Receive Offer Modal -->
+  <div id="trade-recv-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:360px;width:94%;">
+      <div class="modal-header">
+        <span>🔄 Trade Request</span>
+        <button onclick="declineTrade()">✕</button>
+      </div>
+      <div style="padding:12px 16px;">
+        <div style="font-size:12px;color:#aaa;margin-bottom:8px;">From: <span id="trade-recv-from" style="color:#4ecca3;"></span></div>
+        <div style="background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.25);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:11px;color:#888;margin-bottom:4px;">They offer:</div>
+          <div id="trade-recv-offer-desc" style="font-size:13px;font-weight:bold;color:#4ecca3;"></div>
+        </div>
+        <div class="shop-section-title" style="margin-bottom:6px;">📦 You give in return:</div>
+        <select id="trade-recv-item" style="width:100%;background:#0a1628;border:1px solid #2a3f6a;color:#f0f0f0;padding:6px 8px;border-radius:6px;font-size:12px;margin-bottom:8px;"></select>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <span style="font-size:12px;color:#aaa;">+ BIT:</span>
+          <input id="trade-recv-bit" type="number" min="0" value="0" class="trade-bit-input">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="market-buy-btn" style="flex:1;padding:8px;" onclick="acceptTrade()">✅ Accept</button>
+          <button class="market-cancel-btn" style="flex:1;padding:8px;" onclick="declineTrade()">❌ Decline</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Controls (hidden by default, shown on touch devices) -->
   <div id="mobile-controls">
     <div id="joystick-base">
@@ -469,6 +519,6 @@
   <script src="doge-htlc.js?v=20260220i"></script>
   <script src="town-mob.js?v=20260302j"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260303a"></script>
+  <script src="town.js?v=20260303b"></script>
 </body>
 </html>

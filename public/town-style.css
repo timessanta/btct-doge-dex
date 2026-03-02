@@ -1373,3 +1373,17 @@ body {
 #market-sell-price::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 #market-sell-price { -moz-appearance: textfield; }
 
+/* ── 1:1 Trade modals ── */
+.trade-bit-input {
+  flex: 1;
+  background: #0a1628;
+  border: 1px solid #2a3f6a;
+  color: #f5c542;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.trade-bit-input::-webkit-inner-spin-button,
+.trade-bit-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.trade-bit-input { -moz-appearance: textfield; }
+
