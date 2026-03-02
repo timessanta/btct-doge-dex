@@ -1468,6 +1468,13 @@ class TownScene extends Phaser.Scene {
     socket.on('townDuelError', (data) => {
       townShowToast(`❌ ${data.msg}`, 3500);
     });
+    socket.on('marketUpdate', () => {
+      // Market 탭이 열려있으면 자동 갱신
+      const modal = document.getElementById('shop-modal');
+      if (modal && !modal.classList.contains('hidden') && modal.dataset.tab === 'market') {
+        renderMarketListings();
+      }
+    });
 
     // Enter key to activate/send town chat
     this.setupTownChat();

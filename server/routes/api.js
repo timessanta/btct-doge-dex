@@ -1005,6 +1005,7 @@ router.post('/town/market/list', async (req, res) => {
     await client.query('COMMIT');
     const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
     const player = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+    req.app.get('io')?.emit('marketUpdate');
     res.json({ inventory: inv.rows, weapon_id: player.rows[0]?.weapon_id, bit_balance: player.rows[0]?.bit_balance });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -1041,6 +1042,7 @@ router.post('/town/market/buy/:id', async (req, res) => {
     await client.query('COMMIT');
     const updated = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
     const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    req.app.get('io')?.emit('marketUpdate');
     res.json({ bit_balance: updated.rows[0].bit_balance, weapon_id: updated.rows[0].weapon_id, inventory: inv.rows });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -1092,6 +1094,7 @@ router.post('/town/market/cancel/:id', async (req, res) => {
     await client.query('COMMIT');
     const updated = await pool.query('SELECT bit_balance, weapon_id, atk, def FROM town_players WHERE btct_address=$1', [addr]);
     const inv = await pool.query('SELECT item_id, quantity, equipped FROM town_inventory WHERE btct_address=$1', [addr]);
+    req.app.get('io')?.emit('marketUpdate');
     res.json({ bit_balance: updated.rows[0].bit_balance, weapon_id: updated.rows[0].weapon_id, atk: updated.rows[0].atk, def: updated.rows[0].def, inventory: inv.rows });
   } catch (e) {
     await client.query('ROLLBACK');
