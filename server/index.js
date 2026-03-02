@@ -548,20 +548,49 @@ io.on('connection', (socket) => {
         pendingTrades.delete(requestId);
         socket.emit('townTradeExpired', { requestId });
       }
-    }, 30000);
+    }, 60000); // 60s total timeout
     pendingTrades.set(requestId, {
       requestId, senderSid: socket.id, senderAddr,
       targetSid: targetSockets[0][0], targetAddr: cleanTarget,
-      myOffer, timeout
+      senderOffer: myOffer, targetOffer: null, phase: 'requested', timeout
     });
     io.to(targetSockets[0][0]).emit('townTradeRequest', {
       requestId, fromAddr: '0x' + senderAddr, offer: myOffer
     });
   });
 
-  socket.on('townTradeAccept', async ({ requestId, myOffer }) => {
+  // B submits their counter-offer — A sees it and must confirm
+  socket.on('townTradeCounter', ({ requestId, myOffer }) => {
     const req = pendingTrades.get(requestId);
-    if (!req) { socket.emit('townTradeError', { msg: 'Trade expired or not found.' }); return; }
+    if (!req || req.phase !== 'requested') {
+      socket.emit('townTradeError', { msg: 'Trade expired or already processed.' }); return;
+    }
+    req.targetOffer = myOffer;
+    req.phase = 'countered';
+    // Reset timeout — give A 30s to confirm
+    clearTimeout(req.timeout);
+    req.timeout = setTimeout(() => {
+      if (pendingTrades.has(requestId)) {
+        pendingTrades.delete(requestId);
+        io.to(req.senderSid).emit('townTradeExpired', { requestId });
+        io.to(req.targetSid).emit('townTradeExpired', { requestId });
+      }
+    }, 30000);
+    // Send A the full picture: what A offered + what B is asking in return
+    io.to(req.senderSid).emit('townTradeCountered', {
+      requestId,
+      fromAddr: '0x' + req.targetAddr,
+      youOffer: req.senderOffer,
+      theyOffer: myOffer
+    });
+  });
+
+  // A confirms → execute trade
+  socket.on('townTradeConfirm', async ({ requestId }) => {
+    const req = pendingTrades.get(requestId);
+    if (!req || req.phase !== 'countered') {
+      socket.emit('townTradeError', { msg: 'Trade expired or not found.' }); return;
+    }
     clearTimeout(req.timeout);
     pendingTrades.delete(requestId);
     try {
@@ -569,33 +598,31 @@ io.on('connection', (socket) => {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
-        await transferOffer(client, req.senderAddr, req.targetAddr, req.myOffer);
-        await transferOffer(client, req.targetAddr, req.senderAddr, myOffer);
-        // Log to history
+        await transferOffer(client, req.senderAddr, req.targetAddr, req.senderOffer);
+        await transferOffer(client, req.targetAddr, req.senderAddr, req.targetOffer);
         await client.query(
           `INSERT INTO town_p2p_trades (requester_addr, target_addr, req_offer, tgt_offer, status)
            VALUES ($1,$2,$3,$4,'done')`,
-          [req.senderAddr, req.targetAddr, JSON.stringify(req.myOffer), JSON.stringify(myOffer)]
+          [req.senderAddr, req.targetAddr, JSON.stringify(req.senderOffer), JSON.stringify(req.targetOffer)]
         );
         await client.query('COMMIT');
-        // Fetch updated balances for both
         const senderData = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [req.senderAddr]);
         const targetData = await pool.query('SELECT bit_balance, weapon_id FROM town_players WHERE btct_address=$1', [req.targetAddr]);
         const senderInv  = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [req.senderAddr]);
         const targetInv  = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [req.targetAddr]);
         io.to(req.senderSid).emit('townTradeDone', {
-          youGave: req.myOffer, youGot: myOffer,
+          youGave: req.senderOffer, youGot: req.targetOffer,
           bit_balance: senderData.rows[0].bit_balance,
           weapon_id: senderData.rows[0].weapon_id,
           inventory: senderInv.rows
         });
         io.to(req.targetSid).emit('townTradeDone', {
-          youGave: myOffer, youGot: req.myOffer,
+          youGave: req.targetOffer, youGot: req.senderOffer,
           bit_balance: targetData.rows[0].bit_balance,
           weapon_id: targetData.rows[0].weapon_id,
           inventory: targetInv.rows
         });
-        io.emit('marketUpdate'); // Refresh market in case weapon moved
+        io.emit('marketUpdate');
       } catch (e) {
         await client.query('ROLLBACK');
         io.to(req.senderSid).emit('townTradeError', { msg: e.message });
@@ -611,7 +638,11 @@ io.on('connection', (socket) => {
     if (!req) return;
     clearTimeout(req.timeout);
     pendingTrades.delete(requestId);
+    // Notify both sides
     io.to(req.senderSid).emit('townTradeDeclined', { targetAddr: '0x' + req.targetAddr });
+    if (req.targetSid !== socket.id) {
+      io.to(req.targetSid).emit('townTradeDeclined', { targetAddr: '0x' + req.senderAddr });
+    }
   });
 
   // ---- Disconnect cleanup ----

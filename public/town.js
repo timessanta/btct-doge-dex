@@ -1480,20 +1480,28 @@ class TownScene extends Phaser.Scene {
     socket.on('townTradeRequest', (data) => {
       openTradeReceiveModal(data);
     });
+    socket.on('townTradeCountered', (data) => {
+      openTradeConfirmModal(data);
+    });
     socket.on('townTradeDone', (data) => {
       onTradeDone(data);
     });
     socket.on('townTradeDeclined', (data) => {
+      closeTradeConfirmModal();
+      closeTradeReceiveModal();
       townShowToast(`❌ Trade declined by ${shortAddr(data.targetAddr)}`, 3000);
     });
     socket.on('townTradeExpired', () => {
-      townShowToast('⏱️ Trade request timed out', 3000);
       closeTradeSendModal();
+      closeTradeReceiveModal();
+      closeTradeConfirmModal();
+      townShowToast('⏱️ Trade request timed out', 3000);
     });
     socket.on('townTradeError', (data) => {
       townShowToast(`❌ Trade failed: ${data.msg}`, 4000);
       closeTradeSendModal();
       closeTradeReceiveModal();
+      closeTradeConfirmModal();
     });
 
     // Enter key to activate/send town chat
@@ -4470,6 +4478,13 @@ function openTradeModal(targetAddr) {
 function closeTradeSendModal() {
   const modal = document.getElementById('trade-send-modal');
   if (modal) modal.classList.add('hidden');
+  // Always reset to form state
+  const form = document.getElementById('trade-send-form');
+  const waiting = document.getElementById('trade-send-waiting');
+  const title = document.getElementById('trade-send-modal-title');
+  if (form) form.style.display = '';
+  if (waiting) waiting.style.display = 'none';
+  if (title) title.textContent = '🔄 Trade Offer';
   _tradeTargetAddr = null;
 }
 
@@ -4481,8 +4496,10 @@ function sendTradeOffer() {
   const myOffer = { bit };
   if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
   socket.emit('townTradeOffer', { targetAddr: _tradeTargetAddr, myOffer });
-  closeTradeSendModal();
-  townShowToast('⏳ Trade offer sent! Waiting for response…', 4000);
+  // Switch to waiting state
+  document.getElementById('trade-send-form').style.display = 'none';
+  document.getElementById('trade-send-waiting').style.display = 'block';
+  document.getElementById('trade-send-modal-title').textContent = '⏳ Waiting…';
 }
 
 function openTradeReceiveModal(data) {
@@ -4520,22 +4537,69 @@ function closeTradeReceiveModal() {
   _tradeRequestId = null;
 }
 
-function acceptTrade() {
+function counterTrade() {
   if (!socket || !_tradeRequestId) return;
   const sel = document.getElementById('trade-recv-item').value;
   const bit = Math.max(0, parseInt(document.getElementById('trade-recv-bit').value) || 0);
   const [itemId, itemType] = sel ? sel.split('|') : ['', ''];
   const myOffer = { bit };
   if (itemId) { myOffer.itemId = itemId; myOffer.itemType = itemType; }
-  socket.emit('townTradeAccept', { requestId: _tradeRequestId, myOffer });
+  socket.emit('townTradeCounter', { requestId: _tradeRequestId, myOffer });
   closeTradeReceiveModal();
-  townShowToast('⏳ Processing trade…', 2000);
+  townShowToast('⏳ Offer sent! Waiting for the other player to confirm…', 3500);
 }
+
+// Keep acceptTrade as alias for compat
+function acceptTrade() { counterTrade(); }
 
 function declineTrade() {
   if (!socket || !_tradeRequestId) return;
   socket.emit('townTradeDecline', { requestId: _tradeRequestId });
   closeTradeReceiveModal();
+}
+
+// ---- Confirm modal (shown to A after B counters) ----
+let _pendingConfirmId = null;
+
+function openTradeConfirmModal(data) {
+  // data: { requestId, fromAddr, youOffer, theyOffer }
+  _pendingConfirmId = data.requestId;
+  closeTradeSendModal(); // close the waiting modal
+  const modal = document.getElementById('trade-confirm-modal');
+  if (!modal) return;
+  const fmt = (offer) => {
+    const parts = [];
+    if (offer && offer.itemId) { const d = TownMobs.getItemDef(offer.itemId); parts.push(d ? d.emoji+' '+d.name : offer.itemId); }
+    if (offer && offer.bit > 0) parts.push(`${Number(offer.bit).toLocaleString()} BIT`);
+    return parts.join(' + ') || '(nothing)';
+  };
+  document.getElementById('trade-confirm-from').textContent = shortAddr(data.fromAddr);
+  document.getElementById('trade-confirm-you-give').textContent = fmt(data.youOffer);
+  document.getElementById('trade-confirm-you-get').textContent = fmt(data.theyOffer);
+  modal.classList.remove('hidden');
+}
+
+function closeTradeConfirmModal() {
+  const modal = document.getElementById('trade-confirm-modal');
+  if (modal) modal.classList.add('hidden');
+  _pendingConfirmId = null;
+}
+
+function confirmTrade() {
+  if (!socket || !_pendingConfirmId) return;
+  socket.emit('townTradeConfirm', { requestId: _pendingConfirmId });
+  closeTradeConfirmModal();
+}
+
+function cancelConfirmTrade() {
+  if (!socket) return;
+  if (_pendingConfirmId) socket.emit('townTradeDecline', { requestId: _pendingConfirmId });
+  closeTradeConfirmModal();
+}
+
+function cancelPendingTrade() {
+  closeTradeSendModal();
+  townShowToast('Trade cancelled', 2000);
 }
 
 function onTradeDone(data) {
