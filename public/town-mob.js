@@ -1171,7 +1171,19 @@
         const data = await r.json();
         if (!r.ok) { if (typeof townShowToast === 'function') townShowToast(data.error || 'Cancel failed', 2500); return null; }
         this.inventory = data.inventory;
-        if (data.weapon_id !== undefined) this.equippedWeapon = data.weapon_id || null;
+        const prevWeapon = this.equippedWeapon;
+        this.equippedWeapon = data.weapon_id || null;
+        // playerStats 재반영
+        if (data.atk !== undefined) this.playerStats.atk = Number(data.atk);
+        if (data.def !== undefined) this.playerStats.def = Number(data.def);
+        const wDef = this.equippedWeapon ? WEAPONS[this.equippedWeapon] : null;
+        this.playerStats.critRate = 0.05 + (wDef ? (wDef.critBonus || 0) : 0);
+        this.updateHUD();
+        if (this._onBitChange) this._onBitChange(this.bitBalance);
+        // 무기 변경 시 쮨릭 업데이트
+        if (this._onWeaponLoaded && this.equippedWeapon !== prevWeapon) {
+          this._onWeaponLoaded(this.equippedWeapon);
+        }
         if (typeof townShowToast === 'function') townShowToast('↩️ Listing cancelled', 2000);
         return data;
       } catch (e) { console.warn('[Market] cancel error:', e.message); return null; }

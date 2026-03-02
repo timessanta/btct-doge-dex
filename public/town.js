@@ -4382,19 +4382,7 @@ async function marketBuy(listingId) {
 
 async function marketCancel(listingId) {
   const result = await TownMobs.cancelMarketListing(listingId);
-  if (result) {
-    if (result.weapon_id && result.weapon_id !== TownMobs.equippedWeapon) {
-      TownMobs.equippedWeapon = result.weapon_id;
-      const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
-      if (s && s.player) {
-        s.myCharConfig.weapon = result.weapon_id;
-        const newKey = getOrCreateCharTexture(s, s.myCharConfig);
-        s.player.setTexture(newKey, 0);
-        playCharAnim(s.player, 'down');
-      }
-    }
-    openShop('market');
-  }
+  if (result) openShop('market');
 }
 
 async function marketEquipWeapon(weaponId) {
