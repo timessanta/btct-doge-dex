@@ -4451,8 +4451,9 @@ function buildOfferItems() {
   }
   TownMobs.inventory.forEach(inv => {
     const def = TownMobs.getItemDef(inv.item_id);
-    const type = (def && def.type === 'weapon') ? 'weapon' : 'item';
-    opts.push(`<option value="${inv.item_id}|${type}">${def ? def.emoji + ' ' + def.name : inv.item_id} ×${inv.quantity}</option>`);
+    // inventory 안의 무기는 서버가 town_inventory에서 차감 → itemType='item'
+    // weapon_id 슬롯에서 차감하는 'weapon' 타입은 [Equipped]일 때만 사용
+    opts.push(`<option value="${inv.item_id}|item">${def ? def.emoji + ' ' + def.name : inv.item_id} ×${inv.quantity}</option>`);
   });
   return opts.join('');
 }

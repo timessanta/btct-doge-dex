@@ -625,10 +625,12 @@ io.on('connection', (socket) => {
         io.emit('marketUpdate');
       } catch (e) {
         await client.query('ROLLBACK');
+        console.error('[Trade] transferOffer failed:', e.message);
         io.to(req.senderSid).emit('townTradeError', { msg: e.message });
         io.to(req.targetSid).emit('townTradeError', { msg: e.message });
       } finally { client.release(); }
     } catch (e) {
+      console.error('[Trade] confirm outer error:', e.message);
       socket.emit('townTradeError', { msg: e.message });
     }
   });
