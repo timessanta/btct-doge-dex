@@ -531,6 +531,7 @@
     _onHpChange: null,
     _onBitChange: null,
     _onDeath: null,
+    _onWeaponLoaded: null,
     _onLevelUp: null,
 
     init(scene, mapData, blocked) {
@@ -566,6 +567,8 @@
           if (this._onBitChange) this._onBitChange(this.bitBalance);
           if (this._onHpChange) this._onHpChange(this.playerHp, this.playerMaxHp);
           this.updateHUD();
+          // Notify scene to refresh weapon on character sprite
+          if (this._onWeaponLoaded) this._onWeaponLoaded(data.weapon_id || null);
         }
       } catch (e) {
         console.warn('[Mob] loadPlayerData:', e.message);

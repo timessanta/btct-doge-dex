@@ -1023,6 +1023,20 @@ class TownScene extends Phaser.Scene {
     const myCharKey = getOrCreateCharTexture(this, this.myCharConfig);
     this.player = this.physics.add.sprite(startX, startY, myCharKey, 0);
     this.player.setSize(16, 10);
+    // Callback: loadPlayerData 완료 시 무기 반영 (비동기 타이밍 보정)
+    TownMobs._onWeaponLoaded = (weaponId) => {
+      if (!this.player) return;
+      const oldKey = charTextureKey(this.myCharConfig);
+      if (this.textures.exists(oldKey)) this.textures.remove(oldKey);
+      this.myCharConfig.weapon = weaponId || null;
+      const newKey = getOrCreateCharTexture(this, this.myCharConfig);
+      this.player.setTexture(newKey, 0);
+      playCharAnim(this.player, 'down');
+    };
+    // Race condition 대비: 이미 loadPlayerData 완료된 경우
+    if (TownMobs.equippedWeapon && !this.myCharConfig.weapon) {
+      TownMobs._onWeaponLoaded(TownMobs.equippedWeapon);
+    }
     this.player.setOffset(4, 22);
     this.player.setDepth(startY);
     this.physics.add.collider(this.player, this.groundLayer);
@@ -4262,10 +4276,13 @@ async function weaponBuyAndRefresh(weaponId) {
   if (result) {
     // Re-create player texture with new weapon equipped
     const s = game?.scene?.scenes?.find(sc => sc.input && sc.myCharConfig);
-    if (s) {
+    if (s && s.player) {
+      const oldKey = charTextureKey(s.myCharConfig);
+      if (s.textures.exists(oldKey)) s.textures.remove(oldKey);
       s.myCharConfig.weapon = weaponId;
       const newKey = getOrCreateCharTexture(s, s.myCharConfig);
-      if (s.player) playCharAnim(s.player, 'down');
+      s.player.setTexture(newKey, 0);
+      playCharAnim(s.player, 'down');
     }
   }
   openShop('weapons');
