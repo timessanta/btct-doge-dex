@@ -544,6 +544,11 @@ function generateCharTexture(scene, config, textureKey) {
   return textureKey;
 }
 
+// 전역 playCharAnim 래퍼 (townScene 사용 — town-mob.js 등 외부에서도 호출 가능)
+function playCharAnim(sprite, dir) {
+  if (townScene) townScene.playCharAnim(sprite, dir);
+}
+
 function getOrCreateCharTexture(scene, config) {
   const key = charTextureKey(config);
   if (!scene.textures.exists(key)) {
@@ -1337,6 +1342,8 @@ class TownScene extends Phaser.Scene {
     socket.on('townPlayerMoved', (data) => {
       if (data.id !== socket.id && otherPlayers[data.id]) {
         const p = otherPlayers[data.id];
+        // 방향 추적 (townCharUpdate 시 animation 재시작에 사용)
+        if (data.dir) p.lastDir = data.dir;
         // Smooth lerp
         this.tweens.add({
           targets: p.sprite,
@@ -1451,9 +1458,14 @@ class TownScene extends Phaser.Scene {
     socket.on('townCharUpdate', (data) => {
       if (!data.id || !otherPlayers[data.id]) return;
       const p = otherPlayers[data.id];
-      const newKey = getOrCreateCharTexture(this, data.character || {});
+      const newChar = data.character || {};
+      const newKey = getOrCreateCharTexture(this, newChar);
       p.sprite.setTexture(newKey, 0);
-      p.character = data.character || {};
+      p.character = newChar;
+      // setTexture 후 animation 재시작 (마지막 방향 기준)
+      if (p.lastDir) {
+        this.playCharAnim(p.sprite, p.lastDir);
+      }
     });
 
     // ---- PvP Duel socket events ----
@@ -3938,6 +3950,10 @@ function updateCharPreview(config) {
 function saveCharacter() {
   if (!pendingCharConfig) return;
   const config = Object.assign({}, pendingCharConfig);
+  // weapon은 서버 DB 관리이므로 커스터마이저 적용 시에도 유지
+  config.weapon = (typeof TownMobs !== 'undefined' ? TownMobs.equippedWeapon : null)
+    || (townScene && townScene.myCharConfig ? townScene.myCharConfig.weapon : null)
+    || null;
   saveCharConfigToStorage(config);
 
   // Apply to live player sprite

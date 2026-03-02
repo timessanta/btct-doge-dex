@@ -1283,7 +1283,7 @@
           invHtml = '<div class="stats-empty-inv">Inventory is empty</div>';
         } else {
           invHtml = '<div class="stats-inv-list">';
-          inv.forEach(slot => {
+          inv.filter(slot => slot.quantity > 0).forEach(slot => {
             const def2 = this.getItemDef(slot.item_id);
             if (!def2) return;
             const isWeapon = def2.type === 'weapon';
@@ -1393,6 +1393,10 @@
       const k = getOrCreateCharTexture(s, s.myCharConfig);
       s.player.setTexture(k, 0);
       playCharAnim(s.player, 'down');
+      // broadcast 안전장치 (_onWeaponLoaded 콜백이 실행됐지만 emit 실패 시 대비)
+      if (window.socket && socket.connected) {
+        socket.emit('townCharUpdate', { character: s.myCharConfig });
+      }
     }
     TownMobs.openStatsModal();
   };

@@ -187,13 +187,21 @@ io.on('connection', (socket) => {
     // Check for active ads
     const adText = await getAdBubbleText(addr);
 
-    // Fetch player level from DB
+    // Fetch player level and weapon from DB
     let playerLevel = 1;
+    let dbWeapon = null;
     try {
       const { pool } = require('./db');
-      const lvRow = await pool.query('SELECT level FROM town_players WHERE btct_address=$1', [addr]);
-      if (lvRow.rows.length > 0) playerLevel = lvRow.rows[0].level || 1;
+      const lvRow = await pool.query('SELECT level, weapon_id FROM town_players WHERE btct_address=$1', [addr]);
+      if (lvRow.rows.length > 0) {
+        playerLevel = lvRow.rows[0].level || 1;
+        dbWeapon = lvRow.rows[0].weapon_id || null;
+      }
     } catch(e) {}
+
+    // Merge DB weapon into character (DB is source of truth)
+    const charFromClient = data.character || {};
+    if (dbWeapon) charFromClient.weapon = dbWeapon;
 
     townPlayers[socket.id] = {
       id: socket.id,
@@ -201,7 +209,7 @@ io.on('connection', (socket) => {
       x: data.x || 480,
       y: data.y || 480,
       adText: adText || null,
-      character: data.character || {},
+      character: charFromClient,
       level: playerLevel,
     };
 
