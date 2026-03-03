@@ -841,13 +841,13 @@ router.post('/town/reward', async (req, res) => {
           'UPDATE town_players SET level=$2, max_hp=$3, atk=$4, def=$5, bit_balance=bit_balance+5000, max_level_rewarded=true WHERE btct_address=$1',
           [addr, newLevel, newMaxHp, newAtk, newDef]
         );
-        return res.json({ ...p, level: newLevel, levelUp: true, maxLevel: true, maxLevelBitBonus: 5000 });
+        return res.json({ ...p, level: newLevel, atk: newAtk, def: newDef, max_hp: newMaxHp, levelUp: true, maxLevel: true, maxLevelBitBonus: 5000 });
       }
       await pool.query(
         'UPDATE town_players SET level=$2, max_hp=$3, atk=$4, def=$5 WHERE btct_address=$1',
         [addr, newLevel, newMaxHp, newAtk, newDef]
       );
-      return res.json({ ...p, level: newLevel, levelUp: true });
+      return res.json({ ...p, level: newLevel, atk: newAtk, def: newDef, max_hp: newMaxHp, levelUp: true });
     }
     res.json(p);
   } catch (e) {

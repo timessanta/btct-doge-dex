@@ -765,7 +765,7 @@
 
         if (result.levelUp) {
           this.playerStats.level = result.level;
-          this.playerStats.maxHp = 100 + (result.level - 1) * 10;
+          this.playerStats.maxHp = result.max_hp || (100 + (result.level - 1) * 10);
           this.playerStats.atk = result.atk || (10 + (result.level - 1) * 2);
           this.playerStats.def = (result.def !== undefined) ? result.def : Math.floor((result.level - 1) * 0.8);
           this.playerMaxHp = this.playerStats.maxHp;

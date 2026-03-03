@@ -1790,6 +1790,31 @@ class TownScene extends Phaser.Scene {
 
     // Global Enter key to focus chat
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // 채팅 input 포커스 중이면 채팅 핸들러에서 처리
+        if (document.activeElement === input) return;
+        // 열려있는 모달 순서대로 닫기 (우선순위: 위에 뜬 모달 먼저)
+        const modals = [
+          { id: 'trade-confirm-modal',  close: () => typeof closeTradeConfirmModal  === 'function' && closeTradeConfirmModal() },
+          { id: 'trade-receive-modal',  close: () => typeof closeTradeReceiveModal  === 'function' && closeTradeReceiveModal() },
+          { id: 'trade-modal',          close: () => typeof closeModal              === 'function' && closeModal() },
+          { id: 'duel-result-modal',    close: () => document.getElementById('duel-result-modal').classList.add('hidden') },
+          { id: 'duel-challenge-modal', close: () => document.getElementById('duel-challenge-modal').classList.add('hidden') },
+          { id: 'stats-modal',          close: () => typeof closeStatsModal         === 'function' && closeStatsModal() },
+          { id: 'shop-modal',           close: () => typeof closeShop              === 'function' && closeShop() },
+          { id: 'mine-modal',           close: () => typeof closeMinePanel         === 'function' && closeMinePanel() },
+          { id: 'char-modal',           close: () => typeof closeCharModal         === 'function' && closeCharModal() },
+          { id: 'town-wallet-modal',    close: () => typeof closeTownWalletModal   === 'function' && closeTownWalletModal() },
+        ];
+        for (const m of modals) {
+          const el = document.getElementById(m.id);
+          if (el && !el.classList.contains('hidden')) {
+            m.close();
+            e.preventDefault();
+            return; // 한 번에 하나씩만 닫기
+          }
+        }
+      }
       if (e.key === 'Enter' && document.activeElement !== input) {
         // If modal is open, don't capture
         const modal = document.getElementById('trade-modal');
