@@ -1797,14 +1797,16 @@ class TownScene extends Phaser.Scene {
         const modals = [
           { id: 'trade-confirm-modal',  close: () => typeof closeTradeConfirmModal  === 'function' && closeTradeConfirmModal() },
           { id: 'trade-receive-modal',  close: () => typeof closeTradeReceiveModal  === 'function' && closeTradeReceiveModal() },
+          { id: 'trade-send-modal',     close: () => typeof closeTradeSendModal     === 'function' && closeTradeSendModal() },
           { id: 'trade-modal',          close: () => typeof closeModal              === 'function' && closeModal() },
+          { id: 'interaction-panel',    close: () => typeof closePanel              === 'function' && closePanel() },
           { id: 'duel-result-modal',    close: () => document.getElementById('duel-result-modal').classList.add('hidden') },
           { id: 'duel-challenge-modal', close: () => document.getElementById('duel-challenge-modal').classList.add('hidden') },
           { id: 'stats-modal',          close: () => typeof closeStatsModal         === 'function' && closeStatsModal() },
           { id: 'shop-modal',           close: () => typeof closeShop              === 'function' && closeShop() },
           { id: 'mine-modal',           close: () => typeof closeMinePanel         === 'function' && closeMinePanel() },
           { id: 'char-modal',           close: () => typeof closeCharModal         === 'function' && closeCharModal() },
-          { id: 'town-wallet-modal',    close: () => typeof closeTownWalletModal   === 'function' && closeTownWalletModal() },
+          { id: 'town-wallet-modal',    close: () => typeof closeTownWallet       === 'function' && closeTownWallet() },
         ];
         for (const m of modals) {
           const el = document.getElementById(m.id);
