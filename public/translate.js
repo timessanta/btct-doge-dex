@@ -1,14 +1,13 @@
 /**
  * translate.js — Ollama LLM 자동 번역 헬퍼
- * 브라우저 언어 감지 → 한국어가 아니면 API 번역
+ * 브라우저 언어 감지 → 수신 메시지 실시간 자동 번역
  */
 (function () {
   'use strict';
 
   // ── 언어 감지 ──────────────────────────────────────────────
-  const rawLang = navigator.language || navigator.userLanguage || 'ko';
+  const rawLang = navigator.language || navigator.userLanguage || 'en';
   const userLang = rawLang.split('-')[0].toLowerCase(); // 'en-US' → 'en'
-  const isKorean = (userLang === 'ko');
 
   // ── 캐시 ───────────────────────────────────────────────────
   const cache = new Map();

@@ -1408,8 +1408,13 @@ class TownScene extends Phaser.Scene {
       const chatBox = document.getElementById('townChatMessages');
       if (chatBox && msg) {
         const t = new Date(msg.created_at).toLocaleTimeString();
-        chatBox.innerHTML += `<div class="chat-msg"><span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<button class="chat-tl-btn" title="Translate" onclick="translateChat(this)" data-text="${escapeHtml(msg.content)}">🌐</button><div class="chat-tl-result"></div></div>`;
+        const div = document.createElement('div');
+        div.className = 'chat-msg';
+        div.innerHTML = `<span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<div class="chat-tl-result"></div>`;
+        chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
+        // 실시간 자동 번역
+        autoTranslate(msg.content, div.querySelector('.chat-tl-result'));
       }
     });
 
@@ -1423,12 +1428,10 @@ class TownScene extends Phaser.Scene {
       const namePrefix = isMaxLv ? '✨ ' : '';
       const line = document.createElement('div');
       line.className = 'town-chat-line';
-      line.innerHTML = `<span class="chat-name" style="color:${color}">${namePrefix}${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><button class="chat-tl-btn" title="Translate">🌐</button><div class="chat-tl-result"></div>`;
-      // Store original text safely via dataset
-      const btn = line.querySelector('.chat-tl-btn');
-      btn.dataset.text = data.content;
-      btn.addEventListener('click', function() { translateChat(this); });
+      line.innerHTML = `<span class="chat-name" style="color:${color}">${namePrefix}${shortAddr(addr)}</span><span class="chat-text">${escapeHtml(data.content)}</span><div class="chat-tl-result"></div>`;
       container.appendChild(line);
+      // 실시간 자동 번역
+      autoTranslate(data.content, line.querySelector('.chat-tl-result'));
       // Keep max 50 messages
       while (container.children.length > 50) container.removeChild(container.firstChild);
       container.scrollTop = container.scrollHeight;

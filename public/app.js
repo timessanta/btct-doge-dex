@@ -2195,6 +2195,10 @@ async function loadChatMessages(tradeId) {
     if (!container) return;
     container.innerHTML = msgs.map(m => renderChatMsg(m)).join('');
     container.scrollTop = container.scrollHeight;
+    // 로드된 메시지 전체 자동 번역
+    container.querySelectorAll('.chat-tl-result').forEach((el, i) => {
+      if (msgs[i]) autoTranslate(msgs[i].content, el);
+    });
   } catch (e) { /* ignore */ }
 }
 
@@ -2206,7 +2210,7 @@ function renderChatMsg(msg) {
     if (addr === currentTrade.seller_address.toLowerCase()) role = 'seller';
     else if (addr === currentTrade.buyer_address.toLowerCase()) role = 'buyer';
   }
-  return `<div class="chat-msg"><span class="sender ${role}">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<button class="chat-tl-btn" title="Translate" onclick="translateChat(this)" data-text="${escapeHtml(msg.content)}">🌐</button><div class="chat-tl-result"></div></div>`;
+  return `<div class="chat-msg"><span class="sender ${role}">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<div class="chat-tl-result"></div></div>`;
 }
 
 function sendChat() {
@@ -2226,8 +2230,11 @@ function sendChat() {
 socket.on('newMessage', (msg) => {
   const container = document.getElementById('chatMessages');
   if (!container) return;
-  container.innerHTML += renderChatMsg(msg);
+  container.insertAdjacentHTML('beforeend', renderChatMsg(msg));
   container.scrollTop = container.scrollHeight;
+  // 실시간 자동 번역
+  const last = container.lastElementChild;
+  if (last) autoTranslate(msg.content, last.querySelector('.chat-tl-result'));
 });
 
 socket.on('tradeStatusUpdate', (data) => {
