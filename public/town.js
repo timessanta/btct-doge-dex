@@ -1408,7 +1408,7 @@ class TownScene extends Phaser.Scene {
       const chatBox = document.getElementById('townChatMessages');
       if (chatBox && msg) {
         const t = new Date(msg.created_at).toLocaleTimeString();
-        chatBox.innerHTML += `<div class="chat-msg"><span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}</div>`;
+        chatBox.innerHTML += `<div class="chat-msg"><span class="sender">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<button class="chat-tl-btn" title="Translate" onclick="translateChat(this)" data-text="${escapeHtml(msg.content)}">🌐</button><div class="chat-tl-result"></div></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
       }
     });
@@ -3676,44 +3676,6 @@ function toggleEmojiBar() {
 }
 
 // ===================== Chat Translation (MyMemory API) =====================
-async function translateChat(btn) {
-  const text = btn.dataset.text || '';
-  if (!text) return;
-  const resultEl = btn.nextElementSibling;
-  if (!resultEl) return;
-  // Toggle off if already showing
-  if (resultEl.style.display === 'block') {
-    resultEl.style.display = 'none';
-    btn.style.opacity = '0.45';
-    return;
-  }
-  btn.style.opacity = '0.45';
-  btn.disabled = true;
-  resultEl.style.display = 'block';
-  resultEl.textContent = '⏳ translating...';
-  try {
-    const targetLang = (navigator.language || 'en').split('-')[0];
-    const res = await fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [text], targetLang }),
-    });
-    const data = await res.json();
-    const translated = data?.translations?.[0];
-    if (translated && translated.toLowerCase() !== text.toLowerCase()) {
-      resultEl.textContent = '↳ ' + translated;
-      btn.style.opacity = '1';
-    } else {
-      resultEl.textContent = '↳ (no translation needed)';
-      btn.style.opacity = '0.3';
-    }
-  } catch (e) {
-    resultEl.textContent = '↳ translation failed';
-    btn.style.opacity = '0.3';
-  }
-  btn.disabled = false;
-}
-
 // Chat background auto-fade: active for 3s after last message, then fade to transparent
 let chatIdleTimer = null;
 function activateChat() {

@@ -113,4 +113,43 @@
   };
 
   window.Translator = Translator;
+
+  // ── 공통 채팅 번역 버튼 핸들러 ──────────────────────────────
+  window.translateChat = async function(btn) {
+    const text = btn.dataset.text || '';
+    if (!text) return;
+    const resultEl = btn.nextElementSibling;
+    if (!resultEl) return;
+    if (resultEl.style.display === 'block') {
+      resultEl.style.display = 'none';
+      btn.style.opacity = '0.45';
+      return;
+    }
+    btn.style.opacity = '0.45';
+    btn.disabled = true;
+    resultEl.style.display = 'block';
+    resultEl.textContent = '⏳ translating...';
+    try {
+      const targetLang = (navigator.language || 'en').split('-')[0];
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: [text], targetLang }),
+      });
+      const data = await res.json();
+      const translated = data?.translations?.[0];
+      if (translated && translated.toLowerCase() !== text.toLowerCase()) {
+        resultEl.textContent = '↳ ' + translated;
+        btn.style.opacity = '1';
+      } else {
+        resultEl.textContent = '↳ (no translation needed)';
+        btn.style.opacity = '0.3';
+      }
+    } catch (e) {
+      resultEl.textContent = '↳ translation failed';
+      btn.style.opacity = '0.3';
+    }
+    btn.disabled = false;
+  };
+
 })();

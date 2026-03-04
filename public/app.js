@@ -2206,7 +2206,7 @@ function renderChatMsg(msg) {
     if (addr === currentTrade.seller_address.toLowerCase()) role = 'seller';
     else if (addr === currentTrade.buyer_address.toLowerCase()) role = 'buyer';
   }
-  return `<div class="chat-msg"><span class="sender ${role}">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}</div>`;
+  return `<div class="chat-msg"><span class="sender ${role}">${shortAddr(msg.sender_address)}</span> <span class="time">${t}</span><br>${escapeHtml(msg.content)}<button class="chat-tl-btn" title="Translate" onclick="translateChat(this)" data-text="${escapeHtml(msg.content)}">🌐</button><div class="chat-tl-result"></div></div>`;
 }
 
 function sendChat() {
