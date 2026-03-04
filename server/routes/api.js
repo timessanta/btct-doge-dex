@@ -1161,8 +1161,6 @@ router.post('/translate', async (req, res) => {
   try {
     const { texts, targetLang } = req.body;
     if (!texts || !targetLang) return res.status(400).json({ error: 'Missing texts or targetLang' });
-    // Korean → no translation needed
-    if (targetLang === 'ko') return res.json({ translations: Array.isArray(texts) ? texts : [texts] });
     const arr = Array.isArray(texts) ? texts : [texts];
     const langName = LANG_NAMES[targetLang] || targetLang;
     // Batch: translate all at once with numbered list
