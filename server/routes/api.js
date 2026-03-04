@@ -1147,4 +1147,46 @@ router.post('/town/weapon/equip', async (req, res) => {
   } finally { client.release(); }
 });
 
+// ── Translation (Ollama) ──────────────────────────────────────────
+const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://192.168.219.103:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
+
+const LANG_NAMES = {
+  en: 'English', ja: 'Japanese', zh: 'Chinese', es: 'Spanish',
+  fr: 'French',  de: 'German',  pt: 'Portuguese', ru: 'Russian',
+  ar: 'Arabic',  hi: 'Hindi',   vi: 'Vietnamese', th: 'Thai',
+};
+
+router.post('/translate', async (req, res) => {
+  try {
+    const { texts, targetLang } = req.body;
+    if (!texts || !targetLang) return res.status(400).json({ error: 'Missing texts or targetLang' });
+    // Korean → no translation needed
+    if (targetLang === 'ko') return res.json({ translations: Array.isArray(texts) ? texts : [texts] });
+    const arr = Array.isArray(texts) ? texts : [texts];
+    const langName = LANG_NAMES[targetLang] || targetLang;
+    // Batch: translate all at once with numbered list
+    const numbered = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    const prompt = `Translate each line to ${langName}. Reply ONLY with the same numbered list, no explanation, no extra text.\n\n${numbered}`;
+    const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await ollamaRes.json();
+    const raw = (data.response || '').trim();
+    // Parse numbered list back
+    const translations = arr.map((orig, i) => {
+      const match = raw.match(new RegExp(`${i + 1}[.)\\s]+(.+?)(?=\\n${i + 2}[.)]|$)`, 's'));
+      return match ? match[1].trim() : orig;
+    });
+    res.json({ translations });
+  } catch (e) {
+    // Fallback: return original on error
+    const arr = Array.isArray(req.body.texts) ? req.body.texts : [req.body.texts || ''];
+    res.json({ translations: arr, error: e.message });
+  }
+});
+
 module.exports = router;

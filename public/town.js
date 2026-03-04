@@ -3690,13 +3690,16 @@ async function translateChat(btn) {
   btn.style.opacity = '0.45';
   btn.disabled = true;
   resultEl.style.display = 'block';
-  resultEl.textContent = '...';
+  resultEl.textContent = '⏳ translating...';
   try {
     const targetLang = (navigator.language || 'en').split('-')[0];
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
-    const res = await fetch(url);
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: [text], targetLang }),
+    });
     const data = await res.json();
-    const translated = data?.responseData?.translatedText;
+    const translated = data?.translations?.[0];
     if (translated && translated.toLowerCase() !== text.toLowerCase()) {
       resultEl.textContent = '↳ ' + translated;
       btn.style.opacity = '1';
