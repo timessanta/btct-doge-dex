@@ -1165,8 +1165,12 @@ router.post('/translate', async (req, res) => {
     const langName = LANG_NAMES[targetLang] || targetLang;
     // Batch: translate all at once with numbered list
     const numbered = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
-    const langRules = targetLang === 'ko' ? ' IMPORTANT: Use only Korean Hangul (한글). NEVER use Chinese characters (漢字/汉字).' : '';
-    const prompt = `Translate each numbered line into ${langName}. Output ONLY the numbered list. No explanations.${langRules}\n\n${numbered}`;
+    let prompt;
+    if (targetLang === 'ko') {
+      prompt = `You are a Korean translator. Translate each numbered line to natural Korean (한국어). Use ONLY Hangul and basic punctuation. NEVER use Chinese/Japanese characters. Reply with numbered lines only.\n\n${numbered}`;
+    } else {
+      prompt = `Translate each numbered line into ${langName}. Output ONLY the numbered list. No explanations.\n\n${numbered}`;
+    }
     const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1176,10 +1180,14 @@ router.post('/translate', async (req, res) => {
     const data = await ollamaRes.json();
     const raw = (data.response || '').trim();
     // Parse numbered list back
-    const translations = arr.map((orig, i) => {
+    let translations = arr.map((orig, i) => {
       const match = raw.match(new RegExp(`${i + 1}[.)\\s]+(.+?)(?=\\n${i + 2}[.)]|$)`, 's'));
       return match ? match[1].trim() : orig;
     });
+    // Korean post-processing: if Chinese chars remain, return original
+    if (targetLang === 'ko') {
+      translations = translations.map((tr, i) => /[\u4e00-\u9fff]/.test(tr) ? arr[i] : tr);
+    }
     res.json({ translations });
   } catch (e) {
     // Fallback: return original on error
