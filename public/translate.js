@@ -8,11 +8,12 @@
   const rawLang  = navigator.language || navigator.userLanguage || 'en';
   const userLang = rawLang.split('-')[0].toLowerCase();
 
-  // localStorage 캐시
-  const CACHE_KEY = 'tl_cache_' + userLang;
+  // localStorage 캐시 (v2: 서버캐시 도입으로 구버전 무효화)
+  const CACHE_KEY = 'tl_v2_' + userLang;
   let cache;
   try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
   catch(e) { cache = {}; }
+  try { localStorage.removeItem('tl_cache_' + userLang); } catch(e) {}
   function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch(e) {}
   }
