@@ -1165,7 +1165,7 @@ router.post('/translate', async (req, res) => {
     const langName = LANG_NAMES[targetLang] || targetLang;
     // Batch: translate all at once with numbered list
     const numbered = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
-    const prompt = `Translate each line to ${langName}. Reply ONLY with the same numbered list, no explanation, no extra text.\n\n${numbered}`;
+    const prompt = `Translate each numbered line into ${langName}. Rules:\n- Output ONLY the numbered list with translations.\n- Use ONLY ${langName} script. No Chinese characters unless target is Chinese.\n- No explanations, no extra text.\n\n${numbered}`;
     const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

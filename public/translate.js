@@ -28,6 +28,9 @@
       });
       const data = await res.json();
       const tr = (data.translations || [text])[0];
+      // 타겟이 한국어인데 한자가 섞이면 캐시하지 않고 원문 반환
+      const hasHanja = /[\u4e00-\u9fff]/.test(tr);
+      if (userLang === 'ko' && hasHanja) return text;
       cache[text] = tr;
       saveCache();
       return tr;
