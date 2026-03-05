@@ -1165,7 +1165,8 @@ router.post('/translate', async (req, res) => {
     const langName = LANG_NAMES[targetLang] || targetLang;
     // Batch: translate all at once with numbered list
     const numbered = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
-    const prompt = `Translate each numbered line into ${langName}. Output ONLY the numbered list. No explanations, no mixing of other languages.\n\n${numbered}`;
+    const langRules = targetLang === 'ko' ? ' IMPORTANT: Use only Korean Hangul (한글). NEVER use Chinese characters (漢字/汉字).' : '';
+    const prompt = `Translate each numbered line into ${langName}. Output ONLY the numbered list. No explanations.${langRules}\n\n${numbered}`;
     const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

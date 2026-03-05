@@ -17,9 +17,18 @@
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch(e) {}
   }
 
+  // 한국어 타겟일 때 한자 포함 여부 체크
+  function hasBadChars(tr) {
+    if (userLang === 'ko' && /[\u4e00-\u9fff]/.test(tr)) return true;
+    return false;
+  }
+
   async function translate(text) {
     if (!text) return text;
-    if (cache[text]) return cache[text];
+    if (cache[text]) {
+      if (hasBadChars(cache[text])) { delete cache[text]; saveCache(); }
+      else return cache[text];
+    }
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
