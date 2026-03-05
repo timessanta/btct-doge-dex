@@ -1157,12 +1157,22 @@ const LANG_NAMES = {
   ar: 'Arabic',  hi: 'Hindi',   vi: 'Vietnamese', th: 'Thai',
 };
 
+// 서버 사이드 번역 캐시 (프로세스 메모리, 재시작 시 초기화)
+const tlCache = new Map();
+
 router.post('/translate', async (req, res) => {
   try {
     const { texts, targetLang } = req.body;
     if (!texts || !targetLang) return res.status(400).json({ error: 'Missing texts or targetLang' });
     const arr = Array.isArray(texts) ? texts : [texts];
     const langName = LANG_NAMES[targetLang] || targetLang;
+
+    // 캐시 확인 — 전부 캐시 히트면 Ollama 호출 불필요
+    const cacheKeys = arr.map(t => `${targetLang}:${t}`);
+    const cached = cacheKeys.map(k => tlCache.get(k));
+    if (cached.every(v => v !== undefined)) {
+      return res.json({ translations: cached });
+    }
     // Batch: translate all at once with numbered list
     const numbered = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
     let prompt;
@@ -1188,6 +1198,8 @@ router.post('/translate', async (req, res) => {
     if (targetLang === 'ko') {
       translations = translations.map((tr, i) => /[\u4e00-\u9fff]/.test(tr) ? arr[i] : tr);
     }
+    // 서버 캐시에 저장
+    translations.forEach((tr, i) => tlCache.set(cacheKeys[i], tr));
     res.json({ translations });
   } catch (e) {
     // Fallback: return original on error
