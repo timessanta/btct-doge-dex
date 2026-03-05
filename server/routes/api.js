@@ -1175,7 +1175,7 @@ router.post('/translate', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(30000),
     });
     const data = await ollamaRes.json();
     const raw = (data.response || '').trim();
