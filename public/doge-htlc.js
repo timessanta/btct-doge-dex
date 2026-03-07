@@ -269,7 +269,7 @@ const DogeHTLC = (function() {
   }
 
   /**
-   * Get default locktime (current time + 12 hours)
+   * Get default locktime (current time + 1 hour)
    */
   function getDefaultLocktime() {
     return Math.floor(Date.now() / 1000) + HTLC_TIMEOUT_SEC;

@@ -1563,7 +1563,7 @@ async function loadTradeDetail(el, tradeId) {
           <div class="swap-notice">
             ⚠ Verify each transaction on the explorer before proceeding to the next step.
             Funds are locked by smart contract — if the swap fails, refund is only possible after the timeout expires
-            (BTCT: ~24h / DOGE: ~12h).
+            (BTCT: ~2h / DOGE: ~1h).
             <span style="display:block;margin-top:6px;">
               🔍 BTCT Explorer: <a href="https://explorer.btc-time.com" target="_blank">explorer.btc-time.com</a>
               &nbsp;·&nbsp;
