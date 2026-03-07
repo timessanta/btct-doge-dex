@@ -245,6 +245,9 @@ router.post('/trades', async (req, res) => {
           });
         }
       } catch (e) {
+        if (e.message && e.message.includes('[400]')) {
+          return res.status(400).json({ error: 'Invalid DOGE address.' });
+        }
         console.warn('[Trade] DOGE balance check failed, allowing trade:', e.message);
       }
     } else {
