@@ -1446,6 +1446,16 @@ class TownScene extends Phaser.Scene {
       this.showTradeNotif(data);
     });
 
+    socket.on('tradeBalanceInsufficient', (data) => {
+      const req = data.coin === 'DOGE'
+        ? `${(data.required / 1e8).toFixed(4)} DOGE`
+        : `${(data.required / 1e11).toFixed(5)} BTCT`;
+      const held = data.coin === 'DOGE'
+        ? `${(data.held / 1e8).toFixed(4)} DOGE`
+        : `${(data.held / 1e11).toFixed(5)} BTCT`;
+      showToast(`⚠️ Trade rejected: counterparty has insufficient ${data.coin} (need ${req}, has ${held})`);
+    });
+
     // Emoji expression from other players
     socket.on('townEmojiMsg', (data) => {
       this.showEmojiBubble(data.id, data.address, data.emoji);
@@ -2310,9 +2320,18 @@ async function townSubmitTrade() {
   const amount = Number(document.getElementById('townTradeAmount').value);
   if (amount <= 0) return alert('Enter a valid amount');
 
+  if (pendingAd.type === 'sell' && !currentUser.dogeAddress) {
+    return alert('Please connect your DOGE wallet before trading on a SELL ad.');
+  }
+
   try {
     const trade = await api('/trades', {
-      body: { adId: pendingAd.id, buyerAddress: currentUser.btctAddress, btctAmount: btctToSat(amount) }
+      body: {
+        adId: pendingAd.id,
+        buyerAddress: currentUser.btctAddress,
+        btctAmount: btctToSat(amount),
+        dogeAddress: pendingAd.type === 'sell' ? (currentUser.dogeAddress || '') : undefined
+      }
     });
     pendingAd = null;
     townShowTradeDetail(trade.id);

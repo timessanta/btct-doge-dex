@@ -184,7 +184,7 @@ async function checkAdRateLimit(address) {
 // Initiate trade (buyer clicks ad)
 router.post('/trades', async (req, res) => {
   try {
-    const { adId, buyerAddress, btctAmount } = req.body;
+    const { adId, buyerAddress, btctAmount, dogeAddress } = req.body;
     if (!adId || !buyerAddress || !btctAmount) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -215,6 +215,52 @@ router.post('/trades', async (req, res) => {
     const amount = BigInt(btctAmount);
     if (amount < BigInt(ad.min_btct) || amount > BigInt(ad.remaining)) {
       return res.status(400).json({ error: 'Amount out of range' });
+    }
+
+    // Balance check: requester must hold the coin they will pay
+    const io = req.app.get('io');
+    const btctSatCheck = Number(btctAmount);
+    const dogeAmountCheck = Math.round(btctSatCheck * Number(ad.price) / 1000);
+
+    if (ad.type === 'sell') {
+      // Buyer pays DOGE — check DOGE balance
+      if (!dogeAddress) {
+        return res.status(400).json({ error: 'DOGE wallet not connected. Please connect your DOGE wallet before trading.' });
+      }
+      try {
+        const dogeBal = await dogeRpc.getAddressBalance(dogeAddress);
+        const dogeBalSat = Number(dogeBal.final_balance || dogeBal.balance || 0);
+        if (dogeBalSat < dogeAmountCheck) {
+          // Notify ad owner
+          if (io) io.to(`addr:${ad.btct_address}`).emit('tradeBalanceInsufficient', {
+            adId, coin: 'DOGE',
+            required: dogeAmountCheck,
+            held: dogeBalSat
+          });
+          return res.status(400).json({
+            error: `Insufficient DOGE balance. Required: ${(dogeAmountCheck / 1e8).toFixed(4)} DOGE, your balance: ${(dogeBalSat / 1e8).toFixed(4)} DOGE`
+          });
+        }
+      } catch (e) {
+        console.warn('[Trade] DOGE balance check failed, allowing trade:', e.message);
+      }
+    } else {
+      // Seller pays BTCT — check BTCT balance
+      try {
+        const btctBal = await btctRpc.getBalance(buyer);
+        if (Number(btctBal) < btctSatCheck) {
+          if (io) io.to(`addr:${ad.btct_address}`).emit('tradeBalanceInsufficient', {
+            adId, coin: 'BTCT',
+            required: btctSatCheck,
+            held: Number(btctBal)
+          });
+          return res.status(400).json({
+            error: `Insufficient BTCT balance. Required: ${(btctSatCheck / 1e11).toFixed(5)} BTCT, your balance: ${(Number(btctBal) / 1e11).toFixed(5)} BTCT`
+          });
+        }
+      } catch (e) {
+        console.warn('[Trade] BTCT balance check failed, allowing trade:', e.message);
+      }
     }
 
     // Determine seller/buyer based on ad type
@@ -250,7 +296,6 @@ router.post('/trades', async (req, res) => {
     );
 
     // Notify ad owner about the new trade
-    const io = req.app.get('io');
     if (io) {
       const adOwner = ad.btct_address;
       io.to(`addr:${adOwner}`).emit('newTradeAlert', {
