@@ -761,6 +761,64 @@ function scheduleExpiredTradeCleanup() {
         io.to(`addr:${t.buyer_address}`).emit('tradeNotification', { tradeId: t.id, type: 'expired', message: `Trade #${t.id} expired — DOGE refund available` });
       }
 
+      // 3) btct_locked + buyer no response: seller locked BTCT but buyer never locked DOGE
+      //    If btct_locked for > 90 minutes with no doge_htlc_tx, expire it
+      //    Seller can then refund via BTCT HTLC timeout (120 blocks = ~2h from lock time)
+      const { rows: buyerNoResponse } = await pool.query(
+        `UPDATE trades SET status = 'expired'
+         WHERE status = 'btct_locked'
+           AND doge_htlc_tx IS NULL
+           AND created_at < NOW() - INTERVAL '90 minutes'
+         RETURNING id, seller_address, buyer_address, btct_timeout`,
+        []
+      );
+      for (const t of buyerNoResponse) {
+        console.log(`[Expire] Trade #${t.id} expired (btct_locked, buyer no-response >90min)`);
+        io.to(`trade:${t.id}`).emit('tradeStatusUpdate', { tradeId: t.id, status: 'expired' });
+        io.to(`addr:${t.seller_address}`).emit('tradeNotification', {
+          tradeId: t.id, type: 'expired',
+          message: `Trade #${t.id}: Buyer did not respond — BTCT refund available after block ${t.btct_timeout}`
+        });
+        io.to(`addr:${t.buyer_address}`).emit('tradeNotification', {
+          tradeId: t.id, type: 'expired',
+          message: `Trade #${t.id} expired — buyer did not lock DOGE in time`
+        });
+      }
+
+      // 4) negotiating timeout: no hash published within 4 hours → cancel
+      //    No on-chain funds involved at this stage, safe to cancel immediately
+      const { rows: negotiatingExpired } = await pool.query(
+        `UPDATE trades SET status = 'cancelled'
+         WHERE status IN ('negotiating', 'hash_published')
+           AND created_at < NOW() - INTERVAL '4 hours'
+         RETURNING id, seller_address, buyer_address, ad_id, btct_amount`,
+        []
+      );
+      for (const t of negotiatingExpired) {
+        console.log(`[Expire] Trade #${t.id} auto-cancelled (negotiating >4h, no HTLC created)`);
+        // Restore ad remaining
+        if (t.ad_id) {
+          try {
+            await pool.query(
+              `UPDATE trade_ads SET remaining = remaining + $1
+               WHERE id = $2 AND status = 'active'`,
+              [t.btct_amount, t.ad_id]
+            );
+          } catch (e2) {
+            console.error(`[Expire] Failed to restore ad #${t.ad_id} remaining:`, e2.message);
+          }
+        }
+        io.to(`trade:${t.id}`).emit('tradeStatusUpdate', { tradeId: t.id, status: 'cancelled' });
+        io.to(`addr:${t.seller_address}`).emit('tradeNotification', {
+          tradeId: t.id, type: 'cancelled',
+          message: `Trade #${t.id} auto-cancelled — no activity for 4 hours`
+        });
+        io.to(`addr:${t.buyer_address}`).emit('tradeNotification', {
+          tradeId: t.id, type: 'cancelled',
+          message: `Trade #${t.id} auto-cancelled — you did not respond within 4 hours`
+        });
+      }
+
     } catch (e) {
       console.error('[Expire Cleanup] Error:', e.message);
     }

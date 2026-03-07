@@ -1839,7 +1839,7 @@ async function lockBTCT(tradeId) {
     const hashAlgo = Krypton.Hash.Algorithm.SHA256;
     const hashRoot = Krypton.BufferUtils.fromHex(trade.hash_lock);
     const hashCount = 1;
-    const timeout = blockHeight + 1440; // ~24 hours
+    const timeout = blockHeight + 120; // ~2 hours (reduced from 24h to minimize buyer no-response wait)
 
     // Serialize HTLC data
     const bufSize = htlcSender.serializedSize + htlcRecipient.serializedSize + 1 + hashRoot.byteLength + 1 + 4;

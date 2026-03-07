@@ -5,7 +5,7 @@
 const DogeHTLC = (function() {
   'use strict';
 
-  const HTLC_TIMEOUT_SEC = 43200; // 12 hours (must be < BTCT 24h timeout)
+  const HTLC_TIMEOUT_SEC = 3600; // 1 hour (must be < BTCT 2h timeout)
   const FEE_SAT = 2000000; // 0.02 DOGE
 
   function getBitcore() {
