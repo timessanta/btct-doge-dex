@@ -17,16 +17,6 @@ socket.on('newTradeAlert', (data) => {
   showToast(`🔔 New swap started on your listing! ${price.toFixed(3)} BTCT`, 7000);
 });
 
-socket.on('tradeBalanceInsufficient', (data) => {
-  if (!currentUser) return;
-  const req = data.coin === 'DOGE'
-    ? `${(data.required / 1e8).toFixed(4)} DOGE`
-    : `${(data.required / 1e11).toFixed(5)} BTCT`;
-  const held = data.coin === 'DOGE'
-    ? `${(data.held / 1e8).toFixed(4)} DOGE`
-    : `${(data.held / 1e11).toFixed(5)} BTCT`;
-  showToast(`⚠️ Trade rejected: counterparty has insufficient ${data.coin} (need ${req}, has ${held})`, 8000);
-});
 
 let currentUser = null;  // { btctAddress, btctKey, dogeAddress, dogeWif }
 

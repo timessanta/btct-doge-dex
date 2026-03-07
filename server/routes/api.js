@@ -231,12 +231,6 @@ router.post('/trades', async (req, res) => {
         const dogeBal = await dogeRpc.getAddressBalance(dogeAddress);
         const dogeBalSat = Number(dogeBal.final_balance || dogeBal.balance || 0);
         if (dogeBalSat < dogeAmountCheck) {
-          // Notify ad owner
-          if (io) io.to(`addr:${ad.btct_address}`).emit('tradeBalanceInsufficient', {
-            adId, coin: 'DOGE',
-            required: dogeAmountCheck,
-            held: dogeBalSat
-          });
           return res.status(400).json({
             error: `Insufficient DOGE balance. Required: ${(dogeAmountCheck / 1e8).toFixed(4)} DOGE, your balance: ${(dogeBalSat / 1e8).toFixed(4)} DOGE`
           });
@@ -249,11 +243,6 @@ router.post('/trades', async (req, res) => {
       try {
         const btctBal = await btctRpc.getBalance(buyer);
         if (Number(btctBal) < btctSatCheck) {
-          if (io) io.to(`addr:${ad.btct_address}`).emit('tradeBalanceInsufficient', {
-            adId, coin: 'BTCT',
-            required: btctSatCheck,
-            held: Number(btctBal)
-          });
           return res.status(400).json({
             error: `Insufficient BTCT balance. Required: ${(btctSatCheck / 1e11).toFixed(5)} BTCT, your balance: ${(Number(btctBal) / 1e11).toFixed(5)} BTCT`
           });
