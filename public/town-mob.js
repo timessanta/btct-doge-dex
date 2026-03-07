@@ -1277,13 +1277,32 @@
         const crit = Math.round((this.playerStats.critRate || 0.05) * 100);
         const spd = this.playerStats.atkSpd || 0.8;
         const inv = data.inventory || [];
+        const equippedId = data.weapon_id || null;
+        const equippedDef = equippedId ? this.getItemDef(equippedId) : null;
 
+        // Equipment 섹션 HTML
+        const equipHtml = `
+          <div class="stats-equip-row">
+            <div class="stats-equip-slot ${equippedDef ? 'occupied' : 'empty'}">
+              <span class="stats-equip-slot-label">⚔️ Weapon</span>
+              ${equippedDef ? `
+                <div class="stats-equip-item-info">
+                  <span class="stats-equip-item-name">${equippedDef.emoji} ${equippedDef.name}</span>
+                  <span class="stats-equip-item-bonus">${equippedDef.desc}</span>
+                </div>
+                <button class="stats-inv-use stats-unequip-btn" onclick="statsUnequipWeapon()">Unequip</button>
+              ` : `<span class="stats-equip-empty">— None —</span>`}
+            </div>
+          </div>`;
+
+        // Inventory: 소모품 + 비장착 무기 모두 포함
+        const invItems = inv.filter(slot => slot.quantity > 0);
         let invHtml = '';
-        if (inv.length === 0) {
+        if (invItems.length === 0) {
           invHtml = '<div class="stats-empty-inv">Inventory is empty</div>';
         } else {
           invHtml = '<div class="stats-inv-list">';
-          inv.filter(slot => slot.quantity > 0).forEach(slot => {
+          invItems.forEach(slot => {
             const def2 = this.getItemDef(slot.item_id);
             if (!def2) return;
             const isWeapon = def2.type === 'weapon';
@@ -1363,6 +1382,11 @@
           </div>
           <hr class="stats-divider">
 
+          <!-- Equipment -->
+          <div class="stats-section-title">Equipment</div>
+          ${equipHtml}
+          <hr class="stats-divider">
+
           <!-- Inventory -->
           <div class="stats-section-title">Inventory</div>
           ${invHtml}
@@ -1384,6 +1408,32 @@
   window.ITEMS = ITEMS;
   window.openStatsModal = () => TownMobs.openStatsModal();
   window.closeStatsModal = () => TownMobs.closeStatsModal();
+  window.statsUnequipWeapon = async () => {
+    const addr = typeof getActiveBtctAddr === 'function' ? getActiveBtctAddr() : '';
+    if (!addr) return;
+    try {
+      const r = await fetch('/api/town/weapon/unequip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr })
+      }).then(res => res.json());
+      if (r.error) { alert(r.error); return; }
+      TownMobs.equippedWeapon = null;
+      TownMobs.playerStats.atk = r.atk;
+      TownMobs.inventory = r.inventory || TownMobs.inventory;
+      if (TownMobs._onWeaponLoaded) TownMobs._onWeaponLoaded(null);
+      const s = window.game && game.scene && game.scene.scenes.find(sc => sc.myCharConfig);
+      if (s && s.player) {
+        s.myCharConfig.weapon = null;
+        const k = getOrCreateCharTexture(s, s.myCharConfig);
+        s.player.setTexture(k, 0);
+        playCharAnim(s.player, 'down');
+        if (window.socket && socket.connected) socket.emit('townCharUpdate', { character: s.myCharConfig });
+      }
+      TownMobs.openStatsModal();
+    } catch (e) { alert('Failed to unequip'); }
+  };
+
   window.statsEquipWeapon = async (weaponId) => {
     const r = await TownMobs.equipWeaponFromInventory(weaponId);
     if (!r) return;

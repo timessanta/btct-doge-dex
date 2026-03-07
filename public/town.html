@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BTCT Town</title>
-  <link rel="stylesheet" href="town-style.css?v=20260303b">
+  <link rel="stylesheet" href="town-style.css?v=20260307b">
 </head>
 <body>
   <!-- Top Bar -->
@@ -302,7 +302,8 @@
       <button onclick="sendTownEmoji('❤️')">❤️</button>
     </div>
     <div id="town-chat-input-row">
-      <input type="text" id="town-chat-input" placeholder="Press Enter to chat..." maxlength="200" autocomplete="off">
+      <input type="text" id="town-chat-input" placeholder="Chat..." maxlength="200" autocomplete="off" enterkeyhint="send">
+      <button id="town-chat-send-btn" onclick="townGlobalSendChat()" title="Send">➤</button>
       <button id="emoji-toggle-btn" onclick="toggleEmojiBar()" title="Emojis">😀</button>
     </div>
   </div>
@@ -554,8 +555,8 @@
   <script src="bitcore-doge.js?v=20260220i"></script>
   <script src="doge-htlc.js?v=20260220i"></script>
   <script src="translate.js?v=20260306f"></script>
-  <script src="town-mob.js?v=20260304a"></script>
+  <script src="town-mob.js?v=20260307a"></script>
   <script src="town-mine.js?v=20260224a"></script>
-  <script src="town.js?v=20260305c"></script>
+  <script src="town.js?v=20260307a"></script>
 </body>
 </html>

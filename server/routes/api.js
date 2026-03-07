@@ -1147,6 +1147,38 @@ router.post('/town/weapon/equip', async (req, res) => {
   } finally { client.release(); }
 });
 
+// POST /town/weapon/unequip — unequip current weapon back to inventory
+router.post('/town/weapon/unequip', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const addr = (req.body.address || '').replace(/^0x/, '').toLowerCase();
+    if (!addr) return res.status(400).json({ error: 'Invalid address' });
+    await client.query('BEGIN');
+    const p = await client.query('SELECT level, weapon_id FROM town_players WHERE btct_address=$1 FOR UPDATE', [addr]);
+    if (p.rows.length === 0) throw new Error('Player not found');
+    const { level: lv, weapon_id } = p.rows[0];
+    if (!weapon_id) throw new Error('No weapon equipped');
+    // 인벤토리에 돌려주기
+    await client.query(
+      `INSERT INTO town_inventory (btct_address, item_id, quantity) VALUES ($1,$2,1)
+       ON CONFLICT (btct_address, item_id) DO UPDATE SET quantity=town_inventory.quantity+1`,
+      [addr, weapon_id]
+    );
+    const baseAtk = 10 + (lv - 1) * 2;
+    const baseDef = Math.floor((lv - 1) * 0.8);
+    await client.query(
+      'UPDATE town_players SET weapon_id=NULL, atk=$2, def=$3, updated_at=NOW() WHERE btct_address=$1',
+      [addr, baseAtk, baseDef]
+    );
+    await client.query('COMMIT');
+    const invRes = await pool.query('SELECT item_id, quantity FROM town_inventory WHERE btct_address=$1', [addr]);
+    res.json({ success: true, weapon_id: null, atk: baseAtk, def: baseDef, inventory: invRes.rows });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally { client.release(); }
+});
+
 // ── Translation (Ollama) ──────────────────────────────────────────
 const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://192.168.219.103:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';

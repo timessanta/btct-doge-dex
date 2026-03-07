@@ -1829,6 +1829,24 @@ class TownScene extends Phaser.Scene {
       }
     });
 
+    // Send button (mobile support)
+    const sendBtn = document.getElementById('town-chat-send-btn');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        const content = input.value.trim();
+        if (content && socket) socket.emit('townChat', { content });
+        input.value = '';
+        input.blur();
+      });
+    }
+    // Expose global for onclick fallback
+    window.townGlobalSendChat = () => {
+      const content = input.value.trim();
+      if (content && socket) socket.emit('townChat', { content });
+      input.value = '';
+      input.blur();
+    };
+
     // Handle Enter/Escape inside input, stop other keys from reaching game
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -2788,8 +2806,13 @@ async function townLoadChat(tradeId) {
     if (!el) return;
     el.innerHTML = msgs.map(m => {
       const t = new Date(m.created_at).toLocaleTimeString();
-      return `<div style="margin-bottom:6px;"><span style="color:#4ecca3;font-size:11px;">${shortAddr(m.sender_address)}</span> <span style="color:#555;font-size:10px;">${t}</span><br><span style="color:#ccc;">${escapeHtml(m.content)}</span></div>`;
+      return `<div class="chat-msg" style="margin-bottom:6px;"><span style="color:#4ecca3;font-size:11px;">${shortAddr(m.sender_address)}</span> <span style="color:#555;font-size:10px;">${t}</span><br><span style="color:#ccc;">${escapeHtml(m.content)}</span><div class="chat-tl-result"></div></div>`;
     }).join('');
+    // 과거 메시지 일괄 자동번역
+    const divs = el.querySelectorAll('.chat-msg');
+    divs.forEach((div, i) => {
+      if (msgs[i]) autoTranslate(msgs[i].content, div.querySelector('.chat-tl-result'));
+    });
     el.scrollTop = el.scrollHeight;
   } catch {}
 }
