@@ -2268,6 +2268,19 @@ async function townShowTradeStart(adId) {
     pendingAd = ads.find(a => a.id === adId);
     if (!pendingAd) return alert('Listing not found');
 
+    // Check abuse warning
+    let warnHtml = '';
+    try {
+      const warn = await api(`/trade-warn/${currentUser.btctAddress}`);
+      if (warn.is_banned) {
+        return alert('Your address has been blocked due to repeated trade abandonment.');
+      } else if (warn.abort_count === 2) {
+        warnHtml = `<div style="background:#4a1010;border:1px solid #c0392b;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#e74c3c;">🚨 Warning 2/3: Next abandoned trade will permanently block your address.</div>`;
+      } else if (warn.abort_count === 1) {
+        warnHtml = `<div style="background:#3a2a00;border:1px solid #f39c12;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#f39c12;">⚠️ Warning 1/3: You have 1 abandoned trade on record. 3 will result in a trading ban.</div>`;
+      }
+    } catch (e) { /* ignore */ }
+
     const modal = document.getElementById('trade-modal');
     const title = document.getElementById('modal-title');
     const content = document.getElementById('modal-content');
@@ -2277,6 +2290,7 @@ async function townShowTradeStart(adId) {
 
     title.textContent = 'Start Trade';
     content.innerHTML = `
+      ${warnHtml}
       <div class="info-box">
         <span class="listing-type ${typeClass}" style="font-size:14px;">${typeLabel}</span>
         <div style="margin-top:6px;color:#f5c542;font-size:15px;font-weight:bold;">1 BTCT = ${Number(pendingAd.price).toFixed(4)} DOGE</div>

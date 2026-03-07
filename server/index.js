@@ -699,6 +699,33 @@ io.on('connection', (socket) => {
 // ===================== STARTUP =====================
 
 // Auto-expire trades when HTLC timeout passes (runs every 5 min)
+// Record trade abuse and ban if threshold reached
+async function recordTradeAbuse(pool, address) {
+  if (!address) return;
+  try {
+    const { rows: [row] } = await pool.query(
+      `INSERT INTO trade_abuse (btct_address, abort_count, last_abort_at)
+       VALUES ($1, 1, NOW())
+       ON CONFLICT (btct_address) DO UPDATE
+         SET abort_count = trade_abuse.abort_count + 1,
+             last_abort_at = NOW()
+       RETURNING abort_count, is_banned`,
+      [address]
+    );
+    if (row && row.abort_count >= 3 && !row.is_banned) {
+      await pool.query(
+        `UPDATE trade_abuse SET is_banned = TRUE, banned_at = NOW() WHERE btct_address = $1`,
+        [address]
+      );
+      console.log(`[Abuse] Address ${address} banned after ${row.abort_count} aborts`);
+    } else if (row) {
+      console.log(`[Abuse] Address ${address} abort count: ${row.abort_count}/3`);
+    }
+  } catch (e) {
+    console.error('[Abuse] recordTradeAbuse error:', e.message);
+  }
+}
+
 function scheduleExpiredTradeCleanup() {
   const INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -783,6 +810,8 @@ function scheduleExpiredTradeCleanup() {
           tradeId: t.id, type: 'expired',
           message: `Trade #${t.id} expired — buyer did not lock DOGE in time`
         });
+        // Abuse count: buyer abandoned trade
+        await recordTradeAbuse(pool, t.buyer_address);
       }
 
       // 4) negotiating timeout: no hash published within 4 hours → cancel
@@ -817,6 +846,8 @@ function scheduleExpiredTradeCleanup() {
           tradeId: t.id, type: 'cancelled',
           message: `Trade #${t.id} auto-cancelled — you did not respond within 4 hours`
         });
+        // Abuse count: initiator (buyer_address for sell ads) abandoned trade
+        await recordTradeAbuse(pool, t.buyer_address);
       }
 
     } catch (e) {

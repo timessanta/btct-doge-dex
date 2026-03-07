@@ -1436,7 +1436,21 @@ async function openTradeModal(adId) {
     pendingAd = ads.find(a => a.id === adId);
     if (!pendingAd) return alert('Ad not found');
 
+    // Check abuse warning
+    let warnHtml = '';
+    try {
+      const warn = await api(`/trade-warn/${currentUser.btctAddress}`);
+      if (warn.is_banned) {
+        return alert('Your address has been blocked due to repeated trade abandonment.');
+      } else if (warn.abort_count === 2) {
+        warnHtml = `<div class="warn-banner" style="background:#4a1010;border:1px solid #c0392b;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#e74c3c;">🚨 Warning 2/3: Next abandoned trade will permanently block your address from trading.</div>`;
+      } else if (warn.abort_count === 1) {
+        warnHtml = `<div class="warn-banner" style="background:#3a2a00;border:1px solid #f39c12;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#f39c12;">⚠️ Warning 1/3: You have 1 abandoned trade on record. 3 will result in a trading ban.</div>`;
+      }
+    } catch (e) { /* ignore */ }
+
     document.getElementById('tradeModalInfo').innerHTML = `
+      ${warnHtml}
       <div class="info-box">
         <span class="type-badge ${pendingAd.type}">${pendingAd.type === 'sell' ? 'SELL' : 'BUY'}</span>
         <strong> 1 BTCT = ${Number(pendingAd.price).toFixed(4)} DOGE</strong>

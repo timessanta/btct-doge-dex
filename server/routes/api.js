@@ -191,6 +191,15 @@ router.post('/trades', async (req, res) => {
 
     const buyer = buyerAddress.replace(/^0x/, '').toLowerCase();
 
+    // Blacklist check
+    const { rows: [abused] } = await pool.query(
+      `SELECT abort_count, is_banned FROM trade_abuse WHERE btct_address = $1`,
+      [buyer]
+    );
+    if (abused && abused.is_banned) {
+      return res.status(403).json({ error: 'Your address has been blocked due to repeated trade abandonment. Contact admin if this is a mistake.' });
+    }
+
     // Rate limit check
     const rateCheck = await checkTradeRateLimit(buyer);
     if (rateCheck.limited) {
@@ -511,6 +520,23 @@ router.post('/trades/:id/cancel', async (req, res) => {
 });
 
 // ===================== BLOCKCHAIN QUERIES (convenience) =====================
+
+// Trade abuse warning level for address
+router.get('/trade-warn/:address', async (req, res) => {
+  try {
+    const addr = req.params.address.replace(/^0x/, '').toLowerCase();
+    const { rows: [row] } = await pool.query(
+      `SELECT abort_count, is_banned FROM trade_abuse WHERE btct_address = $1`,
+      [addr]
+    );
+    res.json({
+      abort_count: row ? row.abort_count : 0,
+      is_banned: row ? row.is_banned : false
+    });
+  } catch (e) {
+    res.json({ abort_count: 0, is_banned: false });
+  }
+});
 
 router.get('/btct/balance/:address', async (req, res) => {
   try {

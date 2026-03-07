@@ -157,6 +157,16 @@ async function initDB() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trade_abuse (
+        btct_address VARCHAR(42) PRIMARY KEY,
+        abort_count INT DEFAULT 0,
+        last_abort_at TIMESTAMP,
+        is_banned BOOLEAN DEFAULT FALSE,
+        banned_at TIMESTAMP
+      )
+    `);
+
     // Migrations
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS weapon_id VARCHAR(20) DEFAULT NULL`);
     await client.query(`ALTER TABLE town_players ADD COLUMN IF NOT EXISTS max_level_rewarded BOOLEAN DEFAULT false`);
