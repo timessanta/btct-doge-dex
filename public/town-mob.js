@@ -245,6 +245,316 @@
           ctx.arc(s - 4, s - 6.5, 1.2, 0, Math.PI * 2);
           ctx.arc(s + 4, s - 6.5, 1.2, 0, Math.PI * 2);
           ctx.fill();
+        } else if (this.type === 'zombie') {
+          // Zombie: undead humanoid
+          ctx.fillStyle = '#5a7a5a';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 3, s - 4, s - 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Head
+          ctx.fillStyle = '#7a9a6a';
+          ctx.beginPath();
+          ctx.arc(s, s - 4, 8, 0, Math.PI * 2);
+          ctx.fill();
+          // Decay mark
+          ctx.strokeStyle = '#4a6a4a';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(s - 4, s - 8);
+          ctx.lineTo(s - 2, s - 4);
+          ctx.stroke();
+          // Eyes
+          ctx.fillStyle = '#f00';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 5, 2.5, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 5, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#600';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 4.5, 1, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 4.5, 1, 0, Math.PI * 2);
+          ctx.fill();
+          // Jagged mouth
+          ctx.strokeStyle = '#333';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(s - 3, s - 1);
+          ctx.lineTo(s - 1, s + 1);
+          ctx.lineTo(s + 1, s - 1);
+          ctx.lineTo(s + 3, s + 1);
+          ctx.stroke();
+        } else if (this.type === 'wolf') {
+          // Wolf: canine shape
+          ctx.fillStyle = '#6a6a6a';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 2, s - 2, s - 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Head
+          ctx.fillStyle = '#8a8a8a';
+          ctx.beginPath();
+          ctx.arc(s, s - 4, 8, 0, Math.PI * 2);
+          ctx.fill();
+          // Pointy ears
+          ctx.fillStyle = '#8a8a8a';
+          ctx.beginPath();
+          ctx.moveTo(s - 7, s - 8); ctx.lineTo(s - 11, s - 15); ctx.lineTo(s - 3, s - 10); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(s + 7, s - 8); ctx.lineTo(s + 11, s - 15); ctx.lineTo(s + 3, s - 10); ctx.fill();
+          // Inner ears
+          ctx.fillStyle = '#c08080';
+          ctx.beginPath();
+          ctx.moveTo(s - 7, s - 9); ctx.lineTo(s - 9, s - 13); ctx.lineTo(s - 4, s - 10); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(s + 7, s - 9); ctx.lineTo(s + 9, s - 13); ctx.lineTo(s + 4, s - 10); ctx.fill();
+          // Eyes
+          ctx.fillStyle = '#ff8800';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 5, 2.5, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 5, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 4.5, 1.2, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 4.5, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+          // Snout
+          ctx.fillStyle = '#9a9a9a';
+          ctx.beginPath();
+          ctx.ellipse(s, s - 1, 4, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#333';
+          ctx.beginPath();
+          ctx.ellipse(s, s - 2, 2, 1.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (this.type === 'skeleton') {
+          // Skeleton: bone structure
+          ctx.fillStyle = '#c8c8b0';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 2, s - 5, s - 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Rib lines
+          ctx.strokeStyle = '#a8a890';
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(s - 6, s - 2 + i * 3);
+            ctx.lineTo(s + 6, s - 2 + i * 3);
+            ctx.stroke();
+          }
+          // Skull
+          ctx.fillStyle = '#e8e8d0';
+          ctx.beginPath();
+          ctx.arc(s, s - 5, 8, 0, Math.PI * 2);
+          ctx.fill();
+          // Eye sockets
+          ctx.fillStyle = '#4af';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 6, 3, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 6, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#113355';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 6, 1.5, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 6, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+          // Teeth
+          ctx.fillStyle = '#e8e8d0';
+          for (let i = -2; i <= 2; i++) {
+            ctx.fillRect(s + i * 2.2 - 0.8, s - 1.5, 1.8, 2.2);
+          }
+          ctx.fillStyle = '#444';
+          for (let i = -1; i <= 1; i++) {
+            ctx.fillRect(s + i * 2.2 + 1.1, s - 1.5, 1, 2);
+          }
+        } else if (this.type === 'dark_mage') {
+          // Dark Mage: robed figure
+          ctx.fillStyle = '#3b1186';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 3, s - 3, s - 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Robe trim
+          ctx.strokeStyle = '#9b59b6';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(s, s + 3, s - 3, -Math.PI * 0.3, Math.PI * 1.3);
+          ctx.stroke();
+          // Head
+          ctx.fillStyle = '#5b21b6';
+          ctx.beginPath();
+          ctx.arc(s, s - 5, 7, 0, Math.PI * 2);
+          ctx.fill();
+          // Hood
+          ctx.fillStyle = '#3b1186';
+          ctx.beginPath();
+          ctx.arc(s, s - 7, 9, Math.PI * 1.1, Math.PI * 2.0);
+          ctx.lineTo(s - 9, s - 5);
+          ctx.fill();
+          // Glowing eyes
+          ctx.fillStyle = '#f0f';
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = '#f0f';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 6, 2, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 6, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          // Staff orb
+          ctx.fillStyle = '#9b59b6';
+          ctx.beginPath();
+          ctx.arc(s + 9, s - 10, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#f0f';
+          ctx.shadowBlur = 5;
+          ctx.shadowColor = '#f0f';
+          ctx.beginPath();
+          ctx.arc(s + 9, s - 10, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        } else if (this.type === 'golem') {
+          // Golem: massive stone creature
+          ctx.fillStyle = '#6a5038';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 3, s - 2, s - 1, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Stone cracks on body
+          ctx.strokeStyle = '#4a3020';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(s - 8, s - 4); ctx.lineTo(s - 3, s + 2); ctx.lineTo(s + 5, s - 1);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(s + 7, s + 3); ctx.lineTo(s + 3, s + 8);
+          ctx.stroke();
+          // Head
+          ctx.fillStyle = '#7a6048';
+          ctx.beginPath();
+          ctx.arc(s, s - 8, 11, 0, Math.PI * 2);
+          ctx.fill();
+          // Cracks on head
+          ctx.strokeStyle = '#4a3020';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(s - 5, s - 17); ctx.lineTo(s - 2, s - 12); ctx.lineTo(s + 4, s - 14);
+          ctx.stroke();
+          // Glowing eyes
+          ctx.fillStyle = '#f80';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#f80';
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 9, 4, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 9, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ff4400';
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 9, 2, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 9, 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (this.type === 'vampire') {
+          // Vampire: cape + fangs
+          ctx.fillStyle = '#600000';
+          ctx.beginPath();
+          ctx.moveTo(s, s - 5);
+          ctx.lineTo(s - s + 2, s + s - 2);
+          ctx.lineTo(s - 3, s + 3);
+          ctx.lineTo(s + 3, s + 3);
+          ctx.lineTo(s + s - 2, s + s - 2);
+          ctx.closePath();
+          ctx.fill();
+          // Body
+          ctx.fillStyle = '#8b0000';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 2, s - 5, s - 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Head
+          ctx.fillStyle = '#c0a080';
+          ctx.beginPath();
+          ctx.arc(s, s - 5, 8, 0, Math.PI * 2);
+          ctx.fill();
+          // Hair
+          ctx.fillStyle = '#111';
+          ctx.beginPath();
+          ctx.arc(s, s - 9, 8, Math.PI * 1.05, Math.PI * 2.05);
+          ctx.lineTo(s + 8, s - 5);
+          ctx.lineTo(s - 8, s - 5);
+          ctx.fill();
+          // Eyes
+          ctx.fillStyle = '#f55';
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = '#f00';
+          ctx.beginPath();
+          ctx.arc(s - 3, s - 6, 2.5, 0, Math.PI * 2);
+          ctx.arc(s + 3, s - 6, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          // Fangs
+          ctx.fillStyle = '#eee';
+          ctx.beginPath();
+          ctx.moveTo(s - 2.5, s - 2); ctx.lineTo(s - 2, s + 2); ctx.lineTo(s - 0.5, s - 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(s + 2.5, s - 2); ctx.lineTo(s + 2, s + 2); ctx.lineTo(s + 0.5, s - 2); ctx.fill();
+        } else if (this.type === 'dragon') {
+          // Dragon: winged beast
+          // Wings
+          ctx.fillStyle = '#991100';
+          ctx.beginPath();
+          ctx.moveTo(s - 6, s); ctx.lineTo(s - s + 2, s - s + 4); ctx.lineTo(s - 2, s - 8); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(s + 6, s); ctx.lineTo(s + s - 2, s - s + 4); ctx.lineTo(s + 2, s - 8); ctx.fill();
+          // Body
+          ctx.fillStyle = '#cc2200';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 4, s - 4, s - 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Head
+          ctx.fillStyle = '#dd3300';
+          ctx.beginPath();
+          ctx.arc(s, s - 6, 11, 0, Math.PI * 2);
+          ctx.fill();
+          // Horns
+          ctx.fillStyle = '#881100';
+          ctx.beginPath();
+          ctx.moveTo(s - 8, s - 12); ctx.lineTo(s - 13, s - s + 4); ctx.lineTo(s - 5, s - 10); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(s + 8, s - 12); ctx.lineTo(s + 13, s - s + 4); ctx.lineTo(s + 5, s - 10); ctx.fill();
+          // Glowing eyes
+          ctx.fillStyle = '#ff0';
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#ff0';
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 7, 3.5, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 7, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#aa0000';
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 7, 1.8, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 7, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+          // Fire
+          ctx.fillStyle = 'rgba(255,100,0,0.55)';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#f80';
+          ctx.beginPath();
+          ctx.ellipse(s, s + 2, 6, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        } else {
+          // Fallback: generic enemy
+          ctx.fillStyle = this.def.color;
+          ctx.beginPath();
+          ctx.arc(s, s, s - 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = this.def.eyeColor;
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 2, 3, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 2, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(s - 4, s - 1, 1.5, 0, Math.PI * 2);
+          ctx.arc(s + 4, s - 1, 1.5, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         scene.textures.addCanvas(key, canvas);
