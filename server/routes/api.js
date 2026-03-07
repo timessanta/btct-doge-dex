@@ -92,6 +92,36 @@ router.post('/ads', async (req, res) => {
     if (rateCheck.limited) {
       return res.status(429).json({ error: rateCheck.reason });
     }
+
+    // SELL 광고: 활성 광고 remaining + negotiating 거래 btct_amount + 신규 max_btct ≤ 온체인 잔액 × 0.999
+    if (type === 'sell') {
+      const [balanceRaw, { rows: [adRow] }, { rows: [tradeRow] }] = await Promise.all([
+        btctRpc.getBalance(addr),
+        pool.query(
+          `SELECT COALESCE(SUM(remaining), 0) AS total FROM trade_ads
+           WHERE btct_address = $1 AND status = 'active'`,
+          [addr]
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(btct_amount), 0) AS total FROM trades
+           WHERE seller_address = $1 AND status = 'negotiating'`,
+          [addr]
+        )
+      ]);
+      const balance = BigInt(balanceRaw || 0);
+      const activeRemaining = BigInt(adRow.total);
+      const negotiating = BigInt(tradeRow.total);
+      const newMax = BigInt(maxBtct);
+      const required = activeRemaining + negotiating + newMax;
+      const allowed = balance * 999n / 1000n; // 0.1% 수수료 버퍼
+      if (required > allowed) {
+        const toNum = (v) => Number(v) / 1e11;
+        return res.status(400).json({
+          error: `Insufficient BTCT balance. Active listings + pending trades require ${toNum(required).toFixed(2)} BTCT but your available balance is ${toNum(allowed).toFixed(2)} BTCT.`
+        });
+      }
+    }
+
     const creatorIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
     const { rows: [ad] } = await pool.query(
       `INSERT INTO trade_ads (btct_address, type, price, min_btct, max_btct, remaining, creator_ip)
