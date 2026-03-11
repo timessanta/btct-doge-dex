@@ -1309,7 +1309,7 @@ router.post('/translate', async (req, res) => {
     const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
+      body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false, options: { num_gpu: 0 } }),
       signal: AbortSignal.timeout(30000),
     });
     const data = await ollamaRes.json();
