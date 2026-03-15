@@ -2567,7 +2567,7 @@ async function townLockBTCT(tradeId) {
     const hashAlgo = Krypton.Hash.Algorithm.SHA256;
     const hashRoot = Krypton.BufferUtils.fromHex(trade.hash_lock);
     const hashCount = 1;
-    const timeout = blockHeight + 360; // ~6 hours
+    const timeout = blockHeight + 120; // ~2 hours
 
     const bufSize = htlcSender.serializedSize + htlcRecipient.serializedSize + 1 + hashRoot.byteLength + 1 + 4;
     const data = new Krypton.SerialBuffer(bufSize);

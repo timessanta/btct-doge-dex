@@ -814,13 +814,13 @@ function scheduleExpiredTradeCleanup() {
         await recordTradeAbuse(pool, t.buyer_address);
       }
 
-      // 4) negotiating timeout: no hash published within 4 hours → cancel
+      // 4) negotiating timeout: no hash published within 12 hours → cancel
       //    No on-chain funds involved at this stage, safe to cancel immediately
       const { rows: negotiatingExpired } = await pool.query(
         `UPDATE trades SET status = 'cancelled'
          WHERE status IN ('negotiating', 'hash_published')
-           AND created_at < NOW() - INTERVAL '4 hours'
-         RETURNING id, seller_address, buyer_address, ad_id, btct_amount`,
+           AND created_at < NOW() - INTERVAL '12 hours'
+         RETURNING id, seller_address, buyer_address, ad_id, btct_amount`,`
         []
       );
       for (const t of negotiatingExpired) {

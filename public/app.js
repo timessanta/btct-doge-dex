@@ -1563,7 +1563,7 @@ async function loadTradeDetail(el, tradeId) {
           <div class="swap-notice">
             ⚠ Verify each transaction on the explorer before proceeding to the next step.
             Funds are locked by smart contract — if the swap fails, refund is only possible after the timeout expires
-            (BTCT: ~6h / DOGE: ~6h).
+            (BTCT: ~2h / DOGE: ~6h).
             <span style="display:block;margin-top:6px;">
               🔍 BTCT Explorer: <a href="https://explorer.btc-time.com" target="_blank">explorer.btc-time.com</a>
               &nbsp;·&nbsp;
@@ -1860,7 +1860,7 @@ async function lockBTCT(tradeId) {
     const hashAlgo = Krypton.Hash.Algorithm.SHA256;
     const hashRoot = Krypton.BufferUtils.fromHex(trade.hash_lock);
     const hashCount = 1;
-    const timeout = blockHeight + 360; // ~6 hours
+    const timeout = blockHeight + 120; // ~2 hours
 
     // Serialize HTLC data
     const bufSize = htlcSender.serializedSize + htlcRecipient.serializedSize + 1 + hashRoot.byteLength + 1 + 4;
