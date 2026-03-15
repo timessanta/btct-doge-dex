@@ -5,7 +5,7 @@
 const DogeHTLC = (function() {
   'use strict';
 
-  const HTLC_TIMEOUT_SEC = 3600; // 1 hour (must be < BTCT 2h timeout)
+  const HTLC_TIMEOUT_SEC = 21600; // 6 hours (same as BTCT timeout)
   const FEE_SAT = 2000000; // 0.02 DOGE
 
   function getBitcore() {
@@ -269,7 +269,7 @@ const DogeHTLC = (function() {
   }
 
   /**
-   * Get default locktime (current time + 1 hour)
+   * Get default locktime (current time + 6 hours)
    */
   function getDefaultLocktime() {
     return Math.floor(Date.now() / 1000) + HTLC_TIMEOUT_SEC;
